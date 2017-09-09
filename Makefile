@@ -6,6 +6,7 @@ CPPFLAGS := $(CPPFLAGS)
 LDFLAGS := $(LDFLAGS)
 
 EXECUTABLE = chip8
+LIBS = -lSDL2
 OBJS = instruction.o main.o
 
 .PHONY: all clean
@@ -16,7 +17,7 @@ clean:
 	$(RM) -rf doc $(OBJS) $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<

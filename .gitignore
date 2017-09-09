@@ -1,2 +1,4 @@
 # Don't save generated documentation
 doc/
+chip8
+**.o
