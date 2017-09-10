@@ -108,6 +108,11 @@ static int run(struct progopts opts)
             if (e.type == SDL_QUIT)
                 should_exit = true;
         }
+        chip8_step(chip);
+        if (chip->halted) {
+            printf("Interpreter was halted\n");
+            break;
+        }
     }
 
     SDL_DestroyWindow(win);

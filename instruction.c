@@ -46,6 +46,7 @@ struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode)
      * invalid.
      */
     ins.op = OP_INVALID;
+    ins.opcode = opcode;
 
     switch ((opcode & 0xF000) >> 12) {
     case 0x0:

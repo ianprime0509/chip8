@@ -296,6 +296,8 @@ struct chip8_instruction {
     enum chip8_register vx;
     enum chip8_register vy;
     union {
+        /* For storing the opcode of an invalid instruction */
+        uint16_t opcode;
         uint16_t addr;
         uint8_t byte;
         uint8_t nibble;

@@ -21,6 +21,12 @@
 #ifndef CHIP8_H
 #define CHIP8_H
 
+#ifdef __STDC_NO_ATOMICS__
+#error "Atomics support is required"
+#endif
+
+#include <pthread.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -28,6 +34,11 @@
 
 #define CHIP8_DISPLAY_WIDTH 128
 #define CHIP8_DISPLAY_HEIGHT 64
+#define CHIP8_MEM_SIZE 0x1000
+/**
+ * The internal timer frequency, in Hz.
+ */
+#define CHIP8_TIMER_FREQ 60
 
 /**
  * Contains the state of the interpreter.
@@ -36,7 +47,7 @@ struct chip8 {
     /**
      * The internal memory.
      */
-    uint8_t mem[0x1000];
+    uint8_t mem[CHIP8_MEM_SIZE];
     /**
      * The display.
      * Each element in the display array is a boolean value specifying whether
@@ -54,11 +65,11 @@ struct chip8 {
     /**
      * The delay timer register.
      */
-    uint8_t reg_dt;
+    _Atomic uint8_t reg_dt;
     /**
      * The sound timer register.
      */
-    uint8_t reg_st;
+    _Atomic uint8_t reg_st;
     /**
      * The program counter.
      */
@@ -75,6 +86,18 @@ struct chip8 {
      * Whether the external display needs to be refreshed.
      */
     bool needs_refresh;
+    /**
+     * The thread that keeps track of the timer.
+     */
+    pthread_t timer_thread;
+    /**
+     * Whether the timer thread should stop.
+     */
+    atomic_bool should_stop_thread;
+    /**
+     * Set to `true` on every timer clock cycle (for delaying until a cycle).
+     */
+    atomic_bool timer_latch;
 };
 
 struct chip8 *chip8_new(void);
@@ -84,14 +107,6 @@ void chip8_destroy(struct chip8 *chip);
  * Returns the current instruction.
  */
 struct chip8_instruction chip8_current_instr(struct chip8 *chip);
-/**
- * Executes the given instruction in the interpreter.
- */
-void chip8_execute(struct chip8 *chip, struct chip8_instruction inst);
-/**
- * Runs the interpreter until it is halted.
- */
-void chip8_run(struct chip8 *chip);
 /**
  * Executes the next instruction.
  */

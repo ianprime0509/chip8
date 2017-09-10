@@ -1,12 +1,12 @@
 CC ?= gcc
 RM ?= rm
 
-CFLAGS := $(CFLAGS) -std=c11 -Wall -Wextra
+CFLAGS := $(CFLAGS) -std=gnu11 -Wall -Wextra
 CPPFLAGS := $(CPPFLAGS)
 LDFLAGS := $(LDFLAGS)
 
 EXECUTABLE = chip8
-LIBS = -lSDL2
+LIBS = -lSDL2 -pthread
 OBJS = instruction.o interpreter.o main.o
 
 .PHONY: all clean
