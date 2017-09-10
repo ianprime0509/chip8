@@ -289,6 +289,6 @@ struct chip8_instruction {
 /**
  * Converts a Chip-8 opcode to an instruction.
  */
-struct chip8_instruction opcode_to_instruction(uint16_t opcode);
+struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode);
 
 #endif

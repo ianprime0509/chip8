@@ -21,7 +21,7 @@
  */
 #define OPCODE_NIBBLE(opcode) ((opcode)&0xF)
 
-struct chip8_instruction opcode_to_instruction(uint16_t opcode)
+struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode)
 {
     struct chip8_instruction ins;
 

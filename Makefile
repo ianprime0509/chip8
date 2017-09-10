@@ -7,7 +7,7 @@ LDFLAGS := $(LDFLAGS)
 
 EXECUTABLE = chip8
 LIBS = -lSDL2
-OBJS = instruction.o main.o
+OBJS = instruction.o interpreter.o main.o
 
 .PHONY: all clean
 
