@@ -150,15 +150,20 @@ static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
 {
     bool collision = false;
 
-    /* Low-resolution sprites are always 8 pixels wide */
+    /*
+     * Low-resolution sprites are always 8 pixels wide. Here, j will be the
+     * column of the sprite to draw, so it is an index from the most significant
+     * byte of the sprite at row i.
+     */
     for (int i = 0; i < sprite_len && y + i < CHIP8_DISPLAY_HEIGHT; i++)
         for (int j = 0; j < 8 && x + j < CHIP8_DISPLAY_WIDTH; j++)
-            if (chip->mem[sprite_start + i] & (1 << (8 - j))) {
+            if (chip->mem[sprite_start + i] & (1 << (7 - j))) {
                 /* If the pixel on screen is set, we have a collision */
-                collision = collision || chip->display[i][j];
-                chip->display[i][j] = !chip->display[i][j];
+                collision = collision || chip->display[j][i];
+                chip->display[j][i] = !chip->display[j][i];
             }
 
+    chip->needs_refresh = true;
     return collision;
 }
 

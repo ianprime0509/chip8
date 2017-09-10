@@ -107,13 +107,19 @@ static int run(struct progopts opts)
     }
 
     chip = chip8_new();
-    chip->display[2][2] = true;
-    chip->display[3][3] = true;
     win_surface = SDL_GetWindowSurface(win);
     oncolor = SDL_MapRGB(win_surface->format, 255, 255, 255);
     offcolor = SDL_MapRGB(win_surface->format, 0, 0, 0);
     draw(win_surface, chip, opts.scale, oncolor, offcolor);
     SDL_UpdateWindowSurface(win);
+
+    chip->regs[REG_V0] = 0x000F;
+    chip->mem[0x200] = 0xF0;
+    chip->mem[0x201] = 0x29;
+    chip->mem[0x202] = 0xD1;
+    chip->mem[0x203] = 0x25;
+    chip->mem[0x204] = 0x12;
+    chip->mem[0x205] = 0x04;
 
     while (!should_exit) {
         while (SDL_PollEvent(&e)) {
@@ -121,6 +127,11 @@ static int run(struct progopts opts)
                 should_exit = true;
         }
         chip8_step(chip);
+        if (chip->needs_refresh) {
+            draw(win_surface, chip, opts.scale, oncolor, offcolor);
+            SDL_UpdateWindowSurface(win);
+            chip->needs_refresh = false;
+        }
         if (chip->halted) {
             printf("Interpreter was halted\n");
             break;
