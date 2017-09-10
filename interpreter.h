@@ -41,6 +41,11 @@
 #define CHIP8_TIMER_FREQ 60
 
 /**
+ * A node in a linked list which functions as a call stack.
+ */
+struct chip8_call_node;
+
+/**
  * Contains the state of the interpreter.
  */
 struct chip8 {
@@ -98,6 +103,15 @@ struct chip8 {
      * Set to `true` on every timer clock cycle (for delaying until a cycle).
      */
     atomic_bool timer_latch;
+    /**
+     * The call stack (for returning from subroutines).
+     */
+    struct chip8_call_node *call_stack;
+    /**
+     * Which keys are currently being pressed.
+     * Each bit (0x0-0xF) represents the state of the corresponding key 0-F.
+     */
+    uint16_t key_states;
 };
 
 struct chip8 *chip8_new(void);

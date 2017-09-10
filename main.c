@@ -64,8 +64,19 @@ int main(int argc, char **argv)
 static void draw(SDL_Surface *surface, struct chip8 *chip, int scale,
                  uint32_t oncolor, uint32_t offcolor)
 {
-    for (int i = 0; i < CHIP8_DISPLAY_WIDTH; i++)
-        for (int j = 0; j < CHIP8_DISPLAY_HEIGHT; j++) {
+    int width, height;
+
+    if (chip->highres) {
+        width = CHIP8_DISPLAY_WIDTH;
+        height = CHIP8_DISPLAY_HEIGHT;
+    } else {
+        width = CHIP8_DISPLAY_WIDTH / 2;
+        height = CHIP8_DISPLAY_HEIGHT / 2;
+        scale *= 2;
+    }
+
+    for (int i = 0; i < width; i++)
+        for (int j = 0; j < height; j++) {
             SDL_Rect rect = {i * scale, j * scale, scale, scale};
             SDL_FillRect(surface, &rect,
                          chip->display[i][j] ? oncolor : offcolor);
@@ -80,7 +91,7 @@ static int run(struct progopts opts)
     SDL_Event e;
     SDL_Surface *win_surface;
     uint32_t oncolor, offcolor;
-    struct chip8 *chip = chip8_new();
+    struct chip8 *chip;
     bool should_exit;
 
     if (SDL_Init(SDL_INIT_VIDEO)) {
@@ -95,6 +106,7 @@ static int run(struct progopts opts)
         return 1;
     }
 
+    chip = chip8_new();
     chip->display[2][2] = true;
     chip->display[3][3] = true;
     win_surface = SDL_GetWindowSurface(win);
@@ -115,6 +127,7 @@ static int run(struct progopts opts)
         }
     }
 
+    chip8_destroy(chip);
     SDL_DestroyWindow(win);
     SDL_Quit();
     return 0;

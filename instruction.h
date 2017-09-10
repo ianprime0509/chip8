@@ -56,6 +56,7 @@ enum chip8_operation {
     /**
      * Scroll screen down (`SCD nibble`). Super-Chip only.
      * Will scroll the screen by `nibble` pixels.
+     * Waits until the next clock cycle in low-resolution mode.
      * Opcode `00Cn`.
      */
     OP_SCD,
@@ -150,7 +151,7 @@ enum chip8_operation {
      */
     OP_XOR,
     /**
-     * Add register to register (`ADD Vx, Vy`).
+     * Add register to register (`ADD Vx, Vy`). Sets `VF` on carry.
      * Opcode `8xy4`.
      */
     OP_ADD_REG,
@@ -222,6 +223,9 @@ enum chip8_operation {
     OP_LD_REG_DT,
     /**
      * Wait for key press and store key value (`LD Vx, K`).
+     * This will block until a key is pressed, and then store the lowest key
+     * number that is pressed. The buzzer will sound while any key is pressed,
+     * and this instruction will block until the key is released.
      * Opcode `Fx0A`.
      */
     OP_LD_KEY,
@@ -255,6 +259,8 @@ enum chip8_operation {
     OP_LD_HF,
     /**
      * Store 3-digit BCD representation of register (`LD B, Vx`).
+     * The hundreds digit will be stored at address `I`, the tens digit at `I +
+     * 1`, and the ones digit at `I + 2`.
      * Opcode `Fx33`.
      */
     OP_LD_B,
