@@ -1,4 +1,5 @@
 # Don't save generated documentation
 doc/
+games/
 chip8
 **.o

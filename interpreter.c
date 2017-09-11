@@ -223,6 +223,10 @@ static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
 
 static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
 {
+    /* Wait for delay timer to run out */
+    while (chip->reg_dt)
+        ;
+
     switch (inst.op) {
     case OP_INVALID:
         fprintf(stderr,
@@ -230,7 +234,8 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
                 inst.opcode);
         break;
     case OP_SCD:
-        chip8_wait_cycle(chip);
+        if (!chip->highres)
+            chip8_wait_cycle(chip);
         for (int y = 0; y < CHIP8_DISPLAY_HEIGHT - inst.nibble; y++)
             for (int x = 0; x < CHIP8_DISPLAY_WIDTH; x++)
                 chip->display[x][y] = chip->display[x][y + inst.nibble];
@@ -252,13 +257,15 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         }
         break;
     case OP_SCR:
-        chip8_wait_cycle(chip);
+        if (!chip->highres)
+            chip8_wait_cycle(chip);
         for (int x = 0; x < CHIP8_DISPLAY_WIDTH - 4; x++)
             memcpy(&chip->display[x], &chip->display[x + 4],
                    sizeof chip->display[x]);
         break;
     case OP_SCL:
-        chip8_wait_cycle(chip);
+        if (!chip->highres)
+            chip8_wait_cycle(chip);
         for (int x = CHIP8_DISPLAY_WIDTH - 5; x > 0; x--)
             memcpy(&chip->display[x + 4], &chip->display[x],
                    sizeof chip->display[x]);
@@ -376,7 +383,8 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         chip->regs[inst.vx] = rand_byte() & inst.byte;
         break;
     case OP_DRW:
-        chip8_wait_cycle(chip);
+        if (!chip->highres)
+            chip8_wait_cycle(chip);
         chip->regs[REG_VF] =
             chip8_draw_sprite(chip, chip->regs[inst.vx], chip->regs[inst.vy],
                               chip->reg_i, inst.nibble);

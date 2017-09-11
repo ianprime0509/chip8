@@ -31,6 +31,14 @@ struct progopts {
 };
 
 /**
+ * The keymap to use in-game.
+ */
+SDL_Keycode keymap[16] = {
+    SDLK_0, SDLK_1, SDLK_2, SDLK_3, SDLK_4, SDLK_5, SDLK_6, SDLK_7,
+    SDLK_8, SDLK_9, SDLK_a, SDLK_b, SDLK_c, SDLK_d, SDLK_e, SDLK_f,
+};
+
+/**
  * Redraws the Chip-8 display onto the given surface.
  */
 static void draw(SDL_Surface *surface, struct chip8 *chip, int scale,
@@ -131,8 +139,21 @@ static int run(struct progopts opts)
 
     while (!should_exit) {
         while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT)
+            if (e.type == SDL_QUIT) {
                 should_exit = true;
+            } else if (e.type == SDL_KEYDOWN) {
+                SDL_Keycode key = e.key.keysym.sym;
+
+                for (int i = 0; i < 16; i++)
+                    if (key == keymap[i])
+                        chip->key_states |= 1 << i;
+            } else if (e.type == SDL_KEYUP) {
+                SDL_Keycode key = e.key.keysym.sym;
+
+                for (int i = 0; i < 16; i++)
+                    if (key == keymap[i])
+                        chip->key_states &= ~(1 << i);
+            }
         }
         chip8_step(chip);
         if (chip->needs_refresh) {
