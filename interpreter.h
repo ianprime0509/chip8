@@ -29,6 +29,7 @@
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "instruction.h"
 
@@ -121,6 +122,12 @@ void chip8_destroy(struct chip8 *chip);
  * Returns the current instruction.
  */
 struct chip8_instruction chip8_current_instr(struct chip8 *chip);
+/**
+ * Loads a program in binary format from the given file.
+ *
+ * @return A non-zero value if there was an error.
+ */
+int chip8_load_from_file(struct chip8 *chip, FILE *file);
 /**
  * Executes the next instruction.
  */

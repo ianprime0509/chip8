@@ -27,6 +27,7 @@
  */
 struct progopts {
     int scale;
+    char *fname;
 };
 
 /**
@@ -57,6 +58,12 @@ int main(int argc, char **argv)
             return 1;
         }
     }
+
+    if (optind != argc - 1) {
+        fprintf(stderr, "Usage: chip8 [OPTIONS...] FILE\n");
+        return 1;
+    }
+    opts.fname = argv[optind];
 
     return run(opts);
 }
@@ -92,6 +99,7 @@ static int run(struct progopts opts)
     SDL_Surface *win_surface;
     uint32_t oncolor, offcolor;
     struct chip8 *chip;
+    FILE *input;
     bool should_exit;
 
     if (SDL_Init(SDL_INIT_VIDEO)) {
@@ -102,8 +110,7 @@ static int run(struct progopts opts)
                                  SDL_WINDOWPOS_UNDEFINED, win_width, win_height,
                                  SDL_WINDOW_SHOWN))) {
         fprintf(stderr, "Could not create SDL window: %s\n", SDL_GetError());
-        SDL_Quit();
-        return 1;
+        goto error_sdl_initialized;
     }
 
     chip = chip8_new();
@@ -113,13 +120,14 @@ static int run(struct progopts opts)
     draw(win_surface, chip, opts.scale, oncolor, offcolor);
     SDL_UpdateWindowSurface(win);
 
-    chip->regs[REG_V0] = 0x000F;
-    chip->mem[0x200] = 0xF0;
-    chip->mem[0x201] = 0x29;
-    chip->mem[0x202] = 0xD1;
-    chip->mem[0x203] = 0x25;
-    chip->mem[0x204] = 0x12;
-    chip->mem[0x205] = 0x04;
+    if (!(input = fopen(opts.fname, "r"))) {
+        fprintf(stderr, "Failed to open game file; aborting\n");
+        goto error_chip8_created;
+    }
+    if (chip8_load_from_file(chip, input)) {
+        fprintf(stderr, "Could not load game; aborting\n");
+        goto error_file_opened;
+    }
 
     while (!should_exit) {
         while (SDL_PollEvent(&e)) {
@@ -142,4 +150,13 @@ static int run(struct progopts opts)
     SDL_DestroyWindow(win);
     SDL_Quit();
     return 0;
+
+error_file_opened:
+    fclose(input);
+error_chip8_created:
+    chip8_destroy(chip);
+    SDL_DestroyWindow(win);
+error_sdl_initialized:
+    SDL_Quit();
+    return 1;
 }

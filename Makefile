@@ -1,6 +1,10 @@
 CC ?= gcc
 RM ?= rm
 
+# For debugging only
+# TODO: release mode flags
+CFLAGS ?= -g -O0
+
 CFLAGS := $(CFLAGS) -std=gnu11 -Wall -Wextra
 CPPFLAGS := $(CPPFLAGS)
 LDFLAGS := $(LDFLAGS)

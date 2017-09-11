@@ -31,12 +31,28 @@
  * The height (in pixels) of a low-resolution hex digit sprite.
  */
 #define CHIP8_HEX_LOW_HEIGHT 5
+/**
+ * The address where programs should be loaded.
+ */
+#define CHIP8_PROG_START 0x200
 
 /* Test assumption on hex digit sprite locations */
-static_assert(CHIP8_HEX_LOW_ADDR + 16 * CHIP8_HEX_LOW_HEIGHT <= 0x200,
+static_assert(CHIP8_HEX_LOW_ADDR + 16 * CHIP8_HEX_LOW_HEIGHT <=
+                  CHIP8_PROG_START,
               "Low-resolution hex digit sprites overlap program memory");
 
 #define NS_PER_SECOND (1000 * 1000 * 1000)
+
+/**
+ * Aborts the given interpreter with the given message.
+ */
+#define ABORT(chip, ...)                                                       \
+    do {                                                                       \
+        fprintf(stderr, "ABORT: " __VA_ARGS__);                                \
+        fprintf(stderr, "\n");                                                 \
+        chip8_dump_regs(chip, stderr);                                         \
+        exit(EXIT_FAILURE);                                                    \
+    } while (0)
 
 /**
  * The low-resolution hex digit sprites.
@@ -64,6 +80,11 @@ struct chip8_call_node {
  */
 static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
                               uint16_t sprite_start, uint16_t sprite_len);
+/**
+ * Dumps the state of the interpreter registers to the given file.
+ * Errors in writing will be ignored.
+ */
+static void chip8_dump_regs(const struct chip8 *chip, FILE *output);
 /**
  * Executes the given instruction in the interpreter.
  *
@@ -125,12 +146,24 @@ void chip8_destroy(struct chip8 *chip)
     free(chip);
 }
 
-struct chip8_instruction chip8_current_instr(struct chip8 *chip)
+int chip8_load_from_file(struct chip8 *chip, FILE *file)
 {
-    /* The Chip-8 is big-endian */
-    uint16_t opcode = ((uint16_t)chip->mem[chip->pc] << 8) |
-                      (uint16_t)chip->mem[chip->pc + 1];
-    return chip8_instruction_from_opcode(opcode);
+    int c, err;
+    int mempos = CHIP8_PROG_START;
+
+    while ((c = getc(file)) != EOF) {
+        if (mempos >= CHIP8_MEM_SIZE) {
+            fprintf(stderr, "Input program is too big\n");
+            return -1;
+        }
+        chip->mem[mempos++] = c;
+    }
+
+    if ((err = ferror(file))) {
+        fprintf(stderr, "Error reading from game file (code %d)\n", err);
+        return err;
+    }
+    return 0;
 }
 
 void chip8_step(struct chip8 *chip)
@@ -143,6 +176,26 @@ void chip8_step(struct chip8 *chip)
             chip->pc = chip8_execute(chip, chip8_current_instr(chip));
         }
     }
+}
+
+struct chip8_instruction chip8_current_instr(struct chip8 *chip)
+{
+    /* The Chip-8 is big-endian */
+    uint16_t opcode = ((uint16_t)chip->mem[chip->pc] << 8) |
+                      (uint16_t)chip->mem[chip->pc + 1];
+    return chip8_instruction_from_opcode(opcode);
+}
+
+static void chip8_dump_regs(const struct chip8 *chip, FILE *output)
+{
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++) {
+            int reg = 4 * i + j;
+            fprintf(output, "V%X = %02X%s", reg, chip->regs[reg],
+                    j == 3 ? "\n" : "    ");
+        }
+    fprintf(output, "\nDT = %02X    ST = %02X     I = %04X  PC = %04X\n",
+            chip->reg_dt, chip->reg_st, chip->reg_i, chip->pc);
 }
 
 static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
@@ -158,9 +211,10 @@ static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
     for (int i = 0; i < sprite_len && y + i < CHIP8_DISPLAY_HEIGHT; i++)
         for (int j = 0; j < 8 && x + j < CHIP8_DISPLAY_WIDTH; j++)
             if (chip->mem[sprite_start + i] & (1 << (7 - j))) {
+                int dispx = x + j, dispy = y + i;
                 /* If the pixel on screen is set, we have a collision */
-                collision = collision || chip->display[j][i];
-                chip->display[j][i] = !chip->display[j][i];
+                collision = collision || chip->display[dispx][dispy];
+                chip->display[dispx][dispy] = !chip->display[dispx][dispy];
             }
 
     chip->needs_refresh = true;
@@ -177,9 +231,9 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         break;
     case OP_SCD:
         chip8_wait_cycle(chip);
-        for (int i = 0; i < CHIP8_DISPLAY_HEIGHT - inst.nibble; i++)
-            memcpy(chip->display[i], chip->display[i + inst.nibble],
-                   sizeof chip->display[i]);
+        for (int y = 0; y < CHIP8_DISPLAY_HEIGHT - inst.nibble; y++)
+            for (int x = 0; x < CHIP8_DISPLAY_WIDTH; x++)
+                chip->display[x][y] = chip->display[x][y + inst.nibble];
         break;
     case OP_CLS:
         memset(chip->display, 0, sizeof chip->display);
@@ -187,27 +241,27 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
     case OP_RET:
         if (chip->call_stack) {
             struct chip8_call_node *node = chip->call_stack;
-            uint16_t retval = node->call_addr;
+            /* Be sure to increment PAST the caller address! */
+            uint16_t retval = node->call_addr + 2;
             chip->call_stack = node->next;
             free(node);
             return retval;
         } else {
-            fprintf(stderr, "Tried to return from subroutine, but was never "
-                            "called; aborting\n");
-            exit(EXIT_FAILURE);
+            ABORT(chip,
+                  "Tried to return from subroutine, but was never called");
         }
         break;
     case OP_SCR:
         chip8_wait_cycle(chip);
-        for (int j = 0; j < CHIP8_DISPLAY_WIDTH - 4; j++)
-            for (int i = 0; i < CHIP8_DISPLAY_HEIGHT; i++)
-                chip->display[i][j] = chip->display[i][j + 4];
+        for (int x = 0; x < CHIP8_DISPLAY_WIDTH - 4; x++)
+            memcpy(&chip->display[x], &chip->display[x + 4],
+                   sizeof chip->display[x]);
         break;
     case OP_SCL:
         chip8_wait_cycle(chip);
-        for (int j = CHIP8_DISPLAY_WIDTH - 5; j > 0; j--)
-            for (int i = 0; i < CHIP8_DISPLAY_HEIGHT; i++)
-                chip->display[i][j + 4] = chip->display[i][j];
+        for (int x = CHIP8_DISPLAY_WIDTH - 5; x > 0; x--)
+            memcpy(&chip->display[x + 4], &chip->display[x],
+                   sizeof chip->display[x]);
         break;
     case OP_EXIT:
         chip->halted = true;
@@ -219,31 +273,26 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         chip->highres = true;
         break;
     case OP_JP:
-        if (inst.addr % 2 == 0) {
+        if (inst.addr % 2 == 0)
             return inst.addr;
-        } else {
-            fprintf(stderr, "Attempted to jump to misaligned memory address "
-                            "0x%hX; aborting\n",
-                    inst.addr);
-            exit(EXIT_FAILURE);
-        }
+        else
+            ABORT(chip, "Attempted to jump to misaligned memory address "
+                        "0x%hX; aborting",
+                  inst.addr);
         break;
     case OP_CALL:
         if (inst.addr % 2 == 0) {
             struct chip8_call_node *node = malloc(sizeof *node);
-            if (!node) {
-                fprintf(stderr, "Failed to allocate new call node; aborting\n");
-                exit(EXIT_FAILURE);
-            }
-            node->call_addr = inst.addr;
+            if (!node)
+                ABORT(chip, "Failed to allocate new call node; aborting");
+            node->call_addr = chip->pc;
             node->next = chip->call_stack;
             chip->call_stack = node;
             return inst.addr;
         } else {
-            fprintf(stderr, "Attempted to call subroutine at misaligned memory "
-                            "address 0x%hX; aborting\n",
-                    inst.addr);
-            exit(EXIT_FAILURE);
+            ABORT(chip, "Attempted to call subroutine at misaligned memory "
+                        "address 0x%hX; aborting",
+                  inst.addr);
         }
         break;
     case OP_SE_BYTE:
@@ -311,25 +360,23 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
     case OP_JP_V0: {
         uint32_t jpto = (uint32_t)inst.addr + chip->regs[REG_V0];
         if (jpto % 2 == 0) {
-            if (jpto < CHIP8_MEM_SIZE) {
+            if (jpto < CHIP8_MEM_SIZE)
                 return jpto;
-            } else {
-                fprintf(stderr, "Attempted to jump to out of bounds memory "
-                                "address 0x%X; aborting\n",
-                        jpto);
-                exit(EXIT_FAILURE);
-            }
+            else
+                ABORT(chip, "Attempted to jump to out of bounds memory "
+                            "address 0x%X; aborting",
+                      jpto);
         } else {
-            fprintf(stderr, "Attempted to jump to misaligned memory address "
-                            "0x%X; aborting\n",
-                    jpto);
-            exit(EXIT_FAILURE);
+            ABORT(chip, "Attempted to jump to misaligned memory address "
+                        "0x%X; aborting",
+                  jpto);
         }
     } break;
     case OP_RND:
         chip->regs[inst.vx] = rand_byte() & inst.byte;
         break;
     case OP_DRW:
+        chip8_wait_cycle(chip);
         chip->regs[REG_VF] =
             chip8_draw_sprite(chip, chip->regs[inst.vx], chip->regs[inst.vy],
                               chip->reg_i, inst.nibble);
@@ -368,8 +415,7 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
                       CHIP8_HEX_LOW_HEIGHT * (chip->regs[inst.vx] & 0xF);
         break;
     case OP_LD_HF:
-        fprintf(stderr, "OP_LD_HF is currently unimplemented\n");
-        exit(EXIT_FAILURE);
+        ABORT(chip, "OP_LD_HF is currently unimplemented");
         break;
     case OP_LD_B:
         /* Note that register Vx is only a byte, so it's 3 digits or fewer */
@@ -380,27 +426,20 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
     case OP_LD_DEREF_I_REG: {
         size_t cpy_len = sizeof chip->regs[0] * (inst.vx + 1);
 
-        if (chip->reg_i + cpy_len >= CHIP8_MEM_SIZE) {
-            fprintf(stderr,
-                    "Tried to write to out of bounds memory; aborting\n");
-            exit(EXIT_FAILURE);
-        }
+        if (chip->reg_i + cpy_len >= CHIP8_MEM_SIZE)
+            ABORT(chip, "Tried to write to out of bounds memory; aborting");
         memcpy(chip->mem + chip->reg_i, chip->regs, cpy_len);
     } break;
     case OP_LD_REG_DEREF_I: {
         size_t cpy_len = sizeof chip->regs[0] * (inst.vx + 1);
 
-        if (chip->reg_i + cpy_len >= CHIP8_MEM_SIZE) {
-            fprintf(stderr,
-                    "Tried to read from out of bounds memory; aborting\n");
-            exit(EXIT_FAILURE);
-        }
+        if (chip->reg_i + cpy_len >= CHIP8_MEM_SIZE)
+            ABORT(chip, "Tried to read from out of bounds memory; aborting");
         memcpy(chip->regs, chip->mem + chip->reg_i, cpy_len);
     } break;
     case OP_LD_R_REG:
     case OP_LD_REG_R:
-        fprintf(stderr, "I have no idea what this does\n");
-        exit(EXIT_FAILURE);
+        ABORT(chip, "I have no idea what this does");
         break;
     }
 
