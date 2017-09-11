@@ -32,10 +32,20 @@ struct progopts {
 
 /**
  * The keymap to use in-game.
+ * The layout of the original Chip-8 keyboard is as follows:
+ * 1 2 3 C
+ * 4 5 6 D
+ * 7 8 9 E
+ * A 0 B F
+ * So for now, I just map those to the left side of the keyboard:
+ * 1 2 3 4
+ * q w e r
+ * a s d f
+ * z x c v
  */
 SDL_Keycode keymap[16] = {
-    SDLK_0, SDLK_1, SDLK_2, SDLK_3, SDLK_4, SDLK_5, SDLK_6, SDLK_7,
-    SDLK_8, SDLK_9, SDLK_a, SDLK_b, SDLK_c, SDLK_d, SDLK_e, SDLK_f,
+    SDLK_x, SDLK_1, SDLK_2, SDLK_3, SDLK_q, SDLK_w, SDLK_e, SDLK_a,
+    SDLK_s, SDLK_d, SDLK_z, SDLK_c, SDLK_4, SDLK_r, SDLK_f, SDLK_v,
 };
 
 /**
@@ -121,7 +131,7 @@ static int run(struct progopts opts)
         goto error_sdl_initialized;
     }
 
-    chip = chip8_new();
+    chip = chip8_new(chip8_options_default());
     win_surface = SDL_GetWindowSurface(win);
     oncolor = SDL_MapRGB(win_surface->format, 255, 255, 255);
     offcolor = SDL_MapRGB(win_surface->format, 0, 0, 0);

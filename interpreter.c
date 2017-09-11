@@ -113,10 +113,18 @@ static uint8_t rand_byte(void);
  */
 static void *timer_func(void *arg);
 
-struct chip8 *chip8_new(void)
+struct chip8_options chip8_options_default(void)
+{
+    return (struct chip8_options){
+        .timer_freq = 60, .delay_draws = true, .enable_timer = true,
+    };
+}
+
+struct chip8 *chip8_new(struct chip8_options opts)
 {
     struct chip8 *chip = malloc(sizeof *chip);
 
+    chip->opts = opts;
     memset(chip->mem, 0, sizeof chip->mem);
     memset(chip->display, 0, sizeof chip->display);
     memset(chip->regs, 0, sizeof chip->regs);
@@ -134,7 +142,8 @@ struct chip8 *chip8_new(void)
     /* Load low-resolution hex sprites into memory */
     memcpy(chip->mem + CHIP8_HEX_LOW_ADDR, chip8_hex_low, sizeof chip8_hex_low);
 
-    chip8_timer_start(chip);
+    if (opts.enable_timer)
+        chip8_timer_start(chip);
     srand(time(NULL));
 
     return chip;
@@ -142,8 +151,38 @@ struct chip8 *chip8_new(void)
 
 void chip8_destroy(struct chip8 *chip)
 {
-    chip8_timer_end(chip);
+    if (chip->opts.enable_timer)
+        chip8_timer_end(chip);
     free(chip);
+}
+
+struct chip8_instruction chip8_current_instr(struct chip8 *chip)
+{
+    /* The Chip-8 is big-endian */
+    uint16_t opcode = ((uint16_t)chip->mem[chip->pc] << 8) |
+                      (uint16_t)chip->mem[chip->pc + 1];
+    return chip8_instruction_from_opcode(opcode);
+}
+
+void chip8_execute_opcode(struct chip8 *chip, uint16_t opcode)
+{
+    chip->mem[chip->pc] = (opcode & 0xFF00) >> 8;
+    chip->mem[chip->pc + 1] = opcode & 0xFF;
+    chip8_step(chip);
+}
+
+int chip8_load_from_bytes(struct chip8 *chip, uint8_t *bytes, size_t len)
+{
+    int mempos = CHIP8_PROG_START;
+
+    while (len--) {
+        if (mempos >= CHIP8_MEM_SIZE) {
+            fprintf(stderr, "Input program is too big\n");
+            return -1;
+        }
+        chip->mem[mempos++] = *bytes++;
+    }
+    return 0;
 }
 
 int chip8_load_from_file(struct chip8 *chip, FILE *file)
@@ -176,14 +215,6 @@ void chip8_step(struct chip8 *chip)
             chip->pc = chip8_execute(chip, chip8_current_instr(chip));
         }
     }
-}
-
-struct chip8_instruction chip8_current_instr(struct chip8 *chip)
-{
-    /* The Chip-8 is big-endian */
-    uint16_t opcode = ((uint16_t)chip->mem[chip->pc] << 8) |
-                      (uint16_t)chip->mem[chip->pc + 1];
-    return chip8_instruction_from_opcode(opcode);
 }
 
 static void chip8_dump_regs(const struct chip8 *chip, FILE *output)
@@ -224,8 +255,9 @@ static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
 static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
 {
     /* Wait for delay timer to run out */
-    while (chip->reg_dt)
-        ;
+    if (chip->opts.enable_timer)
+        while (chip->reg_dt)
+            ;
 
     switch (inst.op) {
     case OP_INVALID:
@@ -234,8 +266,7 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
                 inst.opcode);
         break;
     case OP_SCD:
-        if (!chip->highres)
-            chip8_wait_cycle(chip);
+        chip8_wait_cycle(chip);
         for (int y = 0; y < CHIP8_DISPLAY_HEIGHT - inst.nibble; y++)
             for (int x = 0; x < CHIP8_DISPLAY_WIDTH; x++)
                 chip->display[x][y] = chip->display[x][y + inst.nibble];
@@ -257,15 +288,13 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         }
         break;
     case OP_SCR:
-        if (!chip->highres)
-            chip8_wait_cycle(chip);
+        chip8_wait_cycle(chip);
         for (int x = 0; x < CHIP8_DISPLAY_WIDTH - 4; x++)
             memcpy(&chip->display[x], &chip->display[x + 4],
                    sizeof chip->display[x]);
         break;
     case OP_SCL:
-        if (!chip->highres)
-            chip8_wait_cycle(chip);
+        chip8_wait_cycle(chip);
         for (int x = CHIP8_DISPLAY_WIDTH - 5; x > 0; x--)
             memcpy(&chip->display[x + 4], &chip->display[x],
                    sizeof chip->display[x]);
@@ -383,8 +412,7 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         chip->regs[inst.vx] = rand_byte() & inst.byte;
         break;
     case OP_DRW:
-        if (!chip->highres)
-            chip8_wait_cycle(chip);
+        chip8_wait_cycle(chip);
         chip->regs[REG_VF] =
             chip8_draw_sprite(chip, chip->regs[inst.vx], chip->regs[inst.vy],
                               chip->reg_i, inst.nibble);
@@ -475,6 +503,8 @@ static void chip8_timer_start(struct chip8 *chip)
 
 static void chip8_wait_cycle(struct chip8 *chip)
 {
+    if (!chip->opts.delay_draws)
+        return;
     chip->timer_latch = false;
     while (!chip->timer_latch)
         ;
@@ -496,9 +526,9 @@ static void *timer_func(void *arg)
         if (chip->reg_st)
             chip->reg_st--;
         chip->timer_latch = true;
-        nanosleep(
-            &(struct timespec){.tv_nsec = NS_PER_SECOND / CHIP8_TIMER_FREQ},
-            NULL);
+        nanosleep(&(struct timespec){.tv_nsec =
+                                         NS_PER_SECOND / chip->opts.timer_freq},
+                  NULL);
     }
 
     return NULL;

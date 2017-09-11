@@ -11,16 +11,22 @@ LDFLAGS := $(LDFLAGS)
 
 EXECUTABLE = chip8
 LIBS = -lSDL2 -pthread
-OBJS = instruction.o interpreter.o main.o
+OBJS_COMMON = instruction.o interpreter.o
+OBJS_MAIN = $(OBJS_COMMON) main.o
+OBJS_TEST = $(OBJS_COMMON) test.o
 
-.PHONY: all clean
+.PHONY: all clean test
 
 all: $(EXECUTABLE)
 
 clean:
 	$(RM) -rf doc $(OBJS) $(EXECUTABLE)
 
-$(EXECUTABLE): $(OBJS)
+test: $(OBJS_TEST)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o chip8_test $^ $(LIBS)
+	./chip8_test
+
+$(EXECUTABLE): $(OBJS_MAIN)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 %.o: %.c
