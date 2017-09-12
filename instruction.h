@@ -151,12 +151,14 @@ enum chip8_operation {
      */
     OP_XOR,
     /**
-     * Add register to register (`ADD Vx, Vy`). Sets `VF` on carry.
+     * Add register to register (`ADD Vx, Vy`).
+     * Sets `VF = 1` if there was a carry, or `0` if not.
      * Opcode `8xy4`.
      */
     OP_ADD_REG,
     /**
-     * Subtract register from register (`SUB Vx, Vy`). Sets `VF` on borrow.
+     * Subtract register from register (`SUB Vx, Vy`).
+     * Sets `VF = 1` if there was *no* borrow, or `0` if there was one.
      * Opcode `8xy5`.
      */
     OP_SUB,
