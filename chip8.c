@@ -21,7 +21,9 @@
 #include <stdlib.h>
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_audio.h>
 
+#include "audio.h"
 #include "interpreter.h"
 
 /**
@@ -51,16 +53,20 @@ SDL_Keycode keymap[16] = {
 };
 
 /**
- * Arguments to be passed to the interpreter thread.
+ * Arguments to be passed to the input thread.
  */
 struct input_thrd_args {
     /**
-     * The Chip8 key state vector
+     * The Chip8 key state vector.
      */
     _Atomic uint16_t *key_states;
     atomic_bool *should_exit;
 };
 
+/**
+ * The SDL audio callback function.
+ */
+static void audio_callback(void *userdata, uint8_t *stream, int len);
 /**
  * Redraws the Chip-8 display onto the given surface.
  */
@@ -101,6 +107,13 @@ int main(int argc, char **argv)
     opts.fname = argv[optind];
 
     return run(opts);
+}
+
+static void audio_callback(void *userdata, uint8_t *stream, int len)
+{
+    struct audio_ring_buffer *ring = (struct audio_ring_buffer *)userdata;
+
+    audio_ring_buffer_fill(ring, (int16_t *)stream, len / 2);
 }
 
 static void draw(SDL_Surface *surface, struct chip8 *chip, int scale,
@@ -159,13 +172,16 @@ static int run(struct progopts opts)
     const int win_height = CHIP8_DISPLAY_HEIGHT * opts.scale;
     SDL_Window *win;
     SDL_Surface *win_surface;
+    SDL_AudioDeviceID audio_device;
+    SDL_AudioSpec as_want, as_got;
+    struct audio_ring_buffer *audio_ring;
     uint32_t oncolor, offcolor;
     pthread_t input_thread;
     struct chip8 *chip;
     FILE *input;
     atomic_bool should_exit;
 
-    if (SDL_Init(SDL_INIT_VIDEO)) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
         fprintf(stderr, "Could not initialize SDL: %s\n", SDL_GetError());
         return 1;
     }
@@ -174,6 +190,23 @@ static int run(struct progopts opts)
                                  SDL_WINDOW_SHOWN))) {
         fprintf(stderr, "Could not create SDL window: %s\n", SDL_GetError());
         goto error_sdl_initialized;
+    }
+
+    /* Set up audio */
+    if (!(audio_ring = audio_square_wave(48000, 440, 1000))) {
+        fprintf(stderr, "Could not create audio ring buffer\n");
+        goto error_window_created;
+    }
+    SDL_zero(as_want);
+    as_want.freq = 48000;
+    as_want.format = AUDIO_S16SYS;
+    as_want.channels = 1;
+    as_want.samples = 4096;
+    as_want.callback = audio_callback;
+    as_want.userdata = audio_ring;
+    if (!(audio_device = SDL_OpenAudioDevice(NULL, 0, &as_want, &as_got, 0))) {
+        fprintf(stderr, "Could not initialize SDL audio: %s\n", SDL_GetError());
+        goto error_audio_ring_created;
     }
 
     chip = chip8_new(chip8_options_default());
@@ -189,8 +222,10 @@ static int run(struct progopts opts)
     }
     if (chip8_load_from_file(chip, input)) {
         fprintf(stderr, "Could not load game; aborting\n");
-        goto error_file_opened;
+        fclose(input);
+        goto error_chip8_created;
     }
+    fclose(input);
 
     /*
      * We run the input loop on a separate thread so that the interpreter
@@ -204,6 +239,9 @@ static int run(struct progopts opts)
 
     while (!should_exit) {
         chip8_step(chip);
+        /* Pause/unpause the audio track as needed */
+        SDL_PauseAudioDevice(audio_device, chip->reg_st == 0);
+        /* Refresh display as needed */
         if (chip->needs_refresh) {
             draw(win_surface, chip, opts.scale, oncolor, offcolor);
             SDL_UpdateWindowSurface(win);
@@ -218,14 +256,18 @@ static int run(struct progopts opts)
     /* Wait for the input thread to clean up first */
     pthread_join(input_thread, NULL);
     chip8_destroy(chip);
+    SDL_CloseAudioDevice(audio_device);
+    audio_ring_buffer_free(audio_ring);
     SDL_DestroyWindow(win);
     SDL_Quit();
     return 0;
 
-error_file_opened:
-    fclose(input);
 error_chip8_created:
     chip8_destroy(chip);
+    SDL_CloseAudioDevice(audio_device);
+error_audio_ring_created:
+    audio_ring_buffer_free(audio_ring);
+error_window_created:
     SDL_DestroyWindow(win);
 error_sdl_initialized:
     SDL_Quit();

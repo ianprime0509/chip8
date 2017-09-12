@@ -14,7 +14,7 @@ LDFLAGS := $(LDFLAGS)
 EXECUTABLE = chip8
 LIBS = -lSDL2 -pthread
 OBJS_COMMON = instruction.o interpreter.o
-OBJS_MAIN = $(OBJS_COMMON) chip8.o
+OBJS_MAIN = $(OBJS_COMMON) audio.o chip8.o
 OBJS_TEST = $(OBJS_COMMON) test.o
 OBJS_ALL = $(OBJS_MAIN) $(OBJS_TEST)
 
