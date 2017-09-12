@@ -32,14 +32,26 @@
  */
 #define CHIP8_HEX_LOW_HEIGHT 5
 /**
+ * The address of the high-resolution hex digit sprites in memory.
+ * All the sprites must reside below 0x200.
+ */
+#define CHIP8_HEX_HIGH_ADDR 0x0100
+/**
+ * The height (in pixels) of a high-resolution hex digit sprite.
+ */
+#define CHIP8_HEX_HIGH_HEIGHT 10
+/**
  * The address where programs should be loaded.
  */
 #define CHIP8_PROG_START 0x200
 
-/* Test assumption on hex digit sprite locations */
+/* Test assumptions on hex digit sprite locations */
 static_assert(CHIP8_HEX_LOW_ADDR + 16 * CHIP8_HEX_LOW_HEIGHT <=
                   CHIP8_PROG_START,
               "Low-resolution hex digit sprites overlap program memory");
+static_assert(CHIP8_HEX_HIGH_ADDR + 16 * CHIP8_HEX_HIGH_HEIGHT <=
+                  CHIP8_PROG_START,
+              "High-resolution hex digit sprites overlap program memory");
 
 #define NS_PER_SECOND (1000 * 1000 * 1000)
 
@@ -66,6 +78,17 @@ static uint8_t chip8_hex_low[16][CHIP8_HEX_LOW_HEIGHT] = {
     {0xF0, 0x90, 0xF0, 0x90, 0x90}, {0xE0, 0x90, 0xE0, 0x90, 0xE0},
     {0xF0, 0x80, 0x80, 0x80, 0xF0}, {0xE0, 0x90, 0x90, 0x90, 0xE0},
     {0xF0, 0x80, 0xF0, 0x80, 0xF0}, {0xF0, 0x80, 0xF0, 0x80, 0x80},
+};
+
+/**
+ * The high-resolution hex digit sprites.
+ * I'm not entirely sure what the "official" versions of these are, so I made my
+ * own, which aren't really the best
+ */
+static uint8_t chip8_hex_high[16][CHIP8_HEX_HIGH_HEIGHT] = {
+    {0x3C, 0x42, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x42, 0x3C},
+    {0x18, 0x28, 0x48, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x7F},
+    /* TODO: the rest */
 };
 
 struct chip8_call_node {
@@ -141,6 +164,9 @@ struct chip8 *chip8_new(struct chip8_options opts)
 
     /* Load low-resolution hex sprites into memory */
     memcpy(chip->mem + CHIP8_HEX_LOW_ADDR, chip8_hex_low, sizeof chip8_hex_low);
+    /* Load high-resolution hex sprites into memory */
+    memcpy(chip->mem + CHIP8_HEX_HIGH_ADDR, chip8_hex_high,
+           sizeof chip8_hex_high);
 
     if (opts.enable_timer)
         chip8_timer_start(chip);
@@ -449,7 +475,8 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
                       CHIP8_HEX_LOW_HEIGHT * (chip->regs[inst.vx] & 0xF);
         break;
     case OP_LD_HF:
-        ABORT(chip, "OP_LD_HF is currently unimplemented");
+        chip->reg_i = CHIP8_HEX_HIGH_ADDR +
+                      CHIP8_HEX_HIGH_HEIGHT * (chip->regs[inst.vx] & 0xF);
         break;
     case OP_LD_B:
         /* Note that register Vx is only a byte, so it's 3 digits or fewer */
