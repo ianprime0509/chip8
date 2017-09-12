@@ -429,13 +429,11 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         chip->regs[inst.vx] = chip->reg_dt;
         break;
     case OP_LD_KEY:
+        /* Wait for key press */
         while (chip->key_states == 0)
             ;
         /* Get the lowest set bit, and make sure it's 0-indexed */
         chip->regs[inst.vx] = ffs(chip->key_states) - 1;
-        /* TODO: make buzzer sound */
-        while (chip->key_states != 0)
-            ;
         break;
     case OP_LD_DT_REG:
         chip->reg_dt = chip->regs[inst.vx];

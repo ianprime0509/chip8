@@ -15,6 +15,8 @@
  * along with Chip-8.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <getopt.h>
+#include <pthread.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -49,10 +51,25 @@ SDL_Keycode keymap[16] = {
 };
 
 /**
+ * Arguments to be passed to the interpreter thread.
+ */
+struct input_thrd_args {
+    /**
+     * The Chip8 key state vector
+     */
+    _Atomic uint16_t *key_states;
+    atomic_bool *should_exit;
+};
+
+/**
  * Redraws the Chip-8 display onto the given surface.
  */
 static void draw(SDL_Surface *surface, struct chip8 *chip, int scale,
                  uint32_t oncolor, uint32_t offcolor);
+/**
+ * The function to run the input loop in another thread.
+ */
+static void *input_thrd_func(void *args);
 static int run(struct progopts opts);
 
 int main(int argc, char **argv)
@@ -108,17 +125,45 @@ static void draw(SDL_Surface *surface, struct chip8 *chip, int scale,
         }
 }
 
+static void *input_thrd_func(void *args)
+{
+    SDL_Event e;
+    struct input_thrd_args targs = *(struct input_thrd_args *)args;
+
+    while (!*targs.should_exit) {
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_QUIT) {
+                *targs.should_exit = true;
+            } else if (e.type == SDL_KEYDOWN) {
+                SDL_Keycode key = e.key.keysym.sym;
+
+                for (int i = 0; i < 16; i++)
+                    if (key == keymap[i])
+                        *targs.key_states |= 1 << i;
+            } else if (e.type == SDL_KEYUP) {
+                SDL_Keycode key = e.key.keysym.sym;
+
+                for (int i = 0; i < 16; i++)
+                    if (key == keymap[i])
+                        *targs.key_states &= ~(1 << i);
+            }
+        }
+    }
+
+    return NULL;
+}
+
 static int run(struct progopts opts)
 {
     const int win_width = CHIP8_DISPLAY_WIDTH * opts.scale;
     const int win_height = CHIP8_DISPLAY_HEIGHT * opts.scale;
     SDL_Window *win;
-    SDL_Event e;
     SDL_Surface *win_surface;
     uint32_t oncolor, offcolor;
+    pthread_t input_thread;
     struct chip8 *chip;
     FILE *input;
-    bool should_exit;
+    atomic_bool should_exit;
 
     if (SDL_Init(SDL_INIT_VIDEO)) {
         fprintf(stderr, "Could not initialize SDL: %s\n", SDL_GetError());
@@ -147,24 +192,17 @@ static int run(struct progopts opts)
         goto error_file_opened;
     }
 
+    /*
+     * We run the input loop on a separate thread so that the interpreter
+     * doesn't block waiting for input
+     */
+    pthread_create(
+        &input_thread, NULL, input_thrd_func,
+        &(struct input_thrd_args){
+            .key_states = &chip->key_states, .should_exit = &should_exit,
+        });
+
     while (!should_exit) {
-        while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) {
-                should_exit = true;
-            } else if (e.type == SDL_KEYDOWN) {
-                SDL_Keycode key = e.key.keysym.sym;
-
-                for (int i = 0; i < 16; i++)
-                    if (key == keymap[i])
-                        chip->key_states |= 1 << i;
-            } else if (e.type == SDL_KEYUP) {
-                SDL_Keycode key = e.key.keysym.sym;
-
-                for (int i = 0; i < 16; i++)
-                    if (key == keymap[i])
-                        chip->key_states &= ~(1 << i);
-            }
-        }
         chip8_step(chip);
         if (chip->needs_refresh) {
             draw(win_surface, chip, opts.scale, oncolor, offcolor);
@@ -177,6 +215,8 @@ static int run(struct progopts opts)
         }
     }
 
+    /* Wait for the input thread to clean up first */
+    pthread_join(input_thread, NULL);
     chip8_destroy(chip);
     SDL_DestroyWindow(win);
     SDL_Quit();

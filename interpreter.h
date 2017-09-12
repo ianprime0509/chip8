@@ -105,7 +105,7 @@ struct chip8 {
     /**
      * Whether the interpreter has been halted.
      */
-    bool halted;
+    atomic_bool halted;
     /**
      * Whether we are in high resolution (128x64) mode.
      */
@@ -113,7 +113,7 @@ struct chip8 {
     /**
      * Whether the external display needs to be refreshed.
      */
-    bool needs_refresh;
+    atomic_bool needs_refresh;
     /**
      * The thread that keeps track of the timer.
      */
@@ -134,7 +134,7 @@ struct chip8 {
      * Which keys are currently being pressed.
      * Each bit (0x0-0xF) represents the state of the corresponding key 0-F.
      */
-    uint16_t key_states;
+    _Atomic uint16_t key_states;
 };
 
 /**
