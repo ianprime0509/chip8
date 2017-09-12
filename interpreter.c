@@ -510,8 +510,7 @@ static void chip8_wait_cycle(struct chip8 *chip)
 
 static uint8_t rand_byte(void)
 {
-    /* TODO: this isn't a terribly good way to do this */
-    return rand() % 256;
+    return rand();
 }
 
 static void *timer_func(void *arg)

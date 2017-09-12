@@ -92,10 +92,12 @@ struct chip8 {
     uint16_t reg_i;
     /**
      * The delay timer register.
+     * This is atomic so that it can be manipulated by the timer thread.
      */
     _Atomic uint8_t reg_dt;
     /**
      * The sound timer register.
+     * This is atomic so that it can be manipulated by the timer thread.
      */
     _Atomic uint8_t reg_st;
     /**
@@ -105,7 +107,7 @@ struct chip8 {
     /**
      * Whether the interpreter has been halted.
      */
-    atomic_bool halted;
+    bool halted;
     /**
      * Whether we are in high resolution (128x64) mode.
      */
@@ -113,17 +115,19 @@ struct chip8 {
     /**
      * Whether the external display needs to be refreshed.
      */
-    atomic_bool needs_refresh;
+    bool needs_refresh;
     /**
      * The thread that keeps track of the timer.
      */
     pthread_t timer_thread;
     /**
      * Whether the timer thread should stop.
+     * This is atomic so that it can be manipulated by the timer thread.
      */
     atomic_bool should_stop_thread;
     /**
      * Set to `true` on every timer clock cycle (for delaying until a cycle).
+     * This is atomic so that it can be manipulated by the timer thread.
      */
     atomic_bool timer_latch;
     /**
@@ -133,6 +137,7 @@ struct chip8 {
     /**
      * Which keys are currently being pressed.
      * Each bit (0x0-0xF) represents the state of the corresponding key 0-F.
+     * This is atomic so that it can be manipulated by the event loop thread.
      */
     _Atomic uint16_t key_states;
 };
