@@ -72,15 +72,81 @@ static int test_teardown(void);
 
 static struct chip8_options chip8_options_testing(void);
 
+int test_arithmetic(void);
 int test_comparison(void);
 int test_ld(void);
 
 int main(void)
 {
     test_setup();
+    TEST_RUN(test_arithmetic);
     TEST_RUN(test_comparison);
     TEST_RUN(test_ld);
     return test_teardown();
+}
+
+int test_arithmetic(void)
+{
+    struct chip8_options opts = chip8_options_testing();
+    struct chip8 *chip = chip8_new(opts);
+
+    /* LD V0, #66 */
+    chip8_execute_opcode(chip, 0x6066);
+    /* ADD V0, #0A */
+    chip8_execute_opcode(chip, 0x700A);
+    ASSERT_EQ(chip->regs[REG_V0], 0x70);
+    ASSERT_EQ(chip->regs[REG_VF], 0);
+    /* ADD V0, 0xFF */
+    chip8_execute_opcode(chip, 0x70FF);
+    ASSERT_EQ(chip->regs[REG_V0], 0x6F);
+    ASSERT_EQ(chip->regs[REG_VF], 1);
+    /* LD V1, 0x10 */
+    chip8_execute_opcode(chip, 0x6110);
+    /* OR V0, V1 */
+    chip8_execute_opcode(chip, 0x8011);
+    ASSERT_EQ(chip->regs[REG_V0], 0x7F);
+    /* LD V2, 0xF0 */
+    chip8_execute_opcode(chip, 0x62F0);
+    /* AND V0, V2 */
+    chip8_execute_opcode(chip, 0x8022);
+    ASSERT_EQ(chip->regs[REG_V0], 0x70);
+    /* XOR V0, V2 */
+    chip8_execute_opcode(chip, 0x8023);
+    ASSERT_EQ(chip->regs[REG_V0], 0x80);
+    /* ADD V0, V2 */
+    chip8_execute_opcode(chip, 0x8024);
+    ASSERT_EQ(chip->regs[REG_V0], 0x70);
+    ASSERT_EQ(chip->regs[REG_VF], 1);
+    /* LD V1, 0x70 */
+    chip8_execute_opcode(chip, 0x6170);
+    /* ADD V0, V1 */
+    chip8_execute_opcode(chip, 0x8014);
+    ASSERT_EQ(chip->regs[REG_V0], 0xE0);
+    ASSERT_EQ(chip->regs[REG_VF], 0);
+    /* SUB V0, V1 */
+    chip8_execute_opcode(chip, 0x8015);
+    ASSERT_EQ(chip->regs[REG_V0], 0x70);
+    ASSERT_EQ(chip->regs[REG_VF], 1);
+    /* SUB V0, V2 */
+    chip8_execute_opcode(chip, 0x8025);
+    ASSERT_EQ(chip->regs[REG_V0], 0x80);
+    ASSERT_EQ(chip->regs[REG_VF], 0);
+    /* LD V3, #07 */
+    chip8_execute_opcode(chip, 0x6307);
+    /* SHR V3 */
+    chip8_execute_opcode(chip, 0x8306);
+    ASSERT_EQ(chip->regs[REG_V3], 0x03);
+    ASSERT_EQ(chip->regs[REG_VF], 1);
+    /* SHL V3 */
+    chip8_execute_opcode(chip, 0x830E);
+    ASSERT_EQ(chip->regs[REG_V3], 0x06);
+    ASSERT_EQ(chip->regs[REG_VF], 0);
+    /* SUBN V3, V0 */
+    chip8_execute_opcode(chip, 0x8307);
+    ASSERT_EQ(chip->regs[REG_V3], 0x7A);
+    ASSERT_EQ(chip->regs[REG_VF], 1);
+
+    return 0;
 }
 
 int test_comparison(void)

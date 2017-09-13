@@ -168,7 +168,8 @@ enum chip8_operation {
      */
     OP_SHR,
     /**
-     * `SUBN Vx, Vy` does the same thing as `SUB Vy, Vx`.
+     * Store `Vy - Vx` in `Vx` (`SUBN Vx, Vy`).
+     * Sets `VF = 1` if there was *no* borrow, or `0` if there was one.
      * Opcode `8xy7`.
      */
     OP_SUBN,
