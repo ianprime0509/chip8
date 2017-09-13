@@ -419,7 +419,7 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
     case OP_SUBN:
         /* Check for borrow */
         chip->regs[REG_VF] = chip->regs[inst.vx] < chip->regs[inst.vy];
-        chip->regs[inst.vy] -= chip->regs[inst.vx];
+        chip->regs[inst.vx] = chip->regs[inst.vy] - chip->regs[inst.vx];
         break;
     case OP_SHL:
         chip->regs[REG_VF] = (chip->regs[inst.vx] & 0x80) >> 7;
