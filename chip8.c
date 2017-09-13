@@ -30,7 +30,26 @@
  * Options that can be passed to the program.
  */
 struct progopts {
+    /**
+     * The scale of the display (default 6).
+     * One Super-Chip pixel will be displayed as a square of width `scale`.
+     */
     int scale;
+    /**
+     * The frequency (in Hz) of the game timer (default 60).
+     */
+    long game_freq;
+    /**
+     * The frequency (in Hz) of the game beeper (default 440).
+     */
+    int tone_freq;
+    /**
+     * The volume (from 0 to 100) of the game beeper (default 10).
+     */
+    int tone_vol;
+    /**
+     * The filename of the game to load.
+     */
     char *fname;
 };
 
@@ -76,24 +95,41 @@ static void draw(SDL_Surface *surface, struct chip8 *chip, int scale,
  * The function to run the input loop in another thread.
  */
 static void *input_thrd_func(void *args);
+/**
+ * Returns the default set of program options.
+ */
+static struct progopts progopts_default(void);
 static int run(struct progopts opts);
 
 int main(int argc, char **argv)
 {
-    struct progopts opts;
+    struct progopts opts = progopts_default();
     int option;
+    int got_frequency = 0;
+    int got_volume = 0;
     const struct option options[] = {
-        {"scale", optional_argument, NULL, 's'}, {0, 0, 0, 0},
+        {"frequency", required_argument, &got_frequency, 1},
+        {"scale", required_argument, NULL, 's'},
+        {"tone", required_argument, NULL, 't'},
+        {"volume", required_argument, &got_volume, 1},
+        {0, 0, 0, 0},
     };
 
-    /* Set default values for optional arguments */
-    opts.scale = 6;
-
-    while ((option = getopt_long(argc, argv, "s", options, NULL)) != -1) {
+    while ((option = getopt_long(argc, argv, "s:t:", options, NULL)) != -1) {
         switch (option) {
         case 's':
             /* TODO: change atoi to something a little better */
             opts.scale = atoi(optarg);
+            break;
+        case 't':
+            opts.tone_freq = atoi(optarg);
+            break;
+        case 0:
+            /* Long option found */
+            if (got_frequency)
+                opts.game_freq = atol(optarg);
+            else if (got_volume)
+                opts.tone_vol = atoi(optarg);
             break;
         case '?':
             return 1;
@@ -166,6 +202,17 @@ static void *input_thrd_func(void *args)
     return NULL;
 }
 
+static struct progopts progopts_default(void)
+{
+    return (struct progopts){
+        .scale = 6,
+        .game_freq = 60,
+        .tone_freq = 440,
+        .tone_vol = 10,
+        .fname = NULL,
+    };
+}
+
 static int run(struct progopts opts)
 {
     const int win_width = CHIP8_DISPLAY_WIDTH * opts.scale;
@@ -177,9 +224,13 @@ static int run(struct progopts opts)
     struct audio_ring_buffer *audio_ring;
     uint32_t oncolor, offcolor;
     pthread_t input_thread;
+    struct chip8_options chipopts = chip8_options_default();
     struct chip8 *chip;
     FILE *input;
-    atomic_bool should_exit;
+    atomic_bool should_exit = false;
+
+    /* Set options for the interpreter */
+    chipopts.timer_freq = opts.game_freq;
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
         fprintf(stderr, "Could not initialize SDL: %s\n", SDL_GetError());
@@ -193,7 +244,8 @@ static int run(struct progopts opts)
     }
 
     /* Set up audio */
-    if (!(audio_ring = audio_square_wave(48000, 440, 1000))) {
+    if (!(audio_ring = audio_square_wave(48000, opts.tone_freq,
+                                         opts.tone_vol * INT16_MAX / 100))) {
         fprintf(stderr, "Could not create audio ring buffer\n");
         goto error_window_created;
     }
@@ -209,7 +261,7 @@ static int run(struct progopts opts)
         goto error_audio_ring_created;
     }
 
-    chip = chip8_new(chip8_options_default());
+    chip = chip8_new(chipopts);
     win_surface = SDL_GetWindowSurface(win);
     oncolor = SDL_MapRGB(win_surface->format, 255, 255, 255);
     offcolor = SDL_MapRGB(win_surface->format, 0, 0, 0);
@@ -231,11 +283,14 @@ static int run(struct progopts opts)
      * We run the input loop on a separate thread so that the interpreter
      * doesn't block waiting for input
      */
-    pthread_create(
-        &input_thread, NULL, input_thrd_func,
-        &(struct input_thrd_args){
-            .key_states = &chip->key_states, .should_exit = &should_exit,
-        });
+    if (pthread_create(
+            &input_thread, NULL, input_thrd_func,
+            &(struct input_thrd_args){
+                .key_states = &chip->key_states, .should_exit = &should_exit,
+            })) {
+        fprintf(stderr, "Failed to spawn timer thread; aborting\n");
+        goto error_chip8_created;
+    }
 
     while (!should_exit) {
         chip8_step(chip);

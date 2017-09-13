@@ -36,33 +36,81 @@
             return 1;                                                          \
         }                                                                      \
     } while (0)
-#define ASSERT_EQ(lhs, rhs, fmt)                                               \
+#define ASSERT_EQ(lhs, rhs)                                                    \
     do {                                                                       \
         if ((lhs) != (rhs)) {                                                  \
             fprintf(stderr, "ERR: assertion failed on line %d: " #lhs          \
                             " == " #rhs "\n",                                  \
                     __LINE__);                                                 \
-            fprintf(stderr, "     LHS = " fmt "\n", (lhs));                    \
-            fprintf(stderr, "     RHS = " fmt "\n", (rhs));                    \
+            fprintf(stderr, "     LHS = ");                                    \
+            fprintf(stderr, FMTSTRING(lhs), (lhs));                            \
+            fprintf(stderr, "\n");                                             \
+            fprintf(stderr, "     RHS = ");                                    \
+            fprintf(stderr, FMTSTRING(rhs), (rhs));                            \
+            fprintf(stderr, "\n");                                             \
             return 1;                                                          \
         }                                                                      \
     } while (0)
+/**
+ * Returns the proper format string for the type of the given value.
+ * TODO: add more cases as needed.
+ */
+#define FMTSTRING(expr)                                                        \
+    _Generic((expr), signed char                                               \
+             : "%hhd", unsigned char                                           \
+             : "%hhu", short                                                   \
+             : "%hd", unsigned short                                           \
+             : "%ud", int                                                      \
+             : "%d", unsigned int                                              \
+             : "%u")
 
 static int n_failures;
 
 static void test_run(const char *name, int (*test)(void));
 static void test_setup(void);
-static void test_teardown(void);
+static int test_teardown(void);
 
 static struct chip8_options chip8_options_testing(void);
 
+int test_comparison(void);
 int test_ld(void);
 
 int main(void)
 {
     test_setup();
+    TEST_RUN(test_comparison);
     TEST_RUN(test_ld);
-    test_teardown();
+    return test_teardown();
+}
+
+int test_comparison(void)
+{
+    struct chip8_options opts = chip8_options_testing();
+    struct chip8 *chip = chip8_new(opts);
+    uint16_t pc;
+
+    /* LD V0, #45 */
+    chip8_execute_opcode(chip, 0x6045);
+    pc = chip->pc;
+    /* SE V0, #45 */
+    chip8_execute_opcode(chip, 0x3045);
+    ASSERT_EQ(chip->pc, pc + 4);
+    pc = chip->pc;
+    /* SNE V0, #45 */
+    chip8_execute_opcode(chip, 0x4045);
+    ASSERT_EQ(chip->pc, pc + 2);
+    /* LD V1, #39 */
+    chip8_execute_opcode(chip, 0x6139);
+    pc = chip->pc;
+    /* SE V0, V1 */
+    chip8_execute_opcode(chip, 0x5010);
+    ASSERT_EQ(chip->pc, pc + 2);
+    pc = chip->pc;
+    /* SNE V0, V1 */
+    chip8_execute_opcode(chip, 0x9010);
+    ASSERT_EQ(chip->pc, pc + 4);
+
+    return 0;
 }
 
 int test_ld(void)
@@ -72,27 +120,27 @@ int test_ld(void)
 
     /* LD V5, #67 */
     chip8_execute_opcode(chip, 0x6567);
-    ASSERT_EQ(chip->regs[REG_V5], 0x67, "%d");
+    ASSERT_EQ(chip->regs[REG_V5], 0x67);
     /* LD VA, V5 */
     chip8_execute_opcode(chip, 0x8A50);
-    ASSERT_EQ(chip->regs[REG_VA], chip->regs[REG_V5], "%d");
+    ASSERT_EQ(chip->regs[REG_VA], chip->regs[REG_V5]);
     /* LD I, #600 */
     chip8_execute_opcode(chip, 0xA600);
-    ASSERT_EQ(chip->reg_i, 0x600, "%d");
+    ASSERT_EQ(chip->reg_i, 0x600);
     /* LD DT, V5 */
     chip8_execute_opcode(chip, 0xF515);
-    ASSERT_EQ(chip->reg_dt, chip->regs[REG_V5], "%d");
+    ASSERT_EQ(chip->reg_dt, chip->regs[REG_V5]);
     /* LD V0, DT */
     chip8_execute_opcode(chip, 0xF007);
-    ASSERT_EQ(chip->regs[REG_V0], chip->reg_dt, "%d");
+    ASSERT_EQ(chip->regs[REG_V0], chip->reg_dt);
     /* LD ST, V0 */
     chip8_execute_opcode(chip, 0xF018);
-    ASSERT_EQ(chip->reg_st, chip->regs[REG_V0], "%d");
+    ASSERT_EQ(chip->reg_st, chip->regs[REG_V0]);
     /* LD B, V5 */
     chip8_execute_opcode(chip, 0xF533);
-    ASSERT_EQ(chip->mem[0x600], 1, "%d");
-    ASSERT_EQ(chip->mem[0x601], 0, "%d");
-    ASSERT_EQ(chip->mem[0x602], 3, "%d");
+    ASSERT_EQ(chip->mem[0x600], 1);
+    ASSERT_EQ(chip->mem[0x601], 0);
+    ASSERT_EQ(chip->mem[0x602], 3);
 
     return 0;
 }
@@ -115,10 +163,13 @@ static void test_setup(void)
     printf("Starting tests\n");
 }
 
-static void test_teardown(void)
+static int test_teardown(void)
 {
     printf("\nAll tests finished with %d failure%s\n", n_failures,
            n_failures == 1 ? "" : "s");
+    if (n_failures != 0)
+        return 1;
+    return 0;
 }
 
 static struct chip8_options chip8_options_testing(void)
