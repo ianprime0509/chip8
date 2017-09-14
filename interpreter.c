@@ -40,10 +40,6 @@
  * The height (in pixels) of a high-resolution hex digit sprite.
  */
 #define CHIP8_HEX_HIGH_HEIGHT 10
-/**
- * The address where programs should be loaded.
- */
-#define CHIP8_PROG_START 0x200
 
 /* Test assumptions on hex digit sprite locations */
 static_assert(CHIP8_HEX_LOW_ADDR + 16 * CHIP8_HEX_LOW_HEIGHT <=

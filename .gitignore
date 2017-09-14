@@ -2,5 +2,6 @@
 doc/
 games/
 chip8
+chip8asm
 chip8_test
 **.o

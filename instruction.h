@@ -24,6 +24,15 @@
 #include <stdint.h>
 
 /**
+ * The size of the Chip-8's memory, in bytes.
+ */
+#define CHIP8_MEM_SIZE 0x1000
+/**
+ * The address where programs should be loaded.
+ */
+#define CHIP8_PROG_START 0x200
+
+/**
  * A Chip-8 register.
  */
 enum chip8_register {

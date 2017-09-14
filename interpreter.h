@@ -35,7 +35,6 @@
 
 #define CHIP8_DISPLAY_WIDTH 128
 #define CHIP8_DISPLAY_HEIGHT 64
-#define CHIP8_MEM_SIZE 0x1000
 
 /**
  * A node in a linked list which functions as a call stack.
