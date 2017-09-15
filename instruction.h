@@ -294,7 +294,7 @@ enum chip8_operation {
      */
     OP_LD_R_REG,
     /**
-     * Store `R` (flags) into registers (`LD R, Vx`). Super-Chip only.
+     * Store `R` (flags) into registers (`LD Vx, R`). Super-Chip only.
      * Will store into registers `V0` to `Vx` (where `x < 8`).
      * Opcode `Fx85`.
      * TODO: what is this?

@@ -80,19 +80,8 @@ static struct progopts progopts_default(void)
 
 static int run(struct progopts opts)
 {
-    char buf[500];
-    struct chip8asm *chipasm = chip8asm_new();
-
     printf("This is a placeholder for later code.\n");
     printf("The input file is '%s' and the output file is '%s'.\n", opts.input,
            opts.output);
-
-    for (;;) {
-        printf("> ");
-        fflush(stdout);
-        fgets(buf, 500, stdin);
-        printf("Got line: %s", buf);
-        chip8asm_process(chipasm, buf);
-    }
     return 0;
 }

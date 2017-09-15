@@ -53,6 +53,5 @@ struct chip8asm *chip8asm_new(void);
  * Destroys the given assembler.
  */
 void chip8asm_destroy(struct chip8asm *chipasm);
-int chip8asm_process(struct chip8asm *chipasm, const char *line);
 
 #endif
