@@ -263,7 +263,7 @@ enum chip8_operation {
      */
     OP_LD_F,
     /**
-     * Load 8x10 (?) hex digit sprite location into I (`LD HF, Vx`). Super-Chip
+     * Load 8x10 hex digit sprite location into I (`LD HF, Vx`). Super-Chip
      * only.
      * The lower 4 bits of `Vx` will be the sprite to load.
      * Opcode `Fx30`.
@@ -326,5 +326,9 @@ struct chip8_instruction {
  * Converts a Chip-8 opcode to an instruction.
  */
 struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode);
+/**
+ * Converts an instruction to a Chip-8 opcode.
+ */
+uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr);
 
 #endif

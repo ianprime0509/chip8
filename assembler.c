@@ -98,12 +98,24 @@ struct instruction {
     enum chip8_operation chipop;
     /**
      * The operands.
+     * Pseudo-operands like the `HF` in `LD HF, Vx` are not to be included in
+     * this array; to do so would be redundant, since this information is
+     * already contained in `chipop`, and would make several aspects of
+     * processing these instructions more complicated.
      */
     char *operands[MAX_OPERANDS];
     /**
      * The number of operands.
      */
     int n_operands;
+    /**
+     * The line on which this instruction was found.
+     */
+    int line;
+    /**
+     * The location in memory for the final instruction after processing.
+     */
+    uint16_t pc;
 };
 
 /**
@@ -173,6 +185,16 @@ struct chip8asm {
 };
 
 /**
+ * Attempts to compile the given Chip-8 instruction into an opcode.
+ * The given instruction MUST have type `IT_CHIP8_OP`, or the results are
+ * undefined.
+ *
+ * @param[out] opcode The resulting opcode.
+ */
+static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
+                                    const struct instruction *instr,
+                                    uint16_t *opcode);
+/**
  * Attempts to evaluate the given expression.
  * The current state of the assembler will be used to access label values and
  * such.
@@ -183,13 +205,10 @@ struct chip8asm {
 static int chip8asm_eval(const struct chip8asm *chipasm, const char *expr,
                          uint16_t *value);
 /**
- * Processes the given line of assembly code.
- *
- * @return 0 if the processing was successful, and a nonzero value if not.
- */
-static int chip8asm_process(struct chip8asm *chipasm, const char *line);
-/**
  * Processes the given operation with the given operands.
+ * This will take the instruction, which is given to us in split form (the
+ * operation and operands have been extracted for us), convert it to a `struct
+ * instruction`, and add it to `chipasm`'s instruction list.
  */
 static int chip8asm_process_instruction(struct chip8asm *chipasm,
                                         const char *op,
@@ -205,9 +224,10 @@ static unsigned long hash_str(const char *str);
  */
 static int instructions_add(struct instructions *lst, struct instruction instr);
 /**
- * Frees the underlying data of the instruction list.
+ * Clears the given instruction list.
+ * This also frees the underlying data, so it should be used for cleanup too.
  */
-static void instructions_free(struct instructions *lst);
+static void instructions_clear(struct instructions *lst);
 /**
  * Reserves space for the instructions list.
  * Calling this function will ensure that the capacity of the list is at least
@@ -222,6 +242,16 @@ static int instructions_reserve(struct instructions *lst, size_t cap);
  * @return Whether the label was already present in the table.
  */
 static bool ltable_add(struct ltable *tab, const char *label, uint16_t addr);
+/**
+ * Clears the given table.
+ * This also frees the underlying data, so it should be used for cleanup too.
+ */
+static void ltable_clear(struct ltable *tab);
+/**
+ * Returns the number (0-15) of the given register name (V0-VF).
+ * Returns -1 if the register name is invalid.
+ */
+static int register_num(const char *name);
 
 struct chip8asm *chip8asm_new(void)
 {
@@ -239,28 +269,48 @@ void chip8asm_destroy(struct chip8asm *chipasm)
 {
     if (!chipasm)
         return;
-    /* Free the label table */
-    for (int i = 0; i < LTABLE_SIZE; i++) {
-        struct ltable_bucket *b = chipasm->labels.buckets[i];
-        while (b) {
-            struct ltable_bucket *next = b->next;
-            free(b->label);
-            free(b);
-            b = next;
-        }
-    }
-    instructions_free(&chipasm->instructions);
+    ltable_clear(&chipasm->labels);
+    instructions_clear(&chipasm->instructions);
 }
 
-static int chip8asm_eval(const struct chip8asm *chipasm, const char *expr,
-                         uint16_t *value)
+int chip8asm_emit(struct chip8asm *chipasm, struct chip8asm_program *prog)
 {
-    if (value)
-        *value = 0;
+    for (int i = 0; i < chipasm->instructions.len; i++) {
+        const struct instruction *instr = &chipasm->instructions.data[i];
+        uint16_t opcode;
+        int err;
+
+        switch (instr->type) {
+        case IT_INVALID:
+            FAIL(1, instr->line,
+                 "invalid instruction (this should never happen)");
+        case IT_DB:
+            if ((err = chip8asm_eval(chipasm, instr->operands[1], &opcode)))
+                return err;
+            prog->mem[instr->pc] = opcode & 0xFF;
+            break;
+        case IT_DW:
+            if ((err = chip8asm_eval(chipasm, instr->operands[1], &opcode)))
+                return err;
+            prog->mem[instr->pc] = (opcode >> 8) & 0xFF;
+            prog->mem[instr->pc + 1] = opcode & 0xFF;
+            break;
+        case IT_CHIP8_OP:
+            if ((err = chip8asm_compile_chip8op(chipasm, instr, &opcode)))
+                return err;
+            prog->mem[instr->pc] = (opcode >> 8) & 0xFF;
+            prog->mem[instr->pc + 1] = opcode & 0xFF;
+            break;
+        }
+    }
+
+    /* All instructions emitted, so we can get rid of them */
+    instructions_clear(&chipasm->instructions);
+
     return 0;
 }
 
-static int chip8asm_process(struct chip8asm *chipasm, const char *line)
+int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
 {
     /* The current position in the line */
     int linepos = 0;
@@ -345,8 +395,15 @@ static int chip8asm_process(struct chip8asm *chipasm, const char *line)
     n_op = 0;
     oppos = 0;
     while (line[linepos]) {
-        /* Just shove characters into the operand until we hit a comma */
-        if (line[linepos] == ',') {
+        /*
+         * Just shove characters into the operand until we hit a comma or the
+         * beginning of a comment
+         */
+        if (line[linepos] == ';') {
+            if (oppos == 0)
+                FAIL(1, chipasm->line, "found empty operand");
+            break;
+        } else if (line[linepos] == ',') {
             if (oppos == 0)
                 FAIL(1, chipasm->line, "found empty operand");
             /*
@@ -377,11 +434,146 @@ static int chip8asm_process(struct chip8asm *chipasm, const char *line)
     }
 
     /* Trim whitespace off the end of the last operand */
-    while (isspace(operands[n_op][--oppos]))
+    while (oppos > 0 && isspace(operands[n_op][--oppos]))
         ;
     operands[n_op][oppos + 1] = '\0';
 
     return chip8asm_process_instruction(chipasm, buf, operands, n_op + 1);
+}
+
+static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
+                                    const struct instruction *instr,
+                                    uint16_t *opcode)
+{
+    struct chip8_instruction ci;
+    /* Temporary variable for storing eval result */
+    uint16_t value;
+    /* Temporary variable for storing register numbers */
+    int regno;
+    int err;
+
+    ci.op = instr->chipop;
+    /*
+     * We group the cases here by which arguments they have, and set the
+     * corresponding fields of `ci` appropriately. Converting `ci`
+     * to an opcode is outsourced to another function in `instruction.h`.
+     *
+     * This switch statement is much simpler because we made the (smart)
+     * decision not to include pseudo-operands in the instruction operands array
+     * (`instr->operands`), so in `LD K, Vx`, `Vx` is the first operand in the
+     * array, reducing the number of distinct cases to check below.
+     */
+    switch (instr->chipop) {
+    case OP_INVALID:
+        FAIL(1, instr->line, "invalid operation (this should never happen)");
+    /* No operands */
+    case OP_CLS:
+    case OP_RET:
+    case OP_SCR:
+    case OP_SCL:
+    case OP_EXIT:
+    case OP_LOW:
+    case OP_HIGH:
+        break;
+    /* Nibble as first operand */
+    case OP_SCD:
+        if ((err = chip8asm_eval(chipasm, instr->operands[0], &value)))
+            return err;
+        ci.nibble = value;
+        break;
+    /* Address as first operand */
+    case OP_JP:
+    case OP_CALL:
+    case OP_LD_I:
+    case OP_JP_V0:
+        if ((err = chip8asm_eval(chipasm, instr->operands[0], &value)))
+            return err;
+        ci.addr = value;
+        break;
+    /* Register first, then byte */
+    case OP_SE_BYTE:
+    case OP_SNE_BYTE:
+    case OP_LD_BYTE:
+    case OP_ADD_BYTE:
+    case OP_RND:
+        if ((regno = register_num(instr->operands[0])) == -1)
+            FAIL(1, instr->line, "'%s' is not the name of a register",
+                 instr->operands[0]);
+        if ((err = chip8asm_eval(chipasm, instr->operands[1], &value)))
+            return err;
+        ci.vx = regno;
+        ci.byte = value;
+        break;
+    /* Two register operands */
+    case OP_SE_REG:
+    case OP_LD_REG:
+    case OP_OR:
+    case OP_AND:
+    case OP_XOR:
+    case OP_ADD_REG:
+    case OP_SUB:
+    case OP_SUBN:
+    case OP_SNE_REG:
+        if ((regno = register_num(instr->operands[0])) == -1)
+            FAIL(1, instr->line, "'%s' is not the name of a register",
+                 instr->operands[0]);
+        ci.vx = regno;
+        if ((regno = register_num(instr->operands[1])) == -1)
+            FAIL(1, instr->line, "'%s' is not the name of a register",
+                 instr->operands[1]);
+        ci.vy = regno;
+        break;
+    /* Single register operand */
+    case OP_SHR:
+    case OP_SHL:
+    case OP_SKP:
+    case OP_SKNP:
+    case OP_LD_REG_DT:
+    case OP_LD_KEY:
+    case OP_LD_DT_REG:
+    case OP_LD_ST:
+    case OP_ADD_I:
+    case OP_LD_F:
+    case OP_LD_HF:
+    case OP_LD_B:
+    case OP_LD_DEREF_I_REG:
+    case OP_LD_REG_DEREF_I:
+    case OP_LD_R_REG:
+    case OP_LD_REG_R:
+        if ((regno = register_num(instr->operands[0])) == -1)
+            FAIL(1, instr->line, "'%s' is not the name of a register",
+                 instr->operands[0]);
+        ci.vx = regno;
+        break;
+    /* Two registers then a nibble */
+    case OP_DRW:
+        if ((regno = register_num(instr->operands[0])) == -1)
+            FAIL(1, instr->line, "'%s' is not the name of a register",
+                 instr->operands[0]);
+        ci.vx = regno;
+        if ((regno = register_num(instr->operands[1])) == -1)
+            FAIL(1, instr->line, "'%s' is not the name of a register",
+                 instr->operands[1]);
+        ci.vy = regno;
+        if ((err = chip8asm_eval(chipasm, instr->operands[2], &value)))
+            return err;
+        ci.nibble = value;
+        break;
+    }
+
+    /* Finally, we need to turn this into an opcode */
+    if (opcode)
+        *opcode = chip8_instruction_to_opcode(ci);
+
+    return 0;
+}
+
+static int chip8asm_eval(const struct chip8asm *chipasm, const char *expr,
+                         uint16_t *value)
+{
+    if (value)
+        *value = 0;
+    return 0;
 }
 
 static int chip8asm_process_instruction(struct chip8asm *chipasm,
@@ -402,7 +594,9 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     /* End preprocessor abuse */
 
     struct instruction instr = {0};
+    instr.line = chipasm->line;
 
+    /* Handle special assembler instructions */
     if (!strcasecmp(op, "DEFINE")) {
         EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
         ltable_add(&chipasm->labels, strdup(operands[0]), 0);
@@ -411,10 +605,34 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
         instr.type = IT_DB;
         instr.operands[0] = strdup(operands[0]);
+        /* We don't have to worry about aligning pc here */
+        instr.pc = chipasm->pc;
+        instructions_add(&chipasm->instructions, instr);
+        chipasm->pc++;
+        return 0;
     } else if (!strcasecmp(op, "DW")) {
         EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
         instr.type = IT_DW;
         instr.operands[0] = strdup(operands[0]);
+        /* We don't have to worry about aligning pc here */
+        instr.pc = chipasm->pc;
+        instructions_add(&chipasm->instructions, instr);
+        chipasm->pc += 2;
+        return 0;
+    }
+
+    /*
+     * Begin handling Chip-8 instructions here
+     */
+    /* We need to align the program counter to the nearest word */
+    chipasm->pc = (chipasm->pc + 1) & ~1;
+    instr.pc = chipasm->pc;
+
+    /*
+     * We need the if (0) here because the CHIPOP macro expands to have an else
+     * at the beginning
+     */
+    if (0) {
     }
     CHIPOP("SCD", OP_SCD, 1)
     CHIPOP("CLS", OP_CLS, 0)
@@ -556,6 +774,8 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     if (instr.type == IT_INVALID)
         FAIL(1, chipasm->line, "invalid instruction (operation `%s`)", op);
 
+    /* Every Chip-8 instruction is exactly 2 bytes long */
+    chipasm->pc += 2;
     instructions_add(&chipasm->instructions, instr);
     return 0;
 
@@ -591,7 +811,7 @@ static int instructions_add(struct instructions *lst, struct instruction instr)
     return 0;
 }
 
-static void instructions_free(struct instructions *lst)
+static void instructions_clear(struct instructions *lst)
 {
     for (size_t i = 0; i < lst->len; i++)
         for (int j = 0; j < lst->data[i].n_operands; j++)
@@ -644,4 +864,34 @@ static bool ltable_add(struct ltable *tab, const char *label, uint16_t addr)
     b->next->addr = addr;
     b->next->next = NULL;
     return false;
+}
+
+static void ltable_clear(struct ltable *tab)
+{
+    for (int i = 0; i < LTABLE_SIZE; i++) {
+        struct ltable_bucket *b = tab->buckets[i];
+        while (b) {
+            struct ltable_bucket *next = b->next;
+            free(b->label);
+            free(b);
+            b = next;
+        }
+        tab->buckets[i] = NULL;
+    }
+}
+
+static int register_num(const char *name)
+{
+    if ((name[0] == 'V' || name[0] == 'v') && name[1] != '\0' &&
+        name[2] == '\0') {
+        if (isdigit(name[1]))
+            return name[1] - '0';
+        else if ('A' <= name[1] && name[1] <= 'F')
+            return name[1] - 'A' + 10;
+        else if ('a' <= name[1] && name[1] <= 'f')
+            return name[1] - 'a' + 10;
+        else
+            return -1;
+    }
+    return -1;
 }

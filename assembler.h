@@ -54,4 +54,28 @@ struct chip8asm *chip8asm_new(void);
  */
 void chip8asm_destroy(struct chip8asm *chipasm);
 
+/**
+ * Emits parsed assembly code into the given program.
+ * This will take all instructions which have been processed using
+ * `chip8asm_process_line`, run the second pass (which substitutes labels for
+ * their corresponding addresses, etc.), and put the corresponding binary code
+ * into the given program buffer.
+ * Note that only labels and constants which have been defined using invocations
+ * of `chip8asm_process_line` up to this point will be defined; if an attempt is
+ * made to reference a label or constant which has not yet been defined by some
+ * line processed by this assembler, an error will result.
+ *
+ * @return An error code.
+ */
+int chip8asm_emit(struct chip8asm *chipasm, struct chip8asm_program *prog);
+/**
+ * Processes the given line of assembly code as part of the first pass.
+ * More specifically, the line will be parsed into an internal "instruction"
+ * format and added to the list of instructions to be processed during the
+ * second pass (which can be triggered using `chip8_emit`).
+ *
+ * @return An error code.
+ */
+int chip8asm_process_line(struct chip8asm *chipasm, const char *line);
+
 #endif
