@@ -69,6 +69,17 @@ void chip8asm_destroy(struct chip8asm *chipasm);
  */
 int chip8asm_emit(struct chip8asm *chipasm, struct chip8asm_program *prog);
 /**
+ * Attempts to evaluate the given expression.
+ * The current state of the assembler will be used to access label addresses and
+ * constant values.
+ *
+ * @param line The line that the expression appears on (for error messages).
+ * @param[out] value The result of the evaluation.
+ * @return 0 if parsed successfully, and a nonzero value if not.
+ */
+int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
+                  uint16_t *value);
+/**
  * Processes the given line of assembly code as part of the first pass.
  * More specifically, the line will be parsed into an internal "instruction"
  * format and added to the list of instructions to be processed during the

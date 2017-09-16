@@ -365,4 +365,6 @@ uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr)
     case OP_LD_REG_R:
         return 0xF085 | VX2OPCODE(instr.vx);
     }
+
+    return 0;
 }

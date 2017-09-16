@@ -33,6 +33,10 @@
  * The maximum number of operands for any instruction.
  */
 #define MAX_OPERANDS 3
+/**
+ * The maximum size of the stacks in the `chip8asm_eval` method.
+ */
+#define STACK_SIZE 100
 
 #define EXPECT_OPERANDS(line, op, want, got)                                   \
     do {                                                                       \
@@ -57,6 +61,15 @@
         fprintf(stderr, __VA_ARGS__);                                          \
         fprintf(stderr, "\n");                                                 \
     } while (0)
+
+/**
+ * Returns whether the given character can be used in the body of an identifier.
+ */
+#define isidentbody(c) (isalnum((c)) || (c) == '_')
+/**
+ * Returns whether the given character can be used to start an identifier.
+ */
+#define isidentstart(c) (isalpha((c)) || (c) == '_')
 
 /**
  * The type of an assembler instruction.
@@ -195,16 +208,6 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
                                     const struct instruction *instr,
                                     uint16_t *opcode);
 /**
- * Attempts to evaluate the given expression.
- * The current state of the assembler will be used to access label values and
- * such.
- *
- * @param[out] value The result of the evaluation.
- * @return 0 if parsed successfully, and a nonzero value if not.
- */
-static int chip8asm_eval(const struct chip8asm *chipasm, const char *expr,
-                         uint16_t *value);
-/**
  * Processes the given operation with the given operands.
  * This will take the instruction, which is given to us in split form (the
  * operation and operands have been extracted for us), convert it to a `struct
@@ -248,6 +251,23 @@ static bool ltable_add(struct ltable *tab, const char *label, uint16_t addr);
  */
 static void ltable_clear(struct ltable *tab);
 /**
+ * Gets the value corresponding to the given label in the table.
+ *
+ * @param[out] value The corresponding value.
+ * @return Whether the label was present in the table.
+ */
+static bool ltable_get(const struct ltable *tab, const char *key,
+                       uint16_t *value);
+/**
+ * Applies the given operator to the given stack of numbers.
+ */
+static int operator_apply(char op, unsigned *numstack, int *numpos, int line);
+/**
+ * Returns the precedence of the given operator.
+ * A higher precedence means the operator is more tightly binding.
+ */
+static int precedence(char op);
+/**
  * Returns the number (0-15) of the given register name (V0-VF).
  * Returns -1 if the register name is invalid.
  */
@@ -275,7 +295,7 @@ void chip8asm_destroy(struct chip8asm *chipasm)
 
 int chip8asm_emit(struct chip8asm *chipasm, struct chip8asm_program *prog)
 {
-    for (int i = 0; i < chipasm->instructions.len; i++) {
+    for (size_t i = 0; i < chipasm->instructions.len; i++) {
         const struct instruction *instr = &chipasm->instructions.data[i];
         uint16_t opcode;
         int err;
@@ -285,12 +305,14 @@ int chip8asm_emit(struct chip8asm *chipasm, struct chip8asm_program *prog)
             FAIL(1, instr->line,
                  "invalid instruction (this should never happen)");
         case IT_DB:
-            if ((err = chip8asm_eval(chipasm, instr->operands[1], &opcode)))
+            if ((err = chip8asm_eval(chipasm, instr->operands[1], instr->line,
+                                     &opcode)))
                 return err;
             prog->mem[instr->pc] = opcode & 0xFF;
             break;
         case IT_DW:
-            if ((err = chip8asm_eval(chipasm, instr->operands[1], &opcode)))
+            if ((err = chip8asm_eval(chipasm, instr->operands[1], instr->line,
+                                     &opcode)))
                 return err;
             prog->mem[instr->pc] = (opcode >> 8) & 0xFF;
             prog->mem[instr->pc + 1] = opcode & 0xFF;
@@ -310,15 +332,176 @@ int chip8asm_emit(struct chip8asm *chipasm, struct chip8asm_program *prog)
     return 0;
 }
 
+int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
+                  uint16_t *value)
+{
+    /*
+     * We use the shunting-yard algorithm
+     * (https://en.wikipedia.org/wiki/Shunting-yard_algorithm) here, since it's
+     * simple and does what we need. We do need to be a bit careful about the
+     * unary `-` operator: if the last token read was an operator, then any `-`
+     * should be parsed as the unary operator, but otherwise it is the binary
+     * operator. Internally, we will use '_' to represent the unary `-`.
+     */
+    char opstack[STACK_SIZE];
+    int oppos = 0;
+    unsigned numstack[STACK_SIZE];
+    int numpos = 0;
+    bool expecting_num = true;
+    int err;
+    int i = 0;
+
+    while (expr[i] != '\0') {
+        if (isspace(expr[i])) {
+            /* Skip space */
+            i++;
+        } else if (expecting_num && expr[i] == '-') {
+            int p = precedence('_');
+            /* The unary - operator is right-associative */
+            while (oppos > 0 && precedence(opstack[oppos - 1]) > p)
+                if ((err = operator_apply(opstack[--oppos], numstack, &numpos,
+                                          line)))
+                    FAIL(1, line, "could not evaluate expression");
+            opstack[oppos++] = '_';
+            i++;
+        } else if (expr[i] == '#') {
+            /* Parse hex number */
+            int n = 0;
+
+            if (!isxdigit(expr[++i]))
+                FAIL(1, line, "expected hexadecimal number");
+            while (expr[i] != '\0') {
+                if (isdigit(expr[i]))
+                    n = 16 * n + (expr[i] - '0');
+                else if ('A' <= expr[i] && expr[i] <= 'F')
+                    n = 16 * n + (expr[i] - 'A' + 10);
+                else if ('a' <= expr[i] && expr[i] <= 'f')
+                    n = 16 * n + (expr[i] - 'a' + 10);
+                else
+                    break;
+                i++;
+            }
+            numstack[numpos++] = n;
+            expecting_num = false;
+        } else if (expr[i] == '$') {
+            /* Parse binary number */
+            int n = 0;
+
+            if (expr[++i] != '0' && expr[i] != '1')
+                FAIL(1, line, "expected binary number");
+            while (expr[i] != '\0') {
+                if (expr[i] == '0')
+                    n = 2 * n;
+                else if (expr[i] == '1')
+                    n = 2 * n + 1;
+                else
+                    break;
+                i++;
+            }
+            numstack[numpos++] = n;
+            expecting_num = false;
+        } else if (isdigit(expr[i])) {
+            /* Parse decimal number */
+            int n = 0;
+
+            while (expr[i] != '\0' && isdigit(expr[i])) {
+                n = 10 * n + (expr[i] - '0');
+                i++;
+            }
+            numstack[numpos++] = n;
+            expecting_num = false;
+        } else if (isidentstart(expr[i])) {
+            /* Parse identifier */
+            char ident[MAXOP];
+            int identpos = 0;
+            uint16_t val;
+
+            while (isidentbody(expr[i]))
+                ident[identpos++] = expr[i++];
+            ident[identpos] = '\0';
+            if (!ltable_get(&chipasm->labels, ident, &val))
+                FAIL(1, line, "unknown identifier `%s`", ident);
+            numstack[numpos++] = val;
+            expecting_num = false;
+        } else if (expr[i] == '(') {
+            opstack[oppos++] = expr[i++];
+            expecting_num = true;
+        } else if (expr[i] == ')') {
+            while (oppos > 0 && opstack[oppos - 1] != '(')
+                if ((err = operator_apply(opstack[--oppos], numstack, &numpos,
+                                          line)))
+                    FAIL(1, line, "could not evaluate expression");
+            /* Get rid of the '(' pseudo-operator on the stack */
+            if (oppos == 0)
+                FAIL(1, line, "found ')' with no matching '('");
+            oppos--;
+            expecting_num = false;
+            i++;
+        } else if (expr[i] == '~') {
+            /*
+             * We need to treat any unary operators a little differently, since
+             * they should be right-associative instead of left-associative like
+             * the binary operators, and we should only process them when
+             * `expecting_num == true`, since otherwise an expression like `1 ~`
+             * would be parsed the same as `~ 1`.
+             */
+            int p = precedence(expr[i]);
+            if (!expecting_num)
+                FAIL(1, line, "did not expect unary operator `~`");
+            /*
+             * Note the `precedence(...) > p instead of >=; this is what makes
+             * the operator right-associative.
+             */
+            while (oppos > 0 && precedence(opstack[oppos - 1]) > p)
+                if ((err = operator_apply(opstack[--oppos], numstack, &numpos,
+                                          line)))
+                    FAIL(1, line, "could not evaluate expression");
+            opstack[oppos++] = expr[i++];
+        } else {
+            /* Must be a binary operator */
+            int p = precedence(expr[i]);
+
+            if (p < 0)
+                FAIL(1, line, "unknown operator `%c`", expr[i]);
+            while (oppos > 0 && precedence(opstack[oppos - 1]) >= p)
+                if ((err = operator_apply(opstack[--oppos], numstack, &numpos,
+                                          line)))
+                    FAIL(1, line, "could not evaluate expression");
+            opstack[oppos++] = expr[i++];
+            expecting_num = true;
+        }
+
+        if (oppos == STACK_SIZE)
+            FAIL(1, line, "operator stack overflowed (too many operators)");
+        if (numpos == STACK_SIZE)
+            FAIL(1, line,
+                 "number stack overflowed (too many numbers/identifiers)");
+    }
+
+    /* Now that we're done here, we need to use the remaining operators */
+    while (oppos > 0) {
+        if (opstack[--oppos] == '(')
+            FAIL(1, line, "found '(' with no matching ')'");
+        if ((err = operator_apply(opstack[oppos], numstack, &numpos, line)))
+            FAIL(1, line, "could not evaluate expression");
+    }
+
+    if (numpos != 1)
+        FAIL(1, line, "expected operation");
+    if (value)
+        *value = numstack[0];
+    return 0;
+}
+
 int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
 {
     /* The current position in the line */
     int linepos = 0;
     /* The current position in the operand being processed */
     int bufpos = 0;
-    static char buf[MAXOP + 1];
+    char buf[MAXOP + 1];
     /* The operands to the instruction */
-    static char operands[MAX_OPERANDS][MAXOP + 1];
+    char operands[MAX_OPERANDS][MAXOP + 1];
     /* The current operand being processed */
     int n_op;
     /* The cursor position in the current operand */
@@ -379,7 +562,8 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
         int err;
 
         linepos++;
-        if ((err = chip8asm_eval(chipasm, line + linepos, &value)))
+        if ((err =
+                 chip8asm_eval(chipasm, line + linepos, chipasm->line, &value)))
             FAIL(err, chipasm->line, "failed to evaluate expression");
         /* Now, `buf` stores the name of the variable with value `value` */
         if (ltable_add(&chipasm->labels, buf, value))
@@ -477,7 +661,8 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
         break;
     /* Nibble as first operand */
     case OP_SCD:
-        if ((err = chip8asm_eval(chipasm, instr->operands[0], &value)))
+        if ((err = chip8asm_eval(chipasm, instr->operands[0], instr->line,
+                                 &value)))
             return err;
         ci.nibble = value;
         break;
@@ -486,7 +671,8 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     case OP_CALL:
     case OP_LD_I:
     case OP_JP_V0:
-        if ((err = chip8asm_eval(chipasm, instr->operands[0], &value)))
+        if ((err = chip8asm_eval(chipasm, instr->operands[0], instr->line,
+                                 &value)))
             return err;
         ci.addr = value;
         break;
@@ -499,7 +685,8 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
         if ((regno = register_num(instr->operands[0])) == -1)
             FAIL(1, instr->line, "'%s' is not the name of a register",
                  instr->operands[0]);
-        if ((err = chip8asm_eval(chipasm, instr->operands[1], &value)))
+        if ((err = chip8asm_eval(chipasm, instr->operands[1], instr->line,
+                                 &value)))
             return err;
         ci.vx = regno;
         ci.byte = value;
@@ -555,7 +742,8 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
             FAIL(1, instr->line, "'%s' is not the name of a register",
                  instr->operands[1]);
         ci.vy = regno;
-        if ((err = chip8asm_eval(chipasm, instr->operands[2], &value)))
+        if ((err = chip8asm_eval(chipasm, instr->operands[2], instr->line,
+                                 &value)))
             return err;
         ci.nibble = value;
         break;
@@ -565,14 +753,6 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     if (opcode)
         *opcode = chip8_instruction_to_opcode(ci);
 
-    return 0;
-}
-
-static int chip8asm_eval(const struct chip8asm *chipasm, const char *expr,
-                         uint16_t *value)
-{
-    if (value)
-        *value = 0;
     return 0;
 }
 
@@ -877,6 +1057,105 @@ static void ltable_clear(struct ltable *tab)
             b = next;
         }
         tab->buckets[i] = NULL;
+    }
+}
+
+static bool ltable_get(const struct ltable *tab, const char *key,
+                       uint16_t *value)
+{
+    size_t n_bucket = hash_str(key) % LTABLE_SIZE;
+
+    for (struct ltable_bucket *b = tab->buckets[n_bucket]; b != NULL;
+         b = b->next) {
+        if (!strcmp(key, b->label)) {
+            if (value)
+                *value = b->addr;
+            return true;
+        }
+    }
+    return false;
+}
+
+static int operator_apply(char op, unsigned *numstack, int *numpos, int line)
+{
+    if (((op == '~' || op == '_') && *numpos == 0) || *numpos == 1)
+        FAIL(1, line, "expected argument to operator");
+    switch (op) {
+    case '&':
+        numstack[*numpos - 2] &= numstack[*numpos - 1];
+        (*numpos)--;
+        break;
+    case '|':
+        numstack[*numpos - 2] |= numstack[*numpos - 1];
+        (*numpos)--;
+        break;
+    case '^':
+        numstack[*numpos - 2] ^= numstack[*numpos - 1];
+        (*numpos)--;
+        break;
+    case '>':
+        numstack[*numpos - 2] >>= numstack[*numpos - 1];
+        (*numpos)--;
+        break;
+    case '<':
+        numstack[*numpos - 2] <<= numstack[*numpos - 1];
+        (*numpos)--;
+        break;
+    case '+':
+        numstack[*numpos - 2] += numstack[*numpos - 1];
+        (*numpos)--;
+        break;
+    case '-':
+        numstack[*numpos - 2] -= numstack[*numpos - 1];
+        (*numpos)--;
+        break;
+    case '*':
+        numstack[*numpos - 2] *= numstack[*numpos - 1];
+        (*numpos)--;
+        break;
+    case '/':
+        numstack[*numpos - 2] *= numstack[*numpos - 1];
+        (*numpos)--;
+        break;
+    case '%':
+        numstack[*numpos - 2] %= numstack[*numpos - 1];
+        (*numpos)--;
+        break;
+    case '~':
+        numstack[*numpos - 1] = ~numstack[*numpos - 1];
+        break;
+    case '_':
+        numstack[*numpos - 1] = -numstack[*numpos - 1];
+        break;
+    default:
+        FAIL(1, line, "unknown operator `%c`", op);
+    }
+
+    return 0;
+}
+
+static int precedence(char op)
+{
+    switch (op) {
+    case '&':
+    case '|':
+    case '^':
+        return 1;
+    case '>':
+    case '<':
+        return 2;
+    case '+':
+    case '-':
+        return 3;
+    case '*':
+    case '/':
+    case '%':
+        return 4;
+    case '~':
+    case '_':
+        return 1000;
+    default:
+        return -1;
     }
 }
 

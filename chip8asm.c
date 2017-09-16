@@ -80,8 +80,16 @@ static struct progopts progopts_default(void)
 
 static int run(struct progopts opts)
 {
+    struct chip8asm *chipasm = chip8asm_new();
+    uint16_t val;
+    int err;
+
     printf("This is a placeholder for later code.\n");
     printf("The input file is '%s' and the output file is '%s'.\n", opts.input,
            opts.output);
+
+    if (!(err = chip8asm_eval(chipasm, "#FF & ~#F0", 1, &val))) {
+        printf("Answer = %hd\n", val);
+    }
     return 0;
 }
