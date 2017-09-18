@@ -1,0 +1,61 @@
+;; A simple program to display the built-in font characters.
+;;
+;; Registers:
+;; V0 - Draw x position
+;; V1 - Draw y position
+;; V2 - Character number to draw
+
+;; The dimensions of the sprites
+LOW_HEIGHT = 5
+LOW_WIDTH = 4
+HIGH_HEIGHT = 10
+HIGH_WIDTH = 8
+;; Adjust this to space the sprites out more or less
+PADDING = 2
+
+   HIGH                         ; Switch to Super-Chip display mode
+   LD V0, 0
+   LD V1, 0
+   LD V2, 0
+
+draw_low:
+   SNE V2, #10
+   JP draw_high_start
+   LD F, V2
+   DRW V0, V1, LOW_HEIGHT
+   ;; We want to draw the sprites on two lines
+   SNE V2, #7
+   JP draw_low_nl
+draw_low_no_nl:
+   ADD V0, LOW_WIDTH + PADDING
+   ADD V2, 1
+   JP draw_low
+draw_low_nl:
+   LD V0, 0
+   ADD V1, LOW_HEIGHT + PADDING
+   ADD V2, 1
+   JP draw_low
+
+draw_high_start:
+    LD V0, 0
+    ADD V1, LOW_HEIGHT + 2 * PADDING
+draw_high:
+    SNE V2, #20
+    JP done
+    LD HF, V2
+    DRW V0, V1, HIGH_HEIGHT
+    ;; We want to draw the sprites on two lines
+    SNE V2, #17
+    JP draw_high_nl
+draw_high_no_nl:
+    ADD V0, HIGH_WIDTH + 2 * PADDING
+    ADD V2, 1
+    JP draw_high
+draw_high_nl:
+    LD V0, 0
+    ADD V1, HIGH_HEIGHT + 2 * PADDING
+    ADD V2, 1
+    JP draw_high
+
+done:
+    JP done

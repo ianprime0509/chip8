@@ -513,6 +513,8 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
     int n_op;
     /* The cursor position in the current operand */
     int oppos;
+    /* Whether we should process a constant assignment */
+    bool is_assignment = false;
 
     chipasm->line++;
 
@@ -549,8 +551,15 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
     }
     buf[bufpos] = '\0';
 
-    /* If we ended with a comment character, then we have no operands */
-    if (line[linepos] == ';')
+    /* Skip whitespace */
+    while (isspace(line[linepos]))
+        linepos++;
+    /*
+     * If we ended with a comment character, then we have no operands. Just make
+     * sure that we don't have an empty line at this point, or else the
+     * instruction processing will fail.
+     */
+    if (line[linepos] == ';' && strcmp(buf, ""))
         return chip8asm_process_instruction(chipasm, buf, operands, 0);
 
     /*
@@ -560,23 +569,13 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
      */
     if (bufpos == 0)
         return 0;
-    /* Skip whitespace */
-    while (isspace(line[linepos]))
-        linepos++;
     /* If we come across an `=`, that means we have a variable assignment */
     if (line[linepos] == '=') {
-        uint16_t value;
-        int err;
-
         linepos++;
-        if ((err =
-                 chip8asm_eval(chipasm, line + linepos, chipasm->line, &value)))
-            FAIL(err, chipasm->line, "failed to evaluate expression");
-        /* Now, `buf` stores the name of the variable with value `value` */
-        if (ltable_add(&chipasm->labels, buf, value))
-            FAIL(1, chipasm->line, "duplicate label or variable `%s` found",
-                 buf);
-        return 0;
+        is_assignment = true;
+        /* Skip whitespace */
+        while (isspace(line[linepos]))
+            linepos++;
     }
 
     /*
@@ -629,7 +628,22 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
         ;
     operands[n_op][oppos + 1] = '\0';
 
-    return chip8asm_process_instruction(chipasm, buf, operands, n_op + 1);
+    if (is_assignment) {
+        uint16_t value;
+        int err;
+
+        if (n_op != 0)
+            FAIL(1, chipasm->line, "too many operands given to `=`");
+        if ((err = chip8asm_eval(chipasm, operands[0], chipasm->line, &value)))
+            FAIL(err, chipasm->line, "failed to evaluate expression");
+        /* Now, `buf` stores the name of the variable with value `value` */
+        if (ltable_add(&chipasm->labels, buf, value))
+            FAIL(1, chipasm->line, "duplicate label or variable `%s` found",
+                 buf);
+        return 0;
+    } else {
+        return chip8asm_process_instruction(chipasm, buf, operands, n_op + 1);
+    }
 }
 
 static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
@@ -850,11 +864,10 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         instr.operands[0] = strdup(operands[0]);
         instr.operands[1] = strdup(operands[1]);
         /* Figure out which `SE` we're using */
-        if ((operands[1][0] == 'V' || operands[1][0] == 'v') &&
-            isxdigit(operands[1][1]) && operands[1][2] == '\0')
-            instr.chipop = OP_SE_BYTE;
-        else
+        if (register_num(operands[1]) != -1)
             instr.chipop = OP_SE_REG;
+        else
+            instr.chipop = OP_SE_BYTE;
     }
     else if (!strcasecmp(op, "SNE"))
     {
@@ -863,11 +876,10 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         instr.operands[0] = strdup(operands[0]);
         instr.operands[1] = strdup(operands[1]);
         /* Figure out which `SNE` we're using */
-        if ((operands[1][0] == 'V' || operands[1][0] == 'v') &&
-            isxdigit(operands[1][1]) && operands[1][2] == '\0')
-            instr.chipop = OP_SNE_BYTE;
-        else
+        if (register_num(operands[1]) != -1)
             instr.chipop = OP_SNE_REG;
+        else
+            instr.chipop = OP_SNE_BYTE;
     }
     else if (!strcasecmp(op, "LD"))
     {
@@ -905,8 +917,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         } else if (!strcasecmp(operands[0], "R")) {
             instr.chipop = OP_LD_R_REG;
             instr.operands[0] = strdup(operands[1]);
-        } else if ((operands[1][0] == 'V' || operands[1][0] == 'v') &&
-                   isxdigit(operands[1][1]) && operands[1][2] == '\0') {
+        } else if (register_num(operands[1]) != -1) {
             instr.chipop = OP_LD_REG;
             instr.operands[0] = strdup(operands[0]);
             instr.operands[1] = strdup(operands[1]);
@@ -936,13 +947,12 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         if (!strcasecmp(operands[0], "I")) {
             instr.chipop = OP_ADD_I;
             instr.operands[0] = strdup(operands[1]);
-        } else if ((operands[1][0] == 'V' || operands[1][0] == 'v') &&
-                   isxdigit(operands[1][1]) && operands[1][2] == '\0') {
-            instr.chipop = OP_ADD_BYTE;
+        } else if (register_num(operands[1]) != -1) {
+            instr.chipop = OP_ADD_REG;
             instr.operands[0] = strdup(operands[0]);
             instr.operands[1] = strdup(operands[1]);
         } else {
-            instr.chipop = OP_ADD_REG;
+            instr.chipop = OP_ADD_BYTE;
             instr.operands[0] = strdup(operands[0]);
             instr.operands[1] = strdup(operands[1]);
         }

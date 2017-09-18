@@ -21,6 +21,7 @@
 
 #include <getopt.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "assembler.h"
@@ -29,6 +30,10 @@
  * The size of the temporary input line buffer.
  */
 #define MAXLINE 500
+/**
+ * The output extension to use by default.
+ */
+#define OUTPUTEXT ".bin"
 
 /**
  * Options which can be passed to the program.
@@ -36,10 +41,14 @@
 struct progopts {
     /**
      * The output file name.
+     *
+     * For consistency, this should be heap-allocated memory.
      */
     char *output;
     /**
      * The input file name.
+     *
+     * For consistency, this should be heap-allocated memory.
      */
     char *input;
 };
@@ -53,11 +62,14 @@ int main(int argc, char **argv)
     struct progopts opts = progopts_default();
     const struct option options[] = {{"output", required_argument, NULL, 'o'},
                                      {0, 0, 0, 0}};
+    char *extension;
 
     while ((option = getopt_long(argc, argv, "o:", options, NULL)) != -1) {
         switch (option) {
         case 'o':
-            opts.output = optarg;
+            if (opts.output)
+                free(opts.output);
+            opts.output = strdup(optarg);
             break;
         case '?':
             return 1;
@@ -65,12 +77,31 @@ int main(int argc, char **argv)
     }
 
     if (optind == argc - 1) {
-        opts.input = argv[optind];
+        opts.input = strdup(argv[optind]);
     } else if (optind == argc) {
-        opts.input = "-";
+        opts.input = strdup("-");
     } else {
         fprintf(stderr, "Usage: chip8asm [OPTION...] [FILE]\n");
         return 1;
+    }
+
+    /* We try to deduce the output file name if it is not given */
+    if (!opts.output) {
+        if (!strcmp(opts.input, "-")) {
+            opts.output = strdup("-");
+        } else if (!(extension = strrchr(opts.input, '.'))) {
+            /* No extension given */
+            opts.output = malloc(strlen(opts.input) + strlen(OUTPUTEXT) + 1);
+            strcpy(opts.output, opts.input);
+            strcat(opts.output, OUTPUTEXT);
+        } else {
+            /* Replace extension */
+            int extpos = extension - opts.input;
+
+            opts.output = malloc(extpos + strlen(OUTPUTEXT) + 1);
+            memcpy(opts.output, opts.input, extpos);
+            strcpy(opts.output + extpos, OUTPUTEXT);
+        }
     }
 
     return run(opts);
@@ -78,7 +109,7 @@ int main(int argc, char **argv)
 
 static struct progopts progopts_default(void)
 {
-    return (struct progopts){.input = "-", .output = "-"};
+    return (struct progopts){.input = NULL, .output = NULL};
 }
 
 static int run(struct progopts opts)
@@ -127,5 +158,7 @@ static int run(struct progopts opts)
         return 1;
     }
 
+    free(opts.input);
+    free(opts.output);
     return 0;
 }
