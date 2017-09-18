@@ -21,8 +21,14 @@
 
 #include <getopt.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "assembler.h"
+
+/**
+ * The size of the temporary input line buffer.
+ */
+#define MAXLINE 500
 
 /**
  * Options which can be passed to the program.
@@ -58,15 +64,12 @@ int main(int argc, char **argv)
         }
     }
 
-    if (optind != argc - 1) {
-        fprintf(stderr, "Usage: chip8asm [OPTION...] FILE\n");
-        return 1;
-    }
-    opts.input = argv[optind];
-
-    /* For now, require a specified output path */
-    if (!opts.output) {
-        fprintf(stderr, "Error: must specify an output path (use `-o`)\n");
+    if (optind == argc - 1) {
+        opts.input = argv[optind];
+    } else if (optind == argc) {
+        opts.input = "-";
+    } else {
+        fprintf(stderr, "Usage: chip8asm [OPTION...] [FILE]\n");
         return 1;
     }
 
@@ -75,24 +78,53 @@ int main(int argc, char **argv)
 
 static struct progopts progopts_default(void)
 {
-    return (struct progopts){};
+    return (struct progopts){.input = "-", .output = "-"};
 }
 
 static int run(struct progopts opts)
 {
     struct chip8asm *chipasm = chip8asm_new();
-    uint16_t val;
+    struct chip8asm_program prog;
+    FILE *input, *output;
+    char str[MAXLINE];
     int err;
-    char str[300];
 
-    printf("This is a placeholder for later code.\n");
-    printf("The input file is '%s' and the output file is '%s'.\n", opts.input,
-           opts.output);
+    if (!strcmp(opts.input, "-")) {
+        input = stdin;
+    } else if (!(input = fopen(opts.input, "r"))) {
+        perror("Could not open input file for reading");
+        return 1;
+    }
 
-    for (;;) {
-        fgets(str, 300, stdin);
-        chip8asm_eval(chipasm, str, 1, &val);
-        printf("Result = %u\n", val);
+    if (!strcmp(opts.output, "-")) {
+        output = stdout;
+    } else if (!(output = fopen(opts.output, "w"))) {
+        perror("Could not open output file for writing");
+        return 1;
+    }
+
+    while (fgets(str, MAXLINE, input)) {
+        if ((err = chip8asm_process_line(chipasm, str))) {
+            fprintf(stderr, "Could not process input file; aborting\n");
+            return 1;
+        }
+    }
+    /* Make sure there wasn't an error in reading */
+    if (ferror(input)) {
+        perror("Error reading from input file");
+        return 1;
+    }
+
+    memset(&prog, 0, sizeof prog);
+    if ((err = chip8asm_emit(chipasm, &prog))) {
+        fprintf(stderr, "Assembler second pass failed; aborting\n");
+        return 1;
+    }
+
+    fwrite(prog.mem, 1, prog.len, output);
+    if (ferror(output)) {
+        perror("Error writing to output file");
+        return 1;
     }
 
     return 0;

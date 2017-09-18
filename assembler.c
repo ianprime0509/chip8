@@ -298,6 +298,7 @@ int chip8asm_emit(struct chip8asm *chipasm, struct chip8asm_program *prog)
     for (size_t i = 0; i < chipasm->instructions.len; i++) {
         const struct instruction *instr = &chipasm->instructions.data[i];
         uint16_t opcode;
+        size_t mempos = instr->pc - CHIP8_PROG_START;
         int err;
 
         switch (instr->type) {
@@ -305,23 +306,29 @@ int chip8asm_emit(struct chip8asm *chipasm, struct chip8asm_program *prog)
             FAIL(1, instr->line,
                  "invalid instruction (this should never happen)");
         case IT_DB:
-            if ((err = chip8asm_eval(chipasm, instr->operands[1], instr->line,
+            if ((err = chip8asm_eval(chipasm, instr->operands[0], instr->line,
                                      &opcode)))
                 return err;
-            prog->mem[instr->pc] = opcode & 0xFF;
+            prog->mem[mempos] = opcode & 0xFF;
+            if (mempos + 1 > prog->len)
+                prog->len = mempos + 1;
             break;
         case IT_DW:
-            if ((err = chip8asm_eval(chipasm, instr->operands[1], instr->line,
+            if ((err = chip8asm_eval(chipasm, instr->operands[0], instr->line,
                                      &opcode)))
                 return err;
-            prog->mem[instr->pc] = (opcode >> 8) & 0xFF;
-            prog->mem[instr->pc + 1] = opcode & 0xFF;
+            prog->mem[mempos] = (opcode >> 8) & 0xFF;
+            prog->mem[mempos + 1] = opcode & 0xFF;
+            if (mempos + 2 > prog->len)
+                prog->len = mempos + 2;
             break;
         case IT_CHIP8_OP:
             if ((err = chip8asm_compile_chip8op(chipasm, instr, &opcode)))
                 return err;
-            prog->mem[instr->pc] = (opcode >> 8) & 0xFF;
-            prog->mem[instr->pc + 1] = opcode & 0xFF;
+            prog->mem[mempos] = (opcode >> 8) & 0xFF;
+            prog->mem[mempos + 1] = opcode & 0xFF;
+            if (mempos + 2 > prog->len)
+                prog->len = mempos + 2;
             break;
         }
     }
@@ -775,6 +782,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
 
     struct instruction instr = {0};
     instr.line = chipasm->line;
+    instr.n_operands = n_operands;
 
     /* Handle special assembler instructions */
     if (!strcasecmp(op, "DEFINE")) {
@@ -1008,7 +1016,7 @@ static int instructions_reserve(struct instructions *lst, size_t cap)
 
     if (cap <= lst->cap)
         return 0;
-    if (!(new = realloc(lst->data, cap)))
+    if (!(new = realloc(lst->data, cap * sizeof *lst->data)))
         return 1;
 
     lst->data = new;

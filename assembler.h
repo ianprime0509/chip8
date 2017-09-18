@@ -21,6 +21,7 @@
 #ifndef CHIP8_ASSEMBLER_H
 #define CHIP8_ASSEMBLER_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "instruction.h"
@@ -36,8 +37,15 @@
 struct chip8asm_program {
     /**
      * The bytes of the assembled program.
+     *
+     * This is only the memory of the program itself, and does not include the
+     * reserved area for the interpreter, which ends at CHIP8_PROG_START.
      */
     uint8_t mem[CHIP8_PROG_SIZE];
+    /**
+     * The length of the assembled program.
+     */
+    size_t len;
 };
 
 /**
