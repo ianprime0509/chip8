@@ -1078,8 +1078,14 @@ static bool ltable_get(const struct ltable *tab, const char *key,
 
 static int operator_apply(char op, unsigned *numstack, int *numpos, int line)
 {
-    if (((op == '~' || op == '_') && *numpos == 0) || *numpos == 1)
-        FAIL(1, line, "expected argument to operator");
+    if (op == '~' || op == '_') {
+        if (*numpos == 0)
+            FAIL(1, line, "expected argument to operator");
+    } else {
+        if (*numpos <= 1)
+            FAIL(1, line, "expected argument to operator");
+    }
+
     switch (op) {
     case '&':
         numstack[*numpos - 2] &= numstack[*numpos - 1];
@@ -1114,7 +1120,7 @@ static int operator_apply(char op, unsigned *numstack, int *numpos, int line)
         (*numpos)--;
         break;
     case '/':
-        numstack[*numpos - 2] *= numstack[*numpos - 1];
+        numstack[*numpos - 2] /= numstack[*numpos - 1];
         (*numpos)--;
         break;
     case '%':
@@ -1137,20 +1143,22 @@ static int operator_apply(char op, unsigned *numstack, int *numpos, int line)
 static int precedence(char op)
 {
     switch (op) {
-    case '&':
     case '|':
-    case '^':
         return 1;
+    case '^':
+        return 2;
+    case '&':
+        return 3;
     case '>':
     case '<':
-        return 2;
+        return 4;
     case '+':
     case '-':
-        return 3;
+        return 5;
     case '*':
     case '/':
     case '%':
-        return 4;
+        return 6;
     case '~':
     case '_':
         return 1000;

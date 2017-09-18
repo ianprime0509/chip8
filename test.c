@@ -25,6 +25,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "assembler.h"
 #include "interpreter.h"
 
 #define TEST_RUN(test) test_run(#test, test)
@@ -60,7 +61,7 @@
              : "%hhd", unsigned char                                           \
              : "%hhu", short                                                   \
              : "%hd", unsigned short                                           \
-             : "%ud", int                                                      \
+             : "%hu", int                                                      \
              : "%d", unsigned int                                              \
              : "%u")
 
@@ -73,6 +74,7 @@ static int test_teardown(void);
 static struct chip8_options chip8_options_testing(void);
 
 int test_arithmetic(void);
+int test_asm_eval(void);
 int test_comparison(void);
 int test_ld(void);
 
@@ -80,6 +82,7 @@ int main(void)
 {
     test_setup();
     TEST_RUN(test_arithmetic);
+    TEST_RUN(test_asm_eval);
     TEST_RUN(test_comparison);
     TEST_RUN(test_ld);
     return test_teardown();
@@ -145,6 +148,42 @@ int test_arithmetic(void)
     chip8_execute_opcode(chip, 0x8307);
     ASSERT_EQ(chip->regs[REG_V3], 0x7A);
     ASSERT_EQ(chip->regs[REG_VF], 1);
+
+    return 0;
+}
+
+int test_asm_eval(void)
+{
+    struct chip8asm *chipasm = chip8asm_new();
+    uint16_t value;
+
+    chip8asm_eval(chipasm, "2 + #F - $10", 1, &value);
+    ASSERT_EQ(value, 15);
+    chip8asm_eval(chipasm, "-1", 2, &value);
+    ASSERT_EQ(value, UINT16_MAX);
+    chip8asm_eval(chipasm, "2 + 3 * 1", 3, &value);
+    ASSERT_EQ(value, 5);
+    chip8asm_eval(chipasm, "((4 + 4) * (#0a - $00000010))", 4, &value);
+    ASSERT_EQ(value, 64);
+    chip8asm_eval(chipasm, "~$01010101 | $01010101 ^ $00001111 & $10101010", 5,
+                  &value);
+    ASSERT_EQ(value, 0xFFFF);
+    chip8asm_eval(chipasm, "7 > 2 < 2", 6, &value);
+    ASSERT_EQ(value, 4);
+    chip8asm_eval(chipasm, "13 % 8 / 2", 7, &value);
+    ASSERT_EQ(value, 2);
+    chip8asm_eval(chipasm, "~--~45", 8, &value);
+    ASSERT_EQ(value, 45);
+    chip8asm_process_line(chipasm, "THE_ANSWER = 42");
+    chip8asm_eval(chipasm, "THE_ANSWER - 2", 9, &value);
+    ASSERT_EQ(value, 40);
+    chip8asm_process_line(chipasm, "_crazyIDENT1234 = #FFFF");
+    chip8asm_eval(chipasm, "~_crazyIDENT1234", 10, &value);
+    ASSERT_EQ(value, 0);
+    /* Test for failure on invalid expressions */
+    ASSERT(chip8asm_eval(chipasm, "~1234~", 11, &value));
+    ASSERT(chip8asm_eval(chipasm, "123+", 12, &value));
+    ASSERT(chip8asm_eval(chipasm, "undefined", 13, &value));
 
     return 0;
 }

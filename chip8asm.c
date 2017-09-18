@@ -83,13 +83,17 @@ static int run(struct progopts opts)
     struct chip8asm *chipasm = chip8asm_new();
     uint16_t val;
     int err;
+    char str[300];
 
     printf("This is a placeholder for later code.\n");
     printf("The input file is '%s' and the output file is '%s'.\n", opts.input,
            opts.output);
 
-    if (!(err = chip8asm_eval(chipasm, "#FF & ~#F0", 1, &val))) {
-        printf("Answer = %hd\n", val);
+    for (;;) {
+        fgets(str, 300, stdin);
+        chip8asm_eval(chipasm, str, 1, &val);
+        printf("Result = %u\n", val);
     }
+
     return 0;
 }
