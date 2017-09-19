@@ -1,4 +1,6 @@
 /*
+ * Copyright 2017 Ian Johnson
+ *
  * This file is part of Chip-8.
  *
  * Chip-8 is free software: you can redistribute it and/or modify
@@ -13,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with Chip-8.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 /**
  * @file
  * The Chip-8 interpreter.

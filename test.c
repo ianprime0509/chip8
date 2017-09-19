@@ -1,4 +1,6 @@
 /*
+ * Copyright 2017 Ian Johnson
+ *
  * This file is part of Chip-8.
  *
  * Chip-8 is free software: you can redistribute it and/or modify
