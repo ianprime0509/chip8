@@ -114,50 +114,76 @@ static struct progopts progopts_default(void)
 
 static int run(struct progopts opts)
 {
-    struct chip8asm *chipasm = chip8asm_new();
-    struct chip8asm_program prog;
+    struct chip8asm *chipasm;
+    struct chip8asm_program *prog;
     FILE *input, *output;
     char str[MAXLINE];
     int err;
+    int retval = 0;
+
+    if (!(chipasm = chip8asm_new())) {
+        perror("Could not create assembler");
+        retval = 1;
+        goto EXIT_NOTHING_CREATED;
+    }
+    if (!(prog = chip8asm_program_new())) {
+        perror("Could not allocate space for program buffer");
+        retval = 1;
+        goto EXIT_CHIPASM_CREATED;
+    }
 
     if (!strcmp(opts.input, "-")) {
         input = stdin;
     } else if (!(input = fopen(opts.input, "r"))) {
         perror("Could not open input file for reading");
-        return 1;
+        retval = 1;
+        goto EXIT_PROG_CREATED;
+    }
+
+    while (fgets(str, MAXLINE, input)) {
+        if ((err = chip8asm_process_line(chipasm, str))) {
+            fprintf(stderr, "Could not process input file; aborting\n");
+            retval = 1;
+            goto EXIT_INPUT_OPENED;
+        }
+    }
+    /* Make sure there wasn't an error in reading */
+    if (ferror(input)) {
+        perror("Error reading from input file");
+        retval = 1;
+        goto EXIT_INPUT_OPENED;
+    }
+
+    if ((err = chip8asm_emit(chipasm, prog))) {
+        fprintf(stderr, "Assembler second pass failed; aborting\n");
+        retval = 1;
+        goto EXIT_INPUT_OPENED;
     }
 
     if (!strcmp(opts.output, "-")) {
         output = stdout;
     } else if (!(output = fopen(opts.output, "w"))) {
         perror("Could not open output file for writing");
-        return 1;
+        retval = 1;
+        goto EXIT_INPUT_OPENED;
     }
 
-    while (fgets(str, MAXLINE, input)) {
-        if ((err = chip8asm_process_line(chipasm, str))) {
-            fprintf(stderr, "Could not process input file; aborting\n");
-            return 1;
-        }
-    }
-    /* Make sure there wasn't an error in reading */
-    if (ferror(input)) {
-        perror("Error reading from input file");
-        return 1;
-    }
-
-    memset(&prog, 0, sizeof prog);
-    if ((err = chip8asm_emit(chipasm, &prog))) {
-        fprintf(stderr, "Assembler second pass failed; aborting\n");
-        return 1;
-    }
-
-    fwrite(prog.mem, 1, prog.len, output);
+    fwrite(prog->mem, 1, prog->len, output);
     if (ferror(output)) {
         perror("Error writing to output file");
-        return 1;
+        retval = 1;
+        goto EXIT_OUTPUT_OPENED;
     }
 
+EXIT_OUTPUT_OPENED:
+    fclose(output);
+EXIT_INPUT_OPENED:
+    fclose(input);
+EXIT_PROG_CREATED:
+    chip8asm_program_destroy(prog);
+EXIT_CHIPASM_CREATED:
+    chip8asm_destroy(chipasm);
+EXIT_NOTHING_CREATED:
     free(opts.input);
     free(opts.output);
     return 0;

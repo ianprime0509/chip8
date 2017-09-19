@@ -97,4 +97,22 @@ int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
  */
 int chip8asm_process_line(struct chip8asm *chipasm, const char *line);
 
+/**
+ * Returns a new program with an empty buffer.
+ */
+struct chip8asm_program *chip8asm_program_new(void);
+/**
+ * Destroys the given program.
+ */
+void chip8asm_program_destroy(struct chip8asm_program *prog);
+
+/**
+ * Returns the opcode of the instruction at the given address.
+ *
+ * Note that this does not check whether the address you give is aligned, so be
+ * careful!
+ */
+uint16_t chip8asm_program_opcode(const struct chip8asm_program *prog,
+                                 uint16_t addr);
+
 #endif

@@ -140,7 +140,7 @@ enum chip8_operation {
      */
     OP_ADD_BYTE,
     /**
-     * Load register into register (`LD, Vx, Vy`).
+     * Load register into register (`LD Vx, Vy`).
      * Opcode `8xy0`.
      */
     OP_LD_REG,

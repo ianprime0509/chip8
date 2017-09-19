@@ -555,20 +555,19 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
     while (isspace(line[linepos]))
         linepos++;
     /*
-     * If we ended with a comment character, then we have no operands. Just make
-     * sure that we don't have an empty line at this point, or else the
-     * instruction processing will fail.
-     */
-    if (line[linepos] == ';' && strcmp(buf, ""))
-        return chip8asm_process_instruction(chipasm, buf, operands, 0);
-
-    /*
      * At this point, whatever is in `buf` is the name of an operation, or of a
      * variable to be assigned using `=`; if `buf` is empty, that means there's
      * nothing left on the line to inspect
      */
     if (bufpos == 0)
         return 0;
+    /*
+     * If we ended with a comment character or a NUL byte, then we have no
+     * operands.
+     */
+    if (line[linepos] == ';' || line[linepos] == '\0')
+        return chip8asm_process_instruction(chipasm, buf, operands, 0);
+
     /* If we come across an `=`, that means we have a variable assignment */
     if (line[linepos] == '=') {
         linepos++;
@@ -644,6 +643,22 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
     } else {
         return chip8asm_process_instruction(chipasm, buf, operands, n_op + 1);
     }
+}
+
+struct chip8asm_program *chip8asm_program_new(void)
+{
+    return calloc(1, sizeof(struct chip8asm_program));
+}
+
+void chip8asm_program_destroy(struct chip8asm_program *prog)
+{
+    free(prog);
+}
+
+uint16_t chip8asm_program_opcode(const struct chip8asm_program *prog,
+                                 uint16_t addr)
+{
+    return (uint16_t)prog->mem[addr] << 8 | prog->mem[addr + 1];
 }
 
 static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
