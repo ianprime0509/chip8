@@ -73,10 +73,29 @@ static int test_teardown(void);
 
 static struct chip8_options chip8_options_testing(void);
 
+/**
+ * Tests Chip-8 arithmetic instruction evaluation.
+ */
 int test_arithmetic(void);
+/**
+ * Tests assembly of instructions.
+ */
 int test_asm(void);
+/**
+ * Tests assembly instruction alignment.
+ */
+int test_asm_align(void);
+/**
+ * Tests evaluation of expressions in assembler.
+ */
 int test_asm_eval(void);
+/**
+ * Tests Chip-8 comparison instruction evaluation.
+ */
 int test_comparison(void);
+/**
+ * Tests Chip-8 memory instruction evaluation.
+ */
 int test_ld(void);
 
 int main(void)
@@ -84,6 +103,7 @@ int main(void)
     test_setup();
     TEST_RUN(test_arithmetic);
     TEST_RUN(test_asm);
+    TEST_RUN(test_asm_align);
     TEST_RUN(test_asm_eval);
     TEST_RUN(test_comparison);
     TEST_RUN(test_ld);
@@ -151,6 +171,7 @@ int test_arithmetic(void)
     ASSERT_EQ(chip->regs[REG_V3], 0x7A);
     ASSERT_EQ(chip->regs[REG_VF], 1);
 
+    chip8_destroy(chip);
     return 0;
 }
 
@@ -218,9 +239,45 @@ int test_asm(void)
     ASSERT(!chip8asm_process_line(chipasm, "JP PROGRAM_START"));
     ASSERT(chip8asm_emit(chipasm, prog));
 
+    chip8asm_program_destroy(prog);
+    chip8asm_destroy(chipasm);
     return 0;
 
 #undef TEST_INSTR
+}
+
+int test_asm_align(void)
+{
+    struct chip8asm *chipasm = chip8asm_new();
+    struct chip8asm_program *prog = chip8asm_program_new();
+
+    ASSERT(!chip8asm_process_line(chipasm, "DW #1234"));
+    ASSERT(!chip8asm_process_line(chipasm, "DB #56"));
+    ASSERT(!chip8asm_process_line(chipasm, "DW #789A"));
+    ASSERT(!chip8asm_process_line(chipasm, "JP #200"));
+    ASSERT(!chip8asm_process_line(chipasm, "DB #BC"));
+    /* Labels must also be aligned */
+    ASSERT(!chip8asm_process_line(chipasm, "lbl:"));
+    ASSERT(!chip8asm_process_line(chipasm, "JP lbl"));
+    ASSERT(!chip8asm_emit(chipasm, prog));
+
+    ASSERT_EQ(prog->mem[0], 0x12);
+    ASSERT_EQ(prog->mem[1], 0x34);
+    ASSERT_EQ(prog->mem[2], 0x56);
+    ASSERT_EQ(prog->mem[3], 0x78);
+    ASSERT_EQ(prog->mem[4], 0x9A);
+    /* The JP instruction must be aligned */
+    ASSERT_EQ(prog->mem[5], 0x00);
+    ASSERT_EQ(prog->mem[6], 0x12);
+    ASSERT_EQ(prog->mem[7], 0x00);
+    ASSERT_EQ(prog->mem[8], 0xBC);
+    ASSERT_EQ(prog->mem[9], 0x00);
+    ASSERT_EQ(prog->mem[10], 0x12);
+    ASSERT_EQ(prog->mem[11], 0x0A);
+
+    chip8asm_program_destroy(prog);
+    chip8asm_destroy(chipasm);
+    return 0;
 }
 
 int test_asm_eval(void)
@@ -256,6 +313,7 @@ int test_asm_eval(void)
     ASSERT(chip8asm_eval(chipasm, "123+", 12, &value));
     ASSERT(chip8asm_eval(chipasm, "undefined", 13, &value));
 
+    chip8asm_destroy(chipasm);
     return 0;
 }
 
@@ -286,6 +344,7 @@ int test_comparison(void)
     chip8_execute_opcode(chip, 0x9010);
     ASSERT_EQ(chip->pc, pc + 4);
 
+    chip8_destroy(chip);
     return 0;
 }
 
@@ -318,6 +377,7 @@ int test_ld(void)
     ASSERT_EQ(chip->mem[0x601], 0);
     ASSERT_EQ(chip->mem[0x602], 3);
 
+    chip8_destroy(chip);
     return 0;
 }
 

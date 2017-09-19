@@ -38,15 +38,6 @@
  */
 #define STACK_SIZE 100
 
-#define EXPECT_OPERANDS(line, op, want, got)                                   \
-    do {                                                                       \
-        if ((want) > (got)) {                                                  \
-            FAIL(1, (line), "too few operands to %s", (op));                   \
-        } else if ((got) > (want)) {                                           \
-            FAIL(1, (line), "too many operands to %s", (op));                  \
-        }                                                                      \
-    } while (0)
-
 #define FAIL(errcode, line, ...)                                               \
     do {                                                                       \
         fprintf(stderr, "ERROR on line %d: ", (line));                         \
@@ -188,6 +179,10 @@ struct chip8asm {
      */
     struct instructions instructions;
     /**
+     * The label that should be associated with the next instruction processed.
+     */
+    char *line_label;
+    /**
      * The current line being processed.
      */
     int line;
@@ -197,6 +192,14 @@ struct chip8asm {
     uint16_t pc;
 };
 
+/**
+ * Adds the instruction to the internal list, completing its first pass.
+ *
+ * This will also process any label that might be associated with this
+ * instruction.
+ */
+static int chip8asm_add_instruction(struct chip8asm *chipasm,
+                                    struct instruction instr);
 /**
  * Attempts to compile the given Chip-8 instruction into an opcode.
  * The given instruction MUST have type `IT_CHIP8_OP`, or the results are
@@ -291,6 +294,8 @@ void chip8asm_destroy(struct chip8asm *chipasm)
         return;
     ltable_clear(&chipasm->labels);
     instructions_clear(&chipasm->instructions);
+    free(chipasm->line_label);
+    free(chipasm);
 }
 
 int chip8asm_emit(struct chip8asm *chipasm, struct chip8asm_program *prog)
@@ -531,9 +536,12 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
             buf[bufpos] = '\0';
             if (bufpos == 0)
                 FAIL(1, chipasm->line, "found empty label");
-            if (ltable_add(&chipasm->labels, buf, chipasm->pc))
-                FAIL(1, chipasm->line, "duplicate label or variable `%s` found",
-                     buf);
+            if (chipasm->line_label)
+                FAIL(1, chipasm->line, "cannot associate more than one label "
+                                       "with a statement; already found label "
+                                       "'%s'",
+                     chipasm->line_label);
+            chipasm->line_label = strdup(buf);
             /* Now skip whitespace before going on to find the next label */
             while (isspace(line[++linepos]))
                 ;
@@ -659,6 +667,21 @@ uint16_t chip8asm_program_opcode(const struct chip8asm_program *prog,
                                  uint16_t addr)
 {
     return (uint16_t)prog->mem[addr] << 8 | prog->mem[addr + 1];
+}
+
+static int chip8asm_add_instruction(struct chip8asm *chipasm,
+                                    struct instruction instr)
+{
+    /* Add label to ltable, if any */
+    if (chipasm->line_label) {
+        if (ltable_add(&chipasm->labels, chipasm->line_label, instr.pc))
+            FAIL(1, chipasm->line, "duplicate label or variable `%s` found",
+                 chipasm->line_label);
+        free(chipasm->line_label);
+        chipasm->line_label = NULL;
+    }
+    instructions_add(&chipasm->instructions, instr);
+    return 0;
 }
 
 static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
@@ -807,6 +830,16 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         for (int i = 0; i < (nops); i++)                                       \
             instr.operands[i] = strdup(operands[i]);                           \
     }
+
+#define EXPECT_OPERANDS(line, op, want, got)                                   \
+    do {                                                                       \
+        if ((want) > (got)) {                                                  \
+            FAIL(1, (line), "too few operands to %s", (op));                   \
+        } else if ((got) > (want)) {                                           \
+            FAIL(1, (line), "too many operands to %s", (op));                  \
+        }                                                                      \
+    } while (0)
+
     /* End preprocessor abuse */
 
     struct instruction instr = {0};
@@ -824,7 +857,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         instr.operands[0] = strdup(operands[0]);
         /* We don't have to worry about aligning pc here */
         instr.pc = chipasm->pc;
-        instructions_add(&chipasm->instructions, instr);
+        chip8asm_add_instruction(chipasm, instr);
         chipasm->pc++;
         return 0;
     } else if (!strcasecmp(op, "DW")) {
@@ -833,8 +866,12 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         instr.operands[0] = strdup(operands[0]);
         /* We don't have to worry about aligning pc here */
         instr.pc = chipasm->pc;
-        instructions_add(&chipasm->instructions, instr);
+        chip8asm_add_instruction(chipasm, instr);
         chipasm->pc += 2;
+        return 0;
+    } else if (!strcasecmp(op, "OPTION")) {
+        EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
+        WARN(chipasm->line, "ignoring unrecognized option '%s'", operands[0]);
         return 0;
     }
 
@@ -989,7 +1026,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
 
     /* Every Chip-8 instruction is exactly 2 bytes long */
     chipasm->pc += 2;
-    instructions_add(&chipasm->instructions, instr);
+    chip8asm_add_instruction(chipasm, instr);
     return 0;
 
 /* Nobody has to know about this */

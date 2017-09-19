@@ -186,5 +186,5 @@ EXIT_CHIPASM_CREATED:
 EXIT_NOTHING_CREATED:
     free(opts.input);
     free(opts.output);
-    return 0;
+    return retval;
 }
