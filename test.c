@@ -28,7 +28,7 @@
 #include "assembler.h"
 #include "interpreter.h"
 
-#define TEST_RUN(test) test_run(#test, test)
+#define TEST_RUN(test) testing_run(#test, test)
 #define ASSERT(cond)                                                           \
     do {                                                                       \
         if (!(cond)) {                                                         \
@@ -67,9 +67,9 @@
 
 static int n_failures;
 
-static void test_run(const char *name, int (*test)(void));
-static void test_setup(void);
-static int test_teardown(void);
+static void testing_run(const char *name, int (*test)(void));
+static void testing_setup(void);
+static int testing_teardown(void);
 
 static struct chip8_options chip8_options_testing(void);
 
@@ -100,14 +100,14 @@ int test_ld(void);
 
 int main(void)
 {
-    test_setup();
+    testing_setup();
     TEST_RUN(test_arithmetic);
     TEST_RUN(test_asm);
     TEST_RUN(test_asm_align);
     TEST_RUN(test_asm_eval);
     TEST_RUN(test_comparison);
     TEST_RUN(test_ld);
-    return test_teardown();
+    return testing_teardown();
 }
 
 int test_arithmetic(void)
@@ -381,7 +381,7 @@ int test_ld(void)
     return 0;
 }
 
-static void test_run(const char *name, int (*test)(void))
+static void testing_run(const char *name, int (*test)(void))
 {
     int res;
 
@@ -390,18 +390,18 @@ static void test_run(const char *name, int (*test)(void))
         printf("-----Test FAILED with status %d\n", res);
         n_failures++;
     } else {
-        printf("+++++Test PASSED\n");
+        printf("+++++Test PASSED\n\n");
     }
 }
 
-static void test_setup(void)
+static void testing_setup(void)
 {
     printf("Starting tests\n");
 }
 
-static int test_teardown(void)
+static int testing_teardown(void)
 {
-    printf("\nAll tests finished with %d failure%s\n", n_failures,
+    printf("All tests finished with %d failure%s\n", n_failures,
            n_failures == 1 ? "" : "s");
     if (n_failures != 0)
         return 1;
