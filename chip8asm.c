@@ -35,6 +35,18 @@
  */
 #define OUTPUTEXT ".bin"
 
+static const char *HELP =
+    "An assembler for Chip-8/Super-Chip programs.\n"
+    "The assembler will read from standard input if no "
+    "FILE is provided, or if FILE is '-'.\n"
+    "\n"
+    "Options:\n"
+    "  -o, --output=OUTPUT    set output file name\n"
+    "  -h, --help             show this help message and exit\n"
+    "  -V, --version          show version information and exit\n";
+static const char *USAGE = "chip8asm [OPTION...] [FILE]\n";
+static const char *VERSION = "chip8asm 0.1.0\n";
+
 /**
  * Options which can be passed to the program.
  */
@@ -61,17 +73,26 @@ int main(int argc, char **argv)
     int option;
     struct progopts opts = progopts_default();
     const struct option options[] = {{"output", required_argument, NULL, 'o'},
+                                     {"help", no_argument, NULL, 'h'},
+                                     {"version", no_argument, NULL, 'V'},
                                      {0, 0, 0, 0}};
     char *extension;
 
-    while ((option = getopt_long(argc, argv, "o:", options, NULL)) != -1) {
+    while ((option = getopt_long(argc, argv, "o:hV", options, NULL)) != -1) {
         switch (option) {
         case 'o':
             if (opts.output)
                 free(opts.output);
             opts.output = strdup(optarg);
             break;
+        case 'h':
+            printf("%s%s", USAGE, HELP);
+            return 0;
+        case 'V':
+            printf("%s", VERSION);
+            return 0;
         case '?':
+            fprintf(stderr, "%s", USAGE);
             return 1;
         }
     }
@@ -81,7 +102,7 @@ int main(int argc, char **argv)
     } else if (optind == argc) {
         opts.input = strdup("-");
     } else {
-        fprintf(stderr, "Usage: chip8asm [OPTION...] [FILE]\n");
+        fprintf(stderr, "%s", USAGE);
         return 1;
     }
 

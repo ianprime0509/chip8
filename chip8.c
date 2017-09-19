@@ -26,6 +26,19 @@
 #include "audio.h"
 #include "interpreter.h"
 
+static const char *HELP =
+    "A Chip-8/Super-Chip interpreter.\n"
+    "\n"
+    "Options:\n"
+    "      --frequency=FREQ        set game timer frequency (in Hz)\n"
+    "  -s, --scale=SCALE           set game display scale\n"
+    "  -t, --tone=FREQ             set game buzzer tone (in Hz)\n"
+    "      --volume=VOL            set game buzzer volume (0-100)\n"
+    "  -h, --help                  show this help message and exit\n"
+    "  -V, --version               show version information and exit\n";
+static const char *USAGE = "Usage: chip8 [OPTION...] FILE\n";
+static const char *VERSION = "chip8 0.1.0\n";
+
 /**
  * Options that can be passed to the program.
  */
@@ -112,10 +125,12 @@ int main(int argc, char **argv)
         {"scale", required_argument, NULL, 's'},
         {"tone", required_argument, NULL, 't'},
         {"volume", required_argument, &got_volume, 1},
+        {"help", no_argument, NULL, 'h'},
+        {"version", no_argument, NULL, 'V'},
         {0, 0, 0, 0},
     };
 
-    while ((option = getopt_long(argc, argv, "s:t:", options, NULL)) != -1) {
+    while ((option = getopt_long(argc, argv, "s:t:hV", options, NULL)) != -1) {
         switch (option) {
         case 's':
             /* TODO: change atoi to something a little better */
@@ -131,13 +146,20 @@ int main(int argc, char **argv)
             else if (got_volume)
                 opts.tone_vol = atoi(optarg);
             break;
+        case 'h':
+            printf("%s%s", USAGE, HELP);
+            return 0;
+        case 'V':
+            printf("%s", VERSION);
+            return 0;
         case '?':
+            fprintf(stderr, "%s", USAGE);
             return 1;
         }
     }
 
     if (optind != argc - 1) {
-        fprintf(stderr, "Usage: chip8 [OPTIONS...] FILE\n");
+        fprintf(stderr, "%s", USAGE);
         return 1;
     }
     opts.fname = argv[optind];
