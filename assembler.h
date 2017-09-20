@@ -23,6 +23,7 @@
 #ifndef CHIP8_ASSEMBLER_H
 #define CHIP8_ASSEMBLER_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -32,6 +33,16 @@
  * The maximum size of a Chip-8 program, in bytes.
  */
 #define CHIP8_PROG_SIZE (CHIP8_MEM_SIZE - CHIP8_PROG_START)
+
+/**
+ * Options which can be set for the assembler.
+ */
+struct chip8asm_options {
+    /**
+     * Whether to enable shift quirks mode (default false).
+     */
+    bool shift_quirks;
+};
 
 /**
  * An assembled Chip-8 program.
@@ -58,7 +69,7 @@ struct chip8asm;
 /**
  * Initializes a new assembler.
  */
-struct chip8asm *chip8asm_new(void);
+struct chip8asm *chip8asm_new(struct chip8asm_options opts);
 /**
  * Destroys the given assembler.
  */
@@ -98,6 +109,11 @@ int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
  * @return An error code.
  */
 int chip8asm_process_line(struct chip8asm *chipasm, const char *line);
+
+/**
+ * Returns the default set of options for the assembler.
+ */
+struct chip8asm_options chip8asm_options_default(void);
 
 /**
  * Returns a new program with an empty buffer.

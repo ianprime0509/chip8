@@ -44,6 +44,7 @@ static const char *HELP =
     "\n"
     "Options:\n"
     "  -o, --output=OUTPUT    set output file name\n"
+    "  -q, --shift-quirks     enable shift quirks mode\n"
     "  -h, --help             show this help message and exit\n"
     "  -V, --version          show version information and exit\n";
 static const char *USAGE = "chip8asm [OPTION...] [FILE]\n";
@@ -53,6 +54,10 @@ static const char *VERSION = "chip8asm 0.1.0\n";
  * Options which can be passed to the program.
  */
 struct progopts {
+    /**
+     * Whether to use shift quirks mode (default false).
+     */
+    bool shift_quirks;
     /**
      * The output file name.
      *
@@ -75,6 +80,7 @@ int main(int argc, char **argv)
     int option;
     struct progopts opts = progopts_default();
     const struct option options[] = {{"output", required_argument, NULL, 'o'},
+                                     {"shift-quirks", no_argument, NULL, 'q'},
                                      {"help", no_argument, NULL, 'h'},
                                      {"version", no_argument, NULL, 'V'},
                                      {0, 0, 0, 0}};
@@ -86,6 +92,9 @@ int main(int argc, char **argv)
             if (opts.output)
                 free(opts.output);
             opts.output = strdup(optarg);
+            break;
+        case 'q':
+            opts.shift_quirks = true;
             break;
         case 'h':
             printf("%s%s", USAGE, HELP);
@@ -132,19 +141,23 @@ int main(int argc, char **argv)
 
 static struct progopts progopts_default(void)
 {
-    return (struct progopts){.input = NULL, .output = NULL};
+    return (struct progopts){
+        .shift_quirks = false, .input = NULL, .output = NULL};
 }
 
 static int run(struct progopts opts)
 {
     struct chip8asm *chipasm;
+    struct chip8asm_options asmopts;
     struct chip8asm_program *prog;
     FILE *input, *output;
     char str[MAXLINE];
     int err;
     int retval = 0;
 
-    if (!(chipasm = chip8asm_new())) {
+    asmopts.shift_quirks = opts.shift_quirks;
+
+    if (!(chipasm = chip8asm_new(asmopts))) {
         perror("Could not create assembler");
         retval = 1;
         goto EXIT_NOTHING_CREATED;

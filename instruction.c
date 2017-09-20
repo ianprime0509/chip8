@@ -60,7 +60,8 @@
  */
 #define NIBBLE2OPCODE(nibble) ((nibble)&0xF)
 
-struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode)
+struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode,
+                                                       bool shift_quirks)
 {
     struct chip8_instruction ins;
 
@@ -170,9 +171,15 @@ struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode)
             ins.vy = OPCODE2VY(opcode);
             break;
         case 0x6:
-            if ((opcode & 0xF0) == 0x00) {
+            if (shift_quirks) {
                 ins.op = OP_SHR;
                 ins.vx = OPCODE2VX(opcode);
+                ins.vy = OPCODE2VY(opcode);
+            } else {
+                if ((opcode & 0xF0) == 0x00) {
+                    ins.op = OP_SHR;
+                    ins.vx = OPCODE2VX(opcode);
+                }
             }
             break;
         case 0x7:
@@ -181,9 +188,15 @@ struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode)
             ins.vy = OPCODE2VY(opcode);
             break;
         case 0xE:
-            if ((opcode & 0xF0) == 0x00) {
+            if (shift_quirks) {
                 ins.op = OP_SHL;
                 ins.vx = OPCODE2VX(opcode);
+                ins.vy = OPCODE2VY(opcode);
+            } else {
+                if ((opcode & 0xF0) == 0x00) {
+                    ins.op = OP_SHL;
+                    ins.vx = OPCODE2VX(opcode);
+                }
             }
             break;
         }
@@ -274,7 +287,8 @@ struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode)
     return ins;
 }
 
-uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr)
+uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr,
+                                     bool shift_quirks)
 {
     switch (instr.op) {
     case OP_INVALID:
@@ -322,11 +336,17 @@ uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr)
     case OP_SUB:
         return 0x8005 | VX2OPCODE(instr.vx) | VY2OPCODE(instr.vy);
     case OP_SHR:
-        return 0x8006 | VX2OPCODE(instr.vx);
+        if (shift_quirks)
+            return 0x8006 | VX2OPCODE(instr.vx) | VY2OPCODE(instr.vy);
+        else
+            return 0x8006 | VX2OPCODE(instr.vx);
     case OP_SUBN:
         return 0x8007 | VX2OPCODE(instr.vx) | VY2OPCODE(instr.vy);
     case OP_SHL:
-        return 0x800E | VX2OPCODE(instr.vx);
+        if (shift_quirks)
+            return 0x800E | VX2OPCODE(instr.vx) | VY2OPCODE(instr.vy);
+        else
+            return 0x800E | VX2OPCODE(instr.vx);
     case OP_SNE_REG:
         return 0x9000 | VX2OPCODE(instr.vx) | VY2OPCODE(instr.vy);
     case OP_LD_I:

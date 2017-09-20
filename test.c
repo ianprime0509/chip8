@@ -184,7 +184,7 @@ int test_asm(void)
     ASSERT(!chip8asm_emit(chipasm, prog));                                     \
     ASSERT_EQ(chip8asm_program_opcode(prog, prog->len - 2), (opcode))
 
-    struct chip8asm *chipasm = chip8asm_new();
+    struct chip8asm *chipasm = chip8asm_new(chip8asm_options_default());
     struct chip8asm_program *prog = chip8asm_program_new();
 
     ASSERT(!chip8asm_process_line(chipasm, "program_start:"));
@@ -250,7 +250,7 @@ int test_asm(void)
 
 int test_asm_align(void)
 {
-    struct chip8asm *chipasm = chip8asm_new();
+    struct chip8asm *chipasm = chip8asm_new(chip8asm_options_default());
     struct chip8asm_program *prog = chip8asm_program_new();
 
     ASSERT(!chip8asm_process_line(chipasm, "DW #1234"));
@@ -284,7 +284,7 @@ int test_asm_align(void)
 
 int test_asm_eval(void)
 {
-    struct chip8asm *chipasm = chip8asm_new();
+    struct chip8asm *chipasm = chip8asm_new(chip8asm_options_default());
     uint16_t value;
 
     chip8asm_eval(chipasm, "2 + #F - $10", 1, &value);

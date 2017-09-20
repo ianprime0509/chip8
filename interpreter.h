@@ -48,10 +48,6 @@ struct chip8_call_node;
  */
 struct chip8_options {
     /**
-     * The frequency at which to run the game (default 60Hz).
-     */
-    long timer_freq;
-    /**
      * Whether to delay draw instructions (default true).
      */
     bool delay_draws;
@@ -63,6 +59,18 @@ struct chip8_options {
      * disabled, the delay timer and sound timer won't work.
      */
     bool enable_timer;
+    /**
+     * Whether to enable shift quirks mode (default false).
+     * In shift quirks mode, the instructions `SHR` and `SHL` take two register
+     * arguments rather than one; the first register will be set to the shifted
+     * value of the second. The default is to just shift the single register
+     * given as an argument.
+     */
+    bool shift_quirks;
+    /**
+     * The frequency at which to run the game (default 60Hz).
+     */
+    long timer_freq;
 };
 
 /**

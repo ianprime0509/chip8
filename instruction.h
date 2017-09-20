@@ -23,6 +23,7 @@
 #ifndef CHIP8_CORE_H
 #define CHIP8_CORE_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 /**
@@ -326,11 +327,17 @@ struct chip8_instruction {
 
 /**
  * Converts a Chip-8 opcode to an instruction.
+ *
+ * @param shift_quirks Whether to enable shift quirks mode.
  */
-struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode);
+struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode,
+                                                       bool shift_quirks);
 /**
  * Converts an instruction to a Chip-8 opcode.
+ *
+ * @param shift_quirks Whether to enable shift quirks mode.
  */
-uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr);
+uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr,
+                                     bool shift_quirks);
 
 #endif

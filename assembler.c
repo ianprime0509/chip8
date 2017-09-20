@@ -171,6 +171,10 @@ struct ltable_bucket {
 
 struct chip8asm {
     /**
+     * The given assembler options.
+     */
+    struct chip8asm_options opts;
+    /**
      * The labels that have been found by the assembler.
      */
     struct ltable labels;
@@ -278,10 +282,11 @@ static int precedence(char op);
  */
 static int register_num(const char *name);
 
-struct chip8asm *chip8asm_new(void)
+struct chip8asm *chip8asm_new(struct chip8asm_options opts)
 {
     struct chip8asm *chipasm = calloc(1, sizeof *chipasm);
 
+    chipasm->opts = opts;
     chipasm->pc = CHIP8_PROG_START;
     /* There's a good chance we'll need space for at least 128 instructions */
     if (instructions_reserve(&chipasm->instructions, 128))
@@ -655,6 +660,13 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
     }
 }
 
+struct chip8asm_options chip8asm_options_default(void)
+{
+    return (struct chip8asm_options){
+        .shift_quirks = false,
+    };
+}
+
 struct chip8asm_program *chip8asm_program_new(void)
 {
     return calloc(1, sizeof(struct chip8asm_program));
@@ -772,8 +784,6 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
         ci.vy = regno;
         break;
     /* Single register operand */
-    case OP_SHR:
-    case OP_SHL:
     case OP_SKP:
     case OP_SKNP:
     case OP_LD_REG_DT:
@@ -808,11 +818,25 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
             return err;
         ci.nibble = value;
         break;
+    /* Quirky instructions */
+    case OP_SHR:
+    case OP_SHL:
+        if ((regno = register_num(instr->operands[0])) == -1)
+            FAIL(1, instr->line, "'%s' is not the name of a register",
+                 instr->operands[0]);
+        ci.vx = regno;
+        if (chipasm->opts.shift_quirks) {
+            if ((regno = register_num(instr->operands[0])) == -1)
+                FAIL(1, instr->line, "'%s' is not the name of a register",
+                     instr->operands[0]);
+            ci.vy = regno;
+        }
+        break;
     }
 
     /* Finally, we need to turn this into an opcode */
     if (opcode)
-        *opcode = chip8_instruction_to_opcode(ci);
+        *opcode = chip8_instruction_to_opcode(ci, chipasm->opts.shift_quirks);
 
     return 0;
 }
@@ -1015,9 +1039,31 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     CHIPOP("AND", OP_AND, 2)
     CHIPOP("XOR", OP_XOR, 2)
     CHIPOP("SUB", OP_SUB, 2)
-    CHIPOP("SHR", OP_SHR, 1)
+    else if (!strcasecmp(op, "SHR"))
+    {
+        if (chipasm->opts.shift_quirks)
+            EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
+        else
+            EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
+        instr.type = IT_CHIP8_OP;
+        instr.chipop = OP_SHR;
+        instr.operands[0] = strdup(operands[0]);
+        if (chipasm->opts.shift_quirks)
+            instr.operands[1] = strdup(operands[1]);
+    }
     CHIPOP("SUBN", OP_SUBN, 2)
-    CHIPOP("SHL", OP_SHL, 1)
+    else if (!strcasecmp(op, "SHL"))
+    {
+        if (chipasm->opts.shift_quirks)
+            EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
+        else
+            EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
+        instr.type = IT_CHIP8_OP;
+        instr.chipop = OP_SHL;
+        instr.operands[0] = strdup(operands[0]);
+        if (chipasm->opts.shift_quirks)
+            instr.operands[1] = strdup(operands[1]);
+    }
     CHIPOP("RND", OP_RND, 2)
     CHIPOP("DRW", OP_DRW, 3)
     CHIPOP("SKP", OP_SKP, 1)

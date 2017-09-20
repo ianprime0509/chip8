@@ -33,6 +33,7 @@ static const char *HELP =
     "\n"
     "Options:\n"
     "      --frequency=FREQ        set game timer frequency (in Hz)\n"
+    "  -q, --shift-quirks          whether to use shift quirks mode\n"
     "  -s, --scale=SCALE           set game display scale\n"
     "  -t, --tone=FREQ             set game buzzer tone (in Hz)\n"
     "      --volume=VOL            set game buzzer volume (0-100)\n"
@@ -54,6 +55,10 @@ struct progopts {
      * The frequency (in Hz) of the game timer (default 60).
      */
     long game_freq;
+    /**
+     * Whether to use shift quirks mode (default false).
+     */
+    bool shift_quirks;
     /**
      * The frequency (in Hz) of the game beeper (default 440).
      */
@@ -124,6 +129,7 @@ int main(int argc, char **argv)
     int got_volume = 0;
     const struct option options[] = {
         {"frequency", required_argument, &got_frequency, 1},
+        {"shift-quirks", no_argument, NULL, 'q'},
         {"scale", required_argument, NULL, 's'},
         {"tone", required_argument, NULL, 't'},
         {"volume", required_argument, &got_volume, 1},
@@ -132,8 +138,11 @@ int main(int argc, char **argv)
         {0, 0, 0, 0},
     };
 
-    while ((option = getopt_long(argc, argv, "s:t:hV", options, NULL)) != -1) {
+    while ((option = getopt_long(argc, argv, "qs:t:hV", options, NULL)) != -1) {
         switch (option) {
+        case 'q':
+            opts.shift_quirks = true;
+            break;
         case 's':
             /* TODO: change atoi to something a little better */
             opts.scale = atoi(optarg);
@@ -231,6 +240,7 @@ static struct progopts progopts_default(void)
     return (struct progopts){
         .scale = 6,
         .game_freq = 60,
+        .shift_quirks = false,
         .tone_freq = 440,
         .tone_vol = 10,
         .fname = NULL,
@@ -254,6 +264,7 @@ static int run(struct progopts opts)
     atomic_bool should_exit = false;
 
     /* Set options for the interpreter */
+    chipopts.shift_quirks = opts.shift_quirks;
     chipopts.timer_freq = opts.game_freq;
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {

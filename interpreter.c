@@ -157,7 +157,10 @@ static void *timer_func(void *arg);
 struct chip8_options chip8_options_default(void)
 {
     return (struct chip8_options){
-        .timer_freq = 60, .delay_draws = true, .enable_timer = true,
+        .delay_draws = true,
+        .enable_timer = true,
+        .shift_quirks = false,
+        .timer_freq = 60,
     };
 }
 
@@ -205,7 +208,7 @@ struct chip8_instruction chip8_current_instr(struct chip8 *chip)
     /* The Chip-8 is big-endian */
     uint16_t opcode = ((uint16_t)chip->mem[chip->pc] << 8) |
                       (uint16_t)chip->mem[chip->pc + 1];
-    return chip8_instruction_from_opcode(opcode);
+    return chip8_instruction_from_opcode(opcode, chip->opts.shift_quirks);
 }
 
 void chip8_execute_opcode(struct chip8 *chip, uint16_t opcode)
@@ -443,8 +446,13 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         chip->regs[inst.vx] -= chip->regs[inst.vy];
         break;
     case OP_SHR:
-        chip->regs[REG_VF] = chip->regs[inst.vx] & 0x1;
-        chip->regs[inst.vx] >>= 1;
+        if (chip->opts.shift_quirks) {
+            chip->regs[REG_VF] = chip->regs[inst.vy] & 0x1;
+            chip->regs[inst.vx] = chip->regs[inst.vy] >> 1;
+        } else {
+            chip->regs[REG_VF] = chip->regs[inst.vx] & 0x1;
+            chip->regs[inst.vx] >>= 1;
+        }
         break;
     case OP_SUBN:
         /* Check for borrow */
@@ -452,8 +460,13 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         chip->regs[inst.vx] = chip->regs[inst.vy] - chip->regs[inst.vx];
         break;
     case OP_SHL:
-        chip->regs[REG_VF] = (chip->regs[inst.vx] & 0x80) >> 7;
-        chip->regs[inst.vx] <<= 1;
+        if (chip->opts.shift_quirks) {
+            chip->regs[REG_VF] = (chip->regs[inst.vy] & 0x80) >> 7;
+            chip->regs[inst.vx] = chip->regs[inst.vy] << 1;
+        } else {
+            chip->regs[REG_VF] = (chip->regs[inst.vx] & 0x80) >> 7;
+            chip->regs[inst.vx] <<= 1;
+        }
         break;
     case OP_SNE_REG:
         if (chip->regs[inst.vx] != chip->regs[inst.vy])
