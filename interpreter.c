@@ -115,6 +115,13 @@ struct chip8_call_node {
 static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
                               uint16_t sprite_start, uint16_t sprite_len);
 /**
+ * Draws a (high-resolution) sprite at the given position.
+ *
+ * @return Whether there was a collision.
+ */
+static bool chip8_draw_sprite_high(struct chip8 *chip, int x, int y,
+                                   uint16_t sprite_start);
+/**
  * Dumps the state of the interpreter registers to the given file.
  * Errors in writing will be ignored.
  */
@@ -254,18 +261,6 @@ void chip8_step(struct chip8 *chip)
     }
 }
 
-static void chip8_dump_regs(const struct chip8 *chip, FILE *output)
-{
-    for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++) {
-            int reg = 4 * i + j;
-            fprintf(output, "V%X = %02X%s", reg, chip->regs[reg],
-                    j == 3 ? "\n" : "    ");
-        }
-    fprintf(output, "\nDT = %02X    ST = %02X     I = %04X  PC = %04X\n",
-            chip->reg_dt, chip->reg_st, chip->reg_i, chip->pc);
-}
-
 static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
                               uint16_t sprite_start, uint16_t sprite_len)
 {
@@ -287,6 +282,43 @@ static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
 
     chip->needs_refresh = true;
     return collision;
+}
+
+static bool chip8_draw_sprite_high(struct chip8 *chip, int x, int y,
+                                   uint16_t sprite_start)
+{
+    bool collision = false;
+
+    /*
+     * High-resolution sprites are always 16x16. Here, i is the row of the
+     * sprite to draw and j is the column.
+     */
+    for (int i = 0; i < 16 && y + i < CHIP8_DISPLAY_HEIGHT; i++)
+        for (int j = 0; j < 16 && x + j < CHIP8_DISPLAY_WIDTH; j++) {
+            int bytepos = sprite_start + 2 * i + j / 8;
+            int bitpos = 7 - j % 8;
+            if (chip->mem[bytepos] & (1 << bitpos)) {
+                int dispx = x + j, dispy = y + i;
+                /* If the pixel on screen is set, we have a collision */
+                collision = collision || chip->display[dispx][dispy];
+                chip->display[dispx][dispy] = !chip->display[dispx][dispy];
+            }
+        }
+
+    chip->needs_refresh = true;
+    return collision;
+}
+
+static void chip8_dump_regs(const struct chip8 *chip, FILE *output)
+{
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++) {
+            int reg = 4 * i + j;
+            fprintf(output, "V%X = %02X%s", reg, chip->regs[reg],
+                    j == 3 ? "\n" : "    ");
+        }
+    fprintf(output, "\nDT = %02X    ST = %02X     I = %04X  PC = %04X\n",
+            chip->reg_dt, chip->reg_st, chip->reg_i, chip->pc);
 }
 
 static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
@@ -450,9 +482,13 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         break;
     case OP_DRW:
         chip8_wait_cycle(chip);
-        chip->regs[REG_VF] =
-            chip8_draw_sprite(chip, chip->regs[inst.vx], chip->regs[inst.vy],
-                              chip->reg_i, inst.nibble);
+        if (inst.nibble == 0)
+            chip->regs[REG_VF] = chip8_draw_sprite_high(
+                chip, chip->regs[inst.vx], chip->regs[inst.vy], chip->reg_i);
+        else
+            chip->regs[REG_VF] = chip8_draw_sprite(chip, chip->regs[inst.vx],
+                                                   chip->regs[inst.vy],
+                                                   chip->reg_i, inst.nibble);
         break;
     case OP_SKP:
         if (chip->key_states & (1 << (chip->regs[inst.vx] & 0xF)))
