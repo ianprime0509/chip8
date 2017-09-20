@@ -328,7 +328,7 @@ static int run(struct progopts opts)
         }
         if (chip->halted) {
             printf("Interpreter was halted\n");
-            break;
+            should_exit = true;
         }
     }
 

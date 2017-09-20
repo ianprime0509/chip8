@@ -465,13 +465,20 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
     case OP_LD_REG_DT:
         chip->regs[inst.vx] = chip->reg_dt;
         break;
-    case OP_LD_KEY:
-        /* Wait for key press */
-        while (chip->key_states == 0)
-            ;
+    case OP_LD_KEY: {
+        int key;
+        /*
+         * Wait for key press; if none is pressed right now, we just wait until
+         * the next step to check for one
+         */
+        if (chip->key_states == 0)
+            return chip->pc;
         /* Get the lowest set bit, and make sure it's 0-indexed */
-        chip->regs[inst.vx] = ffs(chip->key_states) - 1;
-        break;
+        key = ffs(chip->key_states) - 1;
+        chip->regs[inst.vx] = key;
+        /* Now we need to clear it so that we don't read it twice */
+        chip->key_states &= ~(1 << key);
+    } break;
     case OP_LD_DT_REG:
         chip->reg_dt = chip->regs[inst.vx];
         break;
