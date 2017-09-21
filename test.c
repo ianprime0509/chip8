@@ -99,6 +99,10 @@ int test_comparison(void);
  * Tests Chip-8 memory instruction evaluation.
  */
 int test_ld(void);
+/**
+ * Tests shift quirks mode behavior.
+ */
+int test_quirks(void);
 
 int main(void)
 {
@@ -109,6 +113,7 @@ int main(void)
     TEST_RUN(test_asm_eval);
     TEST_RUN(test_comparison);
     TEST_RUN(test_ld);
+    TEST_RUN(test_quirks);
     return testing_teardown();
 }
 
@@ -378,6 +383,31 @@ int test_ld(void)
     ASSERT_EQ(chip->mem[0x600], 1);
     ASSERT_EQ(chip->mem[0x601], 0);
     ASSERT_EQ(chip->mem[0x602], 3);
+
+    chip8_destroy(chip);
+    return 0;
+}
+
+int test_quirks(void)
+{
+    struct chip8 *chip;
+    struct chip8_options opts = chip8_options_testing();
+
+    opts.shift_quirks = true;
+    chip = chip8_new(opts);
+
+    /* LD V0, #07 */
+    chip8_execute_opcode(chip, 0x6007);
+    /* LD V1, 0 */
+    chip8_execute_opcode(chip, 0x6100);
+    /* SHR V1, V0 */
+    chip8_execute_opcode(chip, 0x8106);
+    ASSERT_EQ(chip->regs[REG_V0], 0x07);
+    ASSERT_EQ(chip->regs[REG_V1], 0x03);
+    /* SHL V0, V1 */
+    chip8_execute_opcode(chip, 0x801E);
+    ASSERT_EQ(chip->regs[REG_V1], 0x03);
+    ASSERT_EQ(chip->regs[REG_V0], 0x06);
 
     chip8_destroy(chip);
     return 0;
