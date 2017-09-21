@@ -125,7 +125,7 @@ struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode,
         if ((opcode & 0xF) == 0) {
             ins.op = OP_SE_REG;
             ins.vx = OPCODE2VX(opcode);
-            ins.byte = OPCODE2BYTE(opcode);
+            ins.vy = OPCODE2VY(opcode);
         }
         break;
     case 0x6:

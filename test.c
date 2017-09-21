@@ -122,6 +122,8 @@ int test_arithmetic(void)
     struct chip8_options opts = chip8_options_testing();
     struct chip8 *chip = chip8_new(opts);
 
+    ASSERT(chip != NULL);
+
     /* LD V0, #66 */
     chip8_execute_opcode(chip, 0x6066);
     /* ADD V0, #0A */
@@ -192,6 +194,8 @@ int test_asm(void)
     struct chip8asm *chipasm = chip8asm_new(chip8asm_options_default());
     struct chip8asm_program *prog = chip8asm_program_new();
 
+    ASSERT(chipasm != NULL && prog != NULL);
+
     ASSERT(!chip8asm_process_line(chipasm, "program_start:"));
     TEST_INSTR("SCD 7", 0x00C7);
     TEST_INSTR("CLS", 0x00E0);
@@ -258,6 +262,8 @@ int test_asm_align(void)
     struct chip8asm *chipasm = chip8asm_new(chip8asm_options_default());
     struct chip8asm_program *prog = chip8asm_program_new();
 
+    ASSERT(chipasm != NULL && prog != NULL);
+
     ASSERT(!chip8asm_process_line(chipasm, "DW #1234"));
     ASSERT(!chip8asm_process_line(chipasm, "DB #56"));
     ASSERT(!chip8asm_process_line(chipasm, "DW #789A"));
@@ -291,6 +297,8 @@ int test_asm_eval(void)
 {
     struct chip8asm *chipasm = chip8asm_new(chip8asm_options_default());
     uint16_t value;
+
+    ASSERT(chipasm != NULL);
 
     chip8asm_eval(chipasm, "2 + #F - $10", 1, &value);
     ASSERT_EQ(value, 15);
@@ -330,6 +338,7 @@ int test_comparison(void)
     struct chip8 *chip = chip8_new(opts);
     uint16_t pc;
 
+    ASSERT(chip != NULL);
     /* LD V0, #45 */
     chip8_execute_opcode(chip, 0x6045);
     pc = chip->pc;
@@ -359,6 +368,8 @@ int test_ld(void)
 {
     struct chip8_options opts = chip8_options_testing();
     struct chip8 *chip = chip8_new(opts);
+
+    ASSERT(chip != NULL);
 
     /* LD V5, #67 */
     chip8_execute_opcode(chip, 0x6567);
@@ -395,6 +406,7 @@ int test_quirks(void)
 
     opts.shift_quirks = true;
     chip = chip8_new(opts);
+    ASSERT(chip != NULL);
 
     /* LD V0, #07 */
     chip8_execute_opcode(chip, 0x6007);
