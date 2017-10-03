@@ -326,11 +326,6 @@ static void chip8_dump_regs(const struct chip8 *chip, FILE *output)
 
 static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
 {
-    /* Wait for delay timer to run out */
-    if (chip->opts.enable_timer)
-        while (chip->reg_dt)
-            ;
-
     switch (inst.op) {
     case OP_INVALID:
         fprintf(stderr,
