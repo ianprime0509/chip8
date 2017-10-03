@@ -96,6 +96,10 @@ int test_asm_eval(void);
  */
 int test_comparison(void);
 /**
+ * Tests the evaluation of various jump instructions.
+ */
+int test_jp(void);
+/**
  * Tests Chip-8 memory instruction evaluation.
  */
 int test_ld(void);
@@ -112,6 +116,7 @@ int main(void)
     TEST_RUN(test_asm_align);
     TEST_RUN(test_asm_eval);
     TEST_RUN(test_comparison);
+    TEST_RUN(test_jp);
     TEST_RUN(test_ld);
     TEST_RUN(test_quirks);
     return testing_teardown();
@@ -361,6 +366,31 @@ int test_comparison(void)
     ASSERT_EQ(chip->pc, pc + 4);
 
     chip8_destroy(chip);
+    return 0;
+}
+
+int test_jp(void)
+{
+    struct chip8 *chip = chip8_new(chip8_options_testing());
+
+    ASSERT(chip != NULL);
+
+    /* JP #400 */
+    chip8_execute_opcode(chip, 0x1400);
+    ASSERT_EQ(chip->pc, 0x400);
+    /* CALL #200 */
+    chip8_execute_opcode(chip, 0x2200);
+    ASSERT_EQ(chip->pc, 0x200);
+    /* CALL #300 */
+    chip8_execute_opcode(chip, 0x2300);
+    ASSERT_EQ(chip->pc, 0x300);
+    /* RET */
+    chip8_execute_opcode(chip, 0x00EE);
+    ASSERT_EQ(chip->pc, 0x202);
+    /* RET */
+    chip8_execute_opcode(chip, 0x00EE);
+    ASSERT_EQ(chip->pc, 0x402);
+
     return 0;
 }
 
