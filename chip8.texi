@@ -1,0 +1,74 @@
+\input texinfo
+@setfilename chip8.info
+@settitle Chip-8 0.1.0
+
+@copying
+This manual is for Chip-8, version 0.1.0.
+
+Copyright @copyright{} 2017 Ian Johnson
+
+@quotation
+This work is licensed under a
+@url{https://creativecommons.org/licenses/by-sa/4.0/,,Creative Commons
+Attribution-ShareAlike 4.0 International License}.
+@end quotation
+@end copying
+
+@titlepage
+@title Chip-8 Reference
+@subtitle Version 0.1.0
+@author Ian Johnson (@email{ianprime0509@@gmail.com})
+
+@c The following two commands start the copyright page.
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+@end titlepage
+
+@c Print the table of contents at the start.
+@contents
+
+@ifnottex
+@node Top
+@top Chip-8 Reference Guide
+
+This is a reference guide for the Chip-8 interpreter and assembler
+developed by Ian Johnson. It also contains documentation on the Chip-8
+and Super-Chip platforms themselves.
+@end ifnottex
+
+@menu
+* Overview::        An overview of the Chip-8 project.
+* Further reading::  More information about the Chip-8 and Super-Chip.
+* Index::           Complete index.
+@end menu
+
+@node Overview
+@chapter Overview
+@cindex overview
+
+An overview goes here.
+
+@node Further reading
+@chapter Further reading
+@cindex further reading
+@cindex reading, further
+
+There are several good resources on the Web for Chip-8 information. For
+a Chip-8 instruction/opcode reference, see
+@url{http://devernay.free.fr/hacks/chip8/C8TECH10.HTM,Cowgod's Chip-8
+Technical Reference}; it also lists the opcodes for Super-Chip
+instructions, but does not give their descriptions. For a collection of
+many Chip-8 and Super-Chip games, as well as an emulator for DOS, see
+@url{http://www.pong-story.com/chip8/,David Winter's Chip-8 page}. There
+is also some documentation included with his emulator, which gives some
+more background on the Chip-8, including details about some variant
+implementations.
+
+@node Index
+@unnumbered Index
+@cindex index
+
+@printindex cp
+
+@bye
