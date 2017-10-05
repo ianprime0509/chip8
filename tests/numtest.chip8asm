@@ -1,0 +1,99 @@
+;; A simple number printing test taken from BLINKY, because it doesn't seem to
+;; be working
+
+  SPRITEWIDE      =       16
+  SPRITEJUMP      =       4
+  NUM = 1234
+
+               HIGH
+               LD I, #500
+               LD V6, 128 / 2 - 5 * (SPRITEWIDE - SPRITEJUMP) / 2
+               LD V7, 64 / 2 - 10 / 2
+               LD V0, NUM / 256
+               LD V1, NUM % 256
+               LD [I], V1
+               CALL PRINTDEC
+LOOP:          JP LOOP
+
+;  PRINTDEC
+;  ->  V6:  Print X coordinate
+;  ->  V7:  Print Y coordinate
+;  ->  I:  16 bit value pointer
+;  <-  Nothing
+;  <>  V0, V1, V2, V3, V4, V5, V6, V7, VE, VF, I
+
+PRINTDEC:       LD      V1, [I]
+                LD      VE, 1
+                XOR     V4, V4
+                LD      V2, V0
+                LD      V3, V1
+LOOPTENG:       LD      V5, 10000 % 256
+                SUB     V3, V5
+                SNE     VF, 0
+                SUB     V2, VE
+                SNE     VF, 0
+                JP      SKIPTENG
+                LD      V5, 10000 / 256
+                SUB     V2, V5
+                SNE     VF, 0
+                JP      SKIPTENG
+                LD      V0, V2
+                LD      V1, V3
+                ADD     V4, VE
+                JP      LOOPTENG
+SKIPTENG:       LD      HF, V4
+                DRW     V6, V7, 10
+                ADD     V6, SPRITEWIDE - SPRITEJUMP
+                XOR     V4, V4
+                LD      V2, V0
+                LD      V3, V1
+LOOPTHOUS:      LD      V5, 1000 % 256
+                SUB     V3, V5
+                SNE     VF, 0
+                SUB     V2, VE
+                SNE     VF, 0
+                JP      SKIPTHOUS
+                LD      V5, 1000 / 256
+                SUB     V2, V5
+                SNE     VF, 0
+                JP      SKIPTHOUS
+                LD      V0, V2
+                LD      V1, V3
+                ADD     V4, VE
+                JP      LOOPTHOUS
+SKIPTHOUS:      LD      HF, V4
+                DRW     V6, V7, 10
+                ADD     V6, SPRITEWIDE - SPRITEJUMP
+                XOR     V4, V4
+                LD      V2, V0
+                LD      V3, V1
+LOOPHUNDR:      LD      V5, 100
+                SUB     V3, V5
+                SNE     VF, 0
+                SUB     V2, VE
+                SNE     VF, 0
+                JP      SKIPHUNDR
+                LD      V0, V2
+                LD      V1, V3
+                ADD     V4, VE
+                JP      LOOPHUNDR
+SKIPHUNDR:      LD      HF, V4
+                DRW     V6, V7, 10
+                ADD     V6, SPRITEWIDE - SPRITEJUMP
+                XOR     V4, V4
+                LD      V2, V0
+                LD      V3, V1
+LOOPTEN:        LD      V5, 10
+                SUB     V3, V5
+                SNE     VF, 0
+                JP      SKIPTEN
+                LD      V1, V3
+                ADD     V4, VE
+                JP      LOOPTEN
+SKIPTEN:        LD      HF, V4
+                DRW     V6, V7, 10
+                ADD     V6, SPRITEWIDE - SPRITEJUMP
+                LD      HF, V1
+                DRW     V6, V7, 10
+                RET
+
