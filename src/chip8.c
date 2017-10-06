@@ -219,6 +219,7 @@ static int run(struct progopts opts)
     FILE *input;
     SDL_Event e;
     bool should_exit = false;
+    int retval = 0;
 
     /* Set options for the interpreter */
     chipopts.shift_quirks = opts.shift_quirks;
@@ -226,20 +227,23 @@ static int run(struct progopts opts)
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
         fprintf(stderr, "Could not initialize SDL: %s\n", SDL_GetError());
-        return 1;
+        retval = 1;
+        goto ERROR_NOTHING_INITIALIZED;
     }
     if (!(win = SDL_CreateWindow("Chip-8", SDL_WINDOWPOS_UNDEFINED,
                                  SDL_WINDOWPOS_UNDEFINED, win_width, win_height,
                                  SDL_WINDOW_SHOWN))) {
         fprintf(stderr, "Could not create SDL window: %s\n", SDL_GetError());
-        goto error_sdl_initialized;
+        retval = 1;
+        goto ERROR_SDL_INITIALIZED;
     }
 
     /* Set up audio */
     if (!(audio_ring = audio_square_wave(48000, opts.tone_freq,
                                          opts.tone_vol * INT16_MAX / 100))) {
         fprintf(stderr, "Could not create audio ring buffer\n");
-        goto error_window_created;
+        retval = 1;
+        goto ERROR_WINDOW_CREATED;
     }
     SDL_zero(as_want);
     as_want.freq = 48000;
@@ -250,7 +254,8 @@ static int run(struct progopts opts)
     as_want.userdata = audio_ring;
     if (!(audio_device = SDL_OpenAudioDevice(NULL, 0, &as_want, &as_got, 0))) {
         fprintf(stderr, "Could not initialize SDL audio: %s\n", SDL_GetError());
-        goto error_audio_ring_created;
+        retval = 1;
+        goto ERROR_AUDIO_RING_CREATED;
     }
 
     chip = chip8_new(chipopts);
@@ -262,12 +267,14 @@ static int run(struct progopts opts)
 
     if (!(input = fopen(opts.fname, "r"))) {
         fprintf(stderr, "Failed to open game file; aborting\n");
-        goto error_chip8_created;
+        retval = 1;
+        goto ERROR_CHIP8_CREATED;
     }
     if (chip8_load_from_file(chip, input)) {
         fprintf(stderr, "Could not load game; aborting\n");
         fclose(input);
-        goto error_chip8_created;
+        retval = 1;
+        goto ERROR_CHIP8_CREATED;
     }
     fclose(input);
 
@@ -304,22 +311,15 @@ static int run(struct progopts opts)
         }
     }
 
-    /* Wait for the input thread to clean up first */
+ERROR_CHIP8_CREATED:
     chip8_destroy(chip);
     SDL_CloseAudioDevice(audio_device);
+ERROR_AUDIO_RING_CREATED:
     audio_ring_buffer_free(audio_ring);
+ERROR_WINDOW_CREATED:
     SDL_DestroyWindow(win);
+ERROR_SDL_INITIALIZED:
     SDL_Quit();
-    return 0;
-
-error_chip8_created:
-    chip8_destroy(chip);
-    SDL_CloseAudioDevice(audio_device);
-error_audio_ring_created:
-    audio_ring_buffer_free(audio_ring);
-error_window_created:
-    SDL_DestroyWindow(win);
-error_sdl_initialized:
-    SDL_Quit();
-    return 1;
+ERROR_NOTHING_INITIALIZED:
+    return retval;
 }
