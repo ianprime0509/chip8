@@ -16,6 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with Chip-8.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <config.h>
+
 #include <getopt.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -40,7 +42,7 @@ static const char *HELP =
     "  -h, --help                  show this help message and exit\n"
     "  -V, --version               show version information and exit\n";
 static const char *USAGE = "Usage: chip8 [OPTION...] FILE\n";
-static const char *VERSION = "chip8 0.1.0\n";
+static const char *VERSION_STRING = "chip8 " VERSION "\n";
 
 /**
  * Options that can be passed to the program.
@@ -161,7 +163,7 @@ int main(int argc, char **argv)
             printf("%s%s", USAGE, HELP);
             return 0;
         case 'V':
-            printf("%s", VERSION);
+            printf("%s", VERSION_STRING);
             return 0;
         case '?':
             fprintf(stderr, "%s", USAGE);

@@ -20,6 +20,7 @@
  * @file
  * An assembler for the Chip-8 and Super-Chip.
  */
+#include <config.h>
 
 #include <getopt.h>
 #include <stdio.h>
@@ -48,7 +49,7 @@ static const char *HELP =
     "  -h, --help             show this help message and exit\n"
     "  -V, --version          show version information and exit\n";
 static const char *USAGE = "chip8asm [OPTION...] [FILE]\n";
-static const char *VERSION = "chip8asm 0.1.0\n";
+static const char *VERSION_STRING = "chip8asm " VERSION "\n";
 
 /**
  * Options which can be passed to the program.
@@ -100,7 +101,7 @@ int main(int argc, char **argv)
             printf("%s%s", USAGE, HELP);
             return 0;
         case 'V':
-            printf("%s", VERSION);
+            printf("%s", VERSION_STRING);
             return 0;
         case '?':
             fprintf(stderr, "%s", USAGE);
