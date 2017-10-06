@@ -23,15 +23,10 @@
 #ifndef CHIP8_H
 #define CHIP8_H
 
-#ifdef __STDC_NO_ATOMICS__
-#error "Atomics support is required"
-#endif
-
-#include <pthread.h>
-#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <time.h>
 
 #include "instruction.h"
 
@@ -55,7 +50,7 @@ struct chip8_options {
      * Whether to enable the timer (default true).
      * The only reason you should set this to false is if you're trying to run
      * the interpreter in a test environment where you don't want to have the
-     * timer thread running in the background. Obviously, if the timer is
+     * timer ticking while tests are being run. Obviously, if the timer is
      * disabled, the delay timer and sound timer won't work.
      */
     bool enable_timer;
@@ -101,14 +96,12 @@ struct chip8 {
     uint16_t reg_i;
     /**
      * The delay timer register.
-     * This is atomic so that it can be manipulated by the timer thread.
      */
-    _Atomic uint8_t reg_dt;
+    uint8_t reg_dt;
     /**
      * The sound timer register.
-     * This is atomic so that it can be manipulated by the timer thread.
      */
-    _Atomic uint8_t reg_st;
+    uint8_t reg_st;
     /**
      * The program counter.
      */
@@ -126,19 +119,19 @@ struct chip8 {
      */
     bool needs_refresh;
     /**
-     * The thread that keeps track of the timer.
-     */
-    pthread_t timer_thread;
-    /**
-     * Whether the timer thread should stop.
-     * This is atomic so that it can be manipulated by the timer thread.
-     */
-    atomic_bool should_stop_thread;
-    /**
      * Set to `true` on every timer clock cycle (for delaying until a cycle).
-     * This is atomic so that it can be manipulated by the timer thread.
      */
-    atomic_bool timer_latch;
+    bool timer_latch;
+    /**
+     * Whether we are waiting for a latch change (for delaying until a cycle).
+     */
+    bool timer_waiting;
+    /**
+     * The internal timer, in ticks.
+     * The frequency of these ticks is configured in the options passed to the
+     * `chip8_new` function.
+     */
+    unsigned long timer_ticks;
     /**
      * The call stack (for returning from subroutines).
      */
@@ -146,9 +139,8 @@ struct chip8 {
     /**
      * Which keys are currently being pressed.
      * Each bit (0x0-0xF) represents the state of the corresponding key 0-F.
-     * This is atomic so that it can be manipulated by the event loop thread.
      */
-    _Atomic uint16_t key_states;
+    uint16_t key_states;
 };
 
 /**

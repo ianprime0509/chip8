@@ -10,19 +10,13 @@ TESTS = chip8test
 
 chip8_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(PTHREAD_CFLAGS) \
 	$(SDL_CFLAGS)
 
 chip8_LDADD = \
-	$(PTHREAD_LIBS) \
 	$(SDL_LIBS)
 
 chip8asm_CFLAGS = \
 	$(AM_CFLAGS)
 
 chip8test_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(PTHREAD_CFLAGS)
-
-chip8test_LDADD = \
-	$(PTHREAD_LIBS)
+	$(AM_CFLAGS)

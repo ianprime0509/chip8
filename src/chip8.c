@@ -19,8 +19,6 @@
 #include <config.h>
 
 #include <getopt.h>
-#include <pthread.h>
-#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -94,17 +92,6 @@ SDL_Keycode keymap[16] = {
 };
 
 /**
- * Arguments to be passed to the input thread.
- */
-struct input_thrd_args {
-    /**
-     * The Chip8 key state vector.
-     */
-    _Atomic uint16_t *key_states;
-    atomic_bool *should_exit;
-};
-
-/**
  * The SDL audio callback function.
  */
 static void audio_callback(void *userdata, uint8_t *stream, int len);
@@ -113,10 +100,6 @@ static void audio_callback(void *userdata, uint8_t *stream, int len);
  */
 static void draw(SDL_Surface *surface, struct chip8 *chip, int scale,
                  uint32_t oncolor, uint32_t offcolor);
-/**
- * The function to run the input loop in another thread.
- */
-static void *input_thrd_func(void *args);
 /**
  * Returns the default set of program options.
  */
@@ -209,34 +192,6 @@ static void draw(SDL_Surface *surface, struct chip8 *chip, int scale,
         }
 }
 
-static void *input_thrd_func(void *args)
-{
-    SDL_Event e;
-    struct input_thrd_args targs = *(struct input_thrd_args *)args;
-
-    while (!*targs.should_exit) {
-        while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) {
-                *targs.should_exit = true;
-            } else if (e.type == SDL_KEYDOWN) {
-                SDL_Keycode key = e.key.keysym.sym;
-
-                for (int i = 0; i < 16; i++)
-                    if (key == keymap[i])
-                        *targs.key_states |= 1 << i;
-            } else if (e.type == SDL_KEYUP) {
-                SDL_Keycode key = e.key.keysym.sym;
-
-                for (int i = 0; i < 16; i++)
-                    if (key == keymap[i])
-                        *targs.key_states &= ~(1 << i);
-            }
-        }
-    }
-
-    return NULL;
-}
-
 static struct progopts progopts_default(void)
 {
     return (struct progopts){
@@ -259,11 +214,11 @@ static int run(struct progopts opts)
     SDL_AudioSpec as_want, as_got;
     struct audio_ring_buffer *audio_ring;
     uint32_t oncolor, offcolor;
-    pthread_t input_thread;
     struct chip8_options chipopts = chip8_options_default();
     struct chip8 *chip;
     FILE *input;
-    atomic_bool should_exit = false;
+    SDL_Event e;
+    bool should_exit = false;
 
     /* Set options for the interpreter */
     chipopts.shift_quirks = opts.shift_quirks;
@@ -316,20 +271,24 @@ static int run(struct progopts opts)
     }
     fclose(input);
 
-    /*
-     * We run the input loop on a separate thread so that the interpreter
-     * doesn't block waiting for input
-     */
-    if (pthread_create(
-            &input_thread, NULL, input_thrd_func,
-            &(struct input_thrd_args){
-                .key_states = &chip->key_states, .should_exit = &should_exit,
-            })) {
-        fprintf(stderr, "Failed to spawn timer thread; aborting\n");
-        goto error_chip8_created;
-    }
-
     while (!should_exit) {
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_QUIT) {
+                should_exit = true;
+            } else if (e.type == SDL_KEYDOWN) {
+                SDL_Keycode key = e.key.keysym.sym;
+
+                for (int i = 0; i < 16; i++)
+                    if (key == keymap[i])
+                        chip->key_states |= 1 << i;
+            } else if (e.type == SDL_KEYUP) {
+                SDL_Keycode key = e.key.keysym.sym;
+
+                for (int i = 0; i < 16; i++)
+                    if (key == keymap[i])
+                        chip->key_states &= ~(1 << i);
+            }
+        }
         chip8_step(chip);
         /* Pause/unpause the audio track as needed */
         SDL_PauseAudioDevice(audio_device, chip->reg_st == 0);
@@ -346,7 +305,6 @@ static int run(struct progopts opts)
     }
 
     /* Wait for the input thread to clean up first */
-    pthread_join(input_thread, NULL);
     chip8_destroy(chip);
     SDL_CloseAudioDevice(audio_device);
     audio_ring_buffer_free(audio_ring);

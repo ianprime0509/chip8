@@ -7,15 +7,18 @@ AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 
 AC_PROG_CC
+AC_PROG_CC_C99
 # This lets us use functions like `strdup' that are behind feature gates
 dnl AC_USE_SYSTEM_EXTENSIONS
 # Try to use -Wall -Wextra
 AX_CHECK_COMPILE_FLAG([-Wall], [AX_APPEND_FLAG([-Wall])])
 AX_CHECK_COMPILE_FLAG([-Wextra], [AX_APPEND_FLAG([-Wextra])])
-# We need pthread support
-AX_PTHREAD
 # Check for various functions
-AC_CHECK_FUNCS([strdup])
+AC_CHECK_FUNCS(
+    [clock_gettime,ffs,strdup],
+    [],
+    [AC_MSG_FAILURE([a required function was not found])]
+)
 
 SDL_VERSION=2.0.0
 AM_PATH_SDL2(

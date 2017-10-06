@@ -134,25 +134,25 @@ static void chip8_dump_regs(const struct chip8 *chip, FILE *output);
 static uint16_t chip8_execute(struct chip8 *chip,
                               struct chip8_instruction inst);
 /**
- * Signals the timer thread to stop and waits for it to do so.
+ * Updates the internal timer value and other internal timers.
  */
-static void chip8_timer_end(struct chip8 *chip);
+static void chip8_timer_update(struct chip8 *chip);
 /**
- * Starts the timer thread.
+ * Updates just the internal timer.
  */
-static void chip8_timer_start(struct chip8 *chip);
+static void chip8_timer_update_ticks(struct chip8 *chip);
 /**
  * Clears the timer latch and waits until it is reset.
+ * This method is meant to be called several times, returning `true` when the
+ * latch is reset.
+ *
+ * @return Whether the requested delay has been achieved.
  */
-static void chip8_wait_cycle(struct chip8 *chip);
+static bool chip8_wait_cycle(struct chip8 *chip);
 /**
  * Returns a random byte.
  */
 static uint8_t rand_byte(void);
-/**
- * The timer thread function.
- */
-static void *timer_func(void *arg);
 
 struct chip8_options chip8_options_default(void)
 {
@@ -178,8 +178,9 @@ struct chip8 *chip8_new(struct chip8_options opts)
     chip->halted = false;
     chip->highres = false;
     chip->needs_refresh = true;
-    chip->should_stop_thread = false;
     chip->timer_latch = true;
+    chip->timer_waiting = false;
+    chip8_timer_update_ticks(chip);
     chip->call_stack = NULL;
     chip->key_states = 0;
 
@@ -189,8 +190,6 @@ struct chip8 *chip8_new(struct chip8_options opts)
     memcpy(chip->mem + CHIP8_HEX_HIGH_ADDR, chip8_hex_high,
            sizeof chip8_hex_high);
 
-    if (opts.enable_timer)
-        chip8_timer_start(chip);
     srand(time(NULL));
 
     return chip;
@@ -198,8 +197,6 @@ struct chip8 *chip8_new(struct chip8_options opts)
 
 void chip8_destroy(struct chip8 *chip)
 {
-    if (chip->opts.enable_timer)
-        chip8_timer_end(chip);
     free(chip);
 }
 
@@ -326,6 +323,9 @@ static void chip8_dump_regs(const struct chip8 *chip, FILE *output)
 
 static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
 {
+    if (chip->opts.enable_timer)
+        chip8_timer_update(chip);
+
     switch (inst.op) {
     case OP_INVALID:
         fprintf(stderr,
@@ -333,7 +333,8 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
                 inst.opcode);
         break;
     case OP_SCD:
-        chip8_wait_cycle(chip);
+        if (!chip8_wait_cycle(chip))
+            return chip->pc;
         for (int y = 0; y < CHIP8_DISPLAY_HEIGHT - inst.nibble; y++)
             for (int x = 0; x < CHIP8_DISPLAY_WIDTH; x++)
                 chip->display[x][y] = chip->display[x][y + inst.nibble];
@@ -355,13 +356,15 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         }
         break;
     case OP_SCR:
-        chip8_wait_cycle(chip);
+        if (!chip8_wait_cycle(chip))
+            return chip->pc;
         for (int x = 0; x < CHIP8_DISPLAY_WIDTH - 4; x++)
             memcpy(&chip->display[x], &chip->display[x + 4],
                    sizeof chip->display[x]);
         break;
     case OP_SCL:
-        chip8_wait_cycle(chip);
+        if (!chip8_wait_cycle(chip))
+            return chip->pc;
         for (int x = CHIP8_DISPLAY_WIDTH - 5; x > 0; x--)
             memcpy(&chip->display[x + 4], &chip->display[x],
                    sizeof chip->display[x]);
@@ -489,7 +492,8 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         chip->regs[inst.vx] = rand_byte() & inst.byte;
         break;
     case OP_DRW:
-        chip8_wait_cycle(chip);
+        if (!chip8_wait_cycle(chip))
+            return chip->pc;
         if (inst.nibble == 0)
             chip->regs[REG_VF] = chip8_draw_sprite_high(
                 chip, chip->regs[inst.vx], chip->regs[inst.vy], chip->reg_i);
@@ -573,49 +577,58 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
     return chip->pc + 2;
 }
 
-static void chip8_timer_end(struct chip8 *chip)
+static void chip8_timer_update(struct chip8 *chip)
 {
-    chip->should_stop_thread = true;
-    pthread_join(chip->timer_thread, NULL);
-    chip->should_stop_thread = false;
+    unsigned long old_ticks = chip->timer_ticks;
+    unsigned long elapsed;
+
+    chip8_timer_update_ticks(chip);
+    elapsed = chip->timer_ticks - old_ticks;
+
+    /* Update internal timers */
+    if (chip->reg_dt >= elapsed)
+        chip->reg_dt -= elapsed;
+    else
+        chip->reg_dt = 0;
+
+    if (chip->reg_st >= elapsed)
+        chip->reg_st -= elapsed;
+    else
+        chip->reg_st = 0;
+
+    if (elapsed != 0)
+        chip->timer_latch = true;
 }
 
-static void chip8_timer_start(struct chip8 *chip)
+static void chip8_timer_update_ticks(struct chip8 *chip)
 {
-    if (pthread_create(&chip->timer_thread, NULL, timer_func, chip)) {
-        fprintf(stderr, "Could not spawn timer thread; aborting\n");
-        exit(EXIT_FAILURE);
-    }
+    struct timespec newtime;
+    double seconds;
+
+    clock_gettime(CLOCK_REALTIME, &newtime);
+    seconds = newtime.tv_sec + newtime.tv_nsec / 1e9;
+    chip->timer_ticks = seconds * chip->opts.timer_freq;
 }
 
-static void chip8_wait_cycle(struct chip8 *chip)
+static bool chip8_wait_cycle(struct chip8 *chip)
 {
     if (!chip->opts.delay_draws)
-        return;
-    chip->timer_latch = false;
-    while (!chip->timer_latch)
-        ;
+        return true;
+    if (chip->timer_waiting) {
+        if (chip->timer_latch) {
+            chip->timer_waiting = false;
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        chip->timer_waiting = true;
+        chip->timer_latch = false;
+        return false;
+    }
 }
 
 static uint8_t rand_byte(void)
 {
     return rand();
-}
-
-static void *timer_func(void *arg)
-{
-    struct chip8 *chip = arg;
-
-    while (!chip->should_stop_thread) {
-        if (chip->reg_dt)
-            chip->reg_dt--;
-        if (chip->reg_st)
-            chip->reg_st--;
-        chip->timer_latch = true;
-        nanosleep(&(struct timespec){.tv_nsec =
-                                         NS_PER_SECOND / chip->opts.timer_freq},
-                  NULL);
-    }
-
-    return NULL;
 }
