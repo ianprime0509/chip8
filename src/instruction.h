@@ -24,6 +24,7 @@
 #define CHIP8_CORE_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 /**
@@ -325,6 +326,11 @@ struct chip8_instruction {
     };
 };
 
+/**
+ * Formats a Chip-8 instruction into a string.
+ */
+void chip8_instruction_format(struct chip8_instruction instr, char *dest,
+                              size_t sz, bool shift_quirks);
 /**
  * Converts a Chip-8 opcode to an instruction.
  *

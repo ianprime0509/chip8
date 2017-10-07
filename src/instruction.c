@@ -18,6 +18,8 @@
  */
 #include "instruction.h"
 
+#include <stdio.h>
+
 /**
  * Returns the `Vx` part of the given opcode.
  */
@@ -389,4 +391,150 @@ uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr,
     }
 
     return 0;
+}
+
+void chip8_instruction_format(struct chip8_instruction instr, char *dest,
+                              size_t sz, bool shift_quirks)
+{
+    switch (instr.op) {
+    case OP_INVALID:
+        snprintf(dest, sz, "INVALID (DW #%04X)", instr.opcode);
+        break;
+    case OP_SCD:
+        snprintf(dest, sz, "SCD %u", instr.nibble);
+        break;
+    case OP_CLS:
+        snprintf(dest, sz, "CLS");
+        break;
+    case OP_RET:
+        snprintf(dest, sz, "RET");
+        break;
+    case OP_SCR:
+        snprintf(dest, sz, "SCR");
+        break;
+    case OP_SCL:
+        snprintf(dest, sz, "SCL");
+        break;
+    case OP_EXIT:
+        snprintf(dest, sz, "EXIT");
+        break;
+    case OP_LOW:
+        snprintf(dest, sz, "LOW");
+        break;
+    case OP_HIGH:
+        snprintf(dest, sz, "HIGH");
+        break;
+    case OP_JP:
+        snprintf(dest, sz, "JP #%03X", instr.addr);
+        break;
+    case OP_CALL:
+        snprintf(dest, sz, "CALL #%03X", instr.addr);
+        break;
+    case OP_SE_BYTE:
+        snprintf(dest, sz, "SE V%X, #%02X", instr.vx, instr.byte);
+        break;
+    case OP_SNE_BYTE:
+        snprintf(dest, sz, "SNE V%X, #%02X", instr.vx, instr.byte);
+        break;
+    case OP_SE_REG:
+        snprintf(dest, sz, "SE V%X, V%X", instr.vx, instr.vy);
+        break;
+    case OP_LD_BYTE:
+        snprintf(dest, sz, "LD V%X, #%02X", instr.vx, instr.byte);
+        break;
+    case OP_ADD_BYTE:
+        snprintf(dest, sz, "ADD V%X, #%02X", instr.vx, instr.byte);
+        break;
+    case OP_LD_REG:
+        snprintf(dest, sz, "LD V%X, V%X", instr.vx, instr.vy);
+        break;
+    case OP_OR:
+        snprintf(dest, sz, "OR V%X, V%X", instr.vx, instr.vy);
+        break;
+    case OP_AND:
+        snprintf(dest, sz, "AND V%X, V%X", instr.vx, instr.vy);
+        break;
+    case OP_XOR:
+        snprintf(dest, sz, "XOR V%X, V%X", instr.vx, instr.vy);
+        break;
+    case OP_ADD_REG:
+        snprintf(dest, sz, "ADD V%X, V%X", instr.vx, instr.vy);
+        break;
+    case OP_SUB:
+        snprintf(dest, sz, "SUB V%X, V%X", instr.vx, instr.vy);
+        break;
+    case OP_SHR:
+        if (shift_quirks)
+            snprintf(dest, sz, "SHR V%X, V%X", instr.vx, instr.vy);
+        else
+            snprintf(dest, sz, "SHR V%X", instr.vx);
+        break;
+    case OP_SUBN:
+        snprintf(dest, sz, "SUBN V%X, V%X", instr.vx, instr.vy);
+        break;
+    case OP_SHL:
+        if (shift_quirks)
+            snprintf(dest, sz, "SHL V%X, V%X", instr.vx, instr.vy);
+        else
+            snprintf(dest, sz, "SHL V%X", instr.vx);
+        break;
+    case OP_SNE_REG:
+        snprintf(dest, sz, "SNE V%X, V%X", instr.vx, instr.vy);
+        break;
+    case OP_LD_I:
+        snprintf(dest, sz, "LD I, #%03X", instr.addr);
+        break;
+    case OP_JP_V0:
+        snprintf(dest, sz, "JP V0, #%03X", instr.addr);
+        break;
+    case OP_RND:
+        snprintf(dest, sz, "RND V%X, #%02X", instr.vx, instr.byte);
+        break;
+    case OP_DRW:
+        snprintf(dest, sz, "DRW V%X, V%X, %u", instr.vx, instr.vy,
+                 instr.nibble);
+        break;
+    case OP_SKP:
+        snprintf(dest, sz, "SKP V%X", instr.vx);
+        break;
+    case OP_SKNP:
+        snprintf(dest, sz, "SKNP V%X", instr.vx);
+        break;
+    case OP_LD_REG_DT:
+        snprintf(dest, sz, "LD V%X, DT", instr.vx);
+        break;
+    case OP_LD_KEY:
+        snprintf(dest, sz, "LD V%X, K", instr.vx);
+        break;
+    case OP_LD_DT_REG:
+        snprintf(dest, sz, "LD DT, V%X", instr.vx);
+        break;
+    case OP_LD_ST:
+        snprintf(dest, sz, "LD ST, V%X", instr.vx);
+        break;
+    case OP_ADD_I:
+        snprintf(dest, sz, "LD I, V%X", instr.vx);
+        break;
+    case OP_LD_F:
+        snprintf(dest, sz, "LD F, V%X", instr.vx);
+        break;
+    case OP_LD_HF:
+        snprintf(dest, sz, "LD HF, V%X", instr.vx);
+        break;
+    case OP_LD_B:
+        snprintf(dest, sz, "LD B, V%X", instr.vx);
+        break;
+    case OP_LD_DEREF_I_REG:
+        snprintf(dest, sz, "LD [I], V%X", instr.vx);
+        break;
+    case OP_LD_REG_DEREF_I:
+        snprintf(dest, sz, "LD V%X, [I]", instr.vx);
+        break;
+    case OP_LD_R_REG:
+        snprintf(dest, sz, "LD R, V%X", instr.vx);
+        break;
+    case OP_LD_REG_R:
+        snprintf(dest, sz, "LD V%X, R", instr.vx);
+        break;
+    }
 }
