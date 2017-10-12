@@ -946,6 +946,13 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
             chipasm->if_skip_else = chipasm->if_level;
         }
         return 0;
+    } else if (!strcasecmp(op, "IFNDEF")) {
+        EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
+        chipasm->if_level++;
+        if (chip8asm_should_process(chipasm) &&
+            ltable_get(&chipasm->labels, operands[0], NULL)) {
+            chipasm->if_skip_else = chipasm->if_level;
+        }
     } else if (!strcasecmp(op, "ELSE")) {
         EXPECT_OPERANDS(chipasm->line, op, 0, n_operands);
         if (chipasm->if_level == 0)

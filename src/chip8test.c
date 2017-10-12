@@ -350,9 +350,15 @@ int test_asm_if(void)
     chip8asm_process_line(chipasm, "ENDIF");
     chip8asm_process_line(chipasm, "ENDIF");
 
+    chip8asm_process_line(chipasm, "IFNDEF TEST2");
+    chip8asm_process_line(chipasm, "DB 5");
+    chip8asm_process_line(chipasm, "ELSE");
+    chip8asm_process_line(chipasm, "DB 6");
+    chip8asm_process_line(chipasm, "ENDIF");
+
     ASSERT(chip8asm_emit(chipasm, prog) == 0);
     ASSERT_EQ_UINT(prog->mem[0], 0x02);
-    ASSERT_EQ_UINT(prog->mem[1], 0x00);
+    ASSERT_EQ_UINT(prog->mem[1], 0x06);
 
     chip8asm_program_destroy(prog);
     chip8asm_destroy(chipasm);
