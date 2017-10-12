@@ -39,33 +39,18 @@
             return 1;                                                          \
         }                                                                      \
     } while (0)
-#define ASSERT_EQ(lhs, rhs)                                                    \
+#define ASSERT_EQ(lhs, rhs, fmtstr)                                            \
     do {                                                                       \
         if ((lhs) != (rhs)) {                                                  \
             fprintf(stderr, "ERR: assertion failed on line %d: " #lhs          \
                             " == " #rhs "\n",                                  \
                     __LINE__);                                                 \
-            fprintf(stderr, "     LHS = ");                                    \
-            fprintf(stderr, FMTSTRING(lhs), (lhs));                            \
-            fprintf(stderr, "\n");                                             \
-            fprintf(stderr, "     RHS = ");                                    \
-            fprintf(stderr, FMTSTRING(rhs), (rhs));                            \
-            fprintf(stderr, "\n");                                             \
+            fprintf(stderr, "     LHS = " fmtstr "\n", (lhs));                 \
+            fprintf(stderr, "     RHS = " fmtstr "\n", (rhs));                 \
             return 1;                                                          \
         }                                                                      \
     } while (0)
-/**
- * Returns the proper format string for the type of the given value.
- * TODO: add more cases as needed.
- */
-#define FMTSTRING(expr)                                                        \
-    _Generic((expr), signed char                                               \
-             : "%hhd", unsigned char                                           \
-             : "%hhu", short                                                   \
-             : "%hd", unsigned short                                           \
-             : "%hu", int                                                      \
-             : "%d", unsigned int                                              \
-             : "%u")
+#define ASSERT_EQ_UINT(lhs, rhs) ASSERT_EQ((lhs), (rhs), "%u")
 
 static int n_failures;
 
@@ -92,6 +77,10 @@ int test_asm_align(void);
  */
 int test_asm_eval(void);
 /**
+ * Tests conditional assembly (IFDEF, etc.).
+ */
+int test_asm_if(void);
+/**
  * Tests Chip-8 comparison instruction evaluation.
  */
 int test_comparison(void);
@@ -115,6 +104,7 @@ int main(void)
     TEST_RUN(test_asm);
     TEST_RUN(test_asm_align);
     TEST_RUN(test_asm_eval);
+    TEST_RUN(test_asm_if);
     TEST_RUN(test_comparison);
     TEST_RUN(test_jp);
     TEST_RUN(test_ld);
@@ -133,57 +123,57 @@ int test_arithmetic(void)
     chip8_execute_opcode(chip, 0x6066);
     /* ADD V0, #0A */
     chip8_execute_opcode(chip, 0x700A);
-    ASSERT_EQ(chip->regs[REG_V0], 0x70);
-    ASSERT_EQ(chip->regs[REG_VF], 0);
+    ASSERT_EQ_UINT(chip->regs[REG_V0], 0x70);
+    ASSERT_EQ_UINT(chip->regs[REG_VF], 0);
     /* ADD V0, 0xFF */
     chip8_execute_opcode(chip, 0x70FF);
-    ASSERT_EQ(chip->regs[REG_V0], 0x6F);
-    ASSERT_EQ(chip->regs[REG_VF], 1);
+    ASSERT_EQ_UINT(chip->regs[REG_V0], 0x6F);
+    ASSERT_EQ_UINT(chip->regs[REG_VF], 1);
     /* LD V1, 0x10 */
     chip8_execute_opcode(chip, 0x6110);
     /* OR V0, V1 */
     chip8_execute_opcode(chip, 0x8011);
-    ASSERT_EQ(chip->regs[REG_V0], 0x7F);
+    ASSERT_EQ_UINT(chip->regs[REG_V0], 0x7F);
     /* LD V2, 0xF0 */
     chip8_execute_opcode(chip, 0x62F0);
     /* AND V0, V2 */
     chip8_execute_opcode(chip, 0x8022);
-    ASSERT_EQ(chip->regs[REG_V0], 0x70);
+    ASSERT_EQ_UINT(chip->regs[REG_V0], 0x70);
     /* XOR V0, V2 */
     chip8_execute_opcode(chip, 0x8023);
-    ASSERT_EQ(chip->regs[REG_V0], 0x80);
+    ASSERT_EQ_UINT(chip->regs[REG_V0], 0x80);
     /* ADD V0, V2 */
     chip8_execute_opcode(chip, 0x8024);
-    ASSERT_EQ(chip->regs[REG_V0], 0x70);
-    ASSERT_EQ(chip->regs[REG_VF], 1);
+    ASSERT_EQ_UINT(chip->regs[REG_V0], 0x70);
+    ASSERT_EQ_UINT(chip->regs[REG_VF], 1);
     /* LD V1, 0x70 */
     chip8_execute_opcode(chip, 0x6170);
     /* ADD V0, V1 */
     chip8_execute_opcode(chip, 0x8014);
-    ASSERT_EQ(chip->regs[REG_V0], 0xE0);
-    ASSERT_EQ(chip->regs[REG_VF], 0);
+    ASSERT_EQ_UINT(chip->regs[REG_V0], 0xE0);
+    ASSERT_EQ_UINT(chip->regs[REG_VF], 0);
     /* SUB V0, V1 */
     chip8_execute_opcode(chip, 0x8015);
-    ASSERT_EQ(chip->regs[REG_V0], 0x70);
-    ASSERT_EQ(chip->regs[REG_VF], 1);
+    ASSERT_EQ_UINT(chip->regs[REG_V0], 0x70);
+    ASSERT_EQ_UINT(chip->regs[REG_VF], 1);
     /* SUB V0, V2 */
     chip8_execute_opcode(chip, 0x8025);
-    ASSERT_EQ(chip->regs[REG_V0], 0x80);
-    ASSERT_EQ(chip->regs[REG_VF], 0);
+    ASSERT_EQ_UINT(chip->regs[REG_V0], 0x80);
+    ASSERT_EQ_UINT(chip->regs[REG_VF], 0);
     /* LD V3, #07 */
     chip8_execute_opcode(chip, 0x6307);
     /* SHR V3 */
     chip8_execute_opcode(chip, 0x8306);
-    ASSERT_EQ(chip->regs[REG_V3], 0x03);
-    ASSERT_EQ(chip->regs[REG_VF], 1);
+    ASSERT_EQ_UINT(chip->regs[REG_V3], 0x03);
+    ASSERT_EQ_UINT(chip->regs[REG_VF], 1);
     /* SHL V3 */
     chip8_execute_opcode(chip, 0x830E);
-    ASSERT_EQ(chip->regs[REG_V3], 0x06);
-    ASSERT_EQ(chip->regs[REG_VF], 0);
+    ASSERT_EQ_UINT(chip->regs[REG_V3], 0x06);
+    ASSERT_EQ_UINT(chip->regs[REG_VF], 0);
     /* SUBN V3, V0 */
     chip8_execute_opcode(chip, 0x8307);
-    ASSERT_EQ(chip->regs[REG_V3], 0x7A);
-    ASSERT_EQ(chip->regs[REG_VF], 1);
+    ASSERT_EQ_UINT(chip->regs[REG_V3], 0x7A);
+    ASSERT_EQ_UINT(chip->regs[REG_VF], 1);
 
     chip8_destroy(chip);
     return 0;
@@ -194,7 +184,7 @@ int test_asm(void)
 #define TEST_INSTR(instr, opcode)                                              \
     ASSERT(!chip8asm_process_line(chipasm, (instr)));                          \
     ASSERT(!chip8asm_emit(chipasm, prog));                                     \
-    ASSERT_EQ(chip8asm_program_opcode(prog, prog->len - 2), (opcode))
+    ASSERT_EQ_UINT(chip8asm_program_opcode(prog, prog->len - 2), (opcode))
 
     struct chip8asm *chipasm = chip8asm_new(chip8asm_options_default());
     struct chip8asm_program *prog = chip8asm_program_new();
@@ -279,19 +269,19 @@ int test_asm_align(void)
     ASSERT(!chip8asm_process_line(chipasm, "JP lbl"));
     ASSERT(!chip8asm_emit(chipasm, prog));
 
-    ASSERT_EQ(prog->mem[0], 0x12);
-    ASSERT_EQ(prog->mem[1], 0x34);
-    ASSERT_EQ(prog->mem[2], 0x56);
-    ASSERT_EQ(prog->mem[3], 0x78);
-    ASSERT_EQ(prog->mem[4], 0x9A);
+    ASSERT_EQ_UINT(prog->mem[0], 0x12);
+    ASSERT_EQ_UINT(prog->mem[1], 0x34);
+    ASSERT_EQ_UINT(prog->mem[2], 0x56);
+    ASSERT_EQ_UINT(prog->mem[3], 0x78);
+    ASSERT_EQ_UINT(prog->mem[4], 0x9A);
     /* The JP instruction must be aligned */
-    ASSERT_EQ(prog->mem[5], 0x00);
-    ASSERT_EQ(prog->mem[6], 0x12);
-    ASSERT_EQ(prog->mem[7], 0x00);
-    ASSERT_EQ(prog->mem[8], 0xBC);
-    ASSERT_EQ(prog->mem[9], 0x00);
-    ASSERT_EQ(prog->mem[10], 0x12);
-    ASSERT_EQ(prog->mem[11], 0x0A);
+    ASSERT_EQ_UINT(prog->mem[5], 0x00);
+    ASSERT_EQ_UINT(prog->mem[6], 0x12);
+    ASSERT_EQ_UINT(prog->mem[7], 0x00);
+    ASSERT_EQ_UINT(prog->mem[8], 0xBC);
+    ASSERT_EQ_UINT(prog->mem[9], 0x00);
+    ASSERT_EQ_UINT(prog->mem[10], 0x12);
+    ASSERT_EQ_UINT(prog->mem[11], 0x0A);
 
     chip8asm_program_destroy(prog);
     chip8asm_destroy(chipasm);
@@ -306,33 +296,65 @@ int test_asm_eval(void)
     ASSERT(chipasm != NULL);
 
     chip8asm_eval(chipasm, "2 + #F - $10", 1, &value);
-    ASSERT_EQ(value, 15);
+    ASSERT_EQ_UINT(value, 15);
     chip8asm_eval(chipasm, "-1", 2, &value);
-    ASSERT_EQ(value, UINT16_MAX);
+    ASSERT_EQ_UINT(value, UINT16_MAX);
     chip8asm_eval(chipasm, "2 + 3 * 1", 3, &value);
-    ASSERT_EQ(value, 5);
+    ASSERT_EQ_UINT(value, 5);
     chip8asm_eval(chipasm, "((4 + 4) * (#0a - $00000010))", 4, &value);
-    ASSERT_EQ(value, 64);
+    ASSERT_EQ_UINT(value, 64);
     chip8asm_eval(chipasm, "~$01010101 | $01010101 ^ $00001111 & $10101010", 5,
                   &value);
-    ASSERT_EQ(value, 0xFFFF);
+    ASSERT_EQ_UINT(value, 0xFFFF);
     chip8asm_eval(chipasm, "7 > 2 < 2", 6, &value);
-    ASSERT_EQ(value, 4);
+    ASSERT_EQ_UINT(value, 4);
     chip8asm_eval(chipasm, "13 % 8 / 2", 7, &value);
-    ASSERT_EQ(value, 2);
+    ASSERT_EQ_UINT(value, 2);
     chip8asm_eval(chipasm, "~--~45", 8, &value);
-    ASSERT_EQ(value, 45);
+    ASSERT_EQ_UINT(value, 45);
     chip8asm_process_line(chipasm, "THE_ANSWER = 42");
     chip8asm_eval(chipasm, "THE_ANSWER - 2", 9, &value);
-    ASSERT_EQ(value, 40);
+    ASSERT_EQ_UINT(value, 40);
     chip8asm_process_line(chipasm, "_crazyIDENT1234 = #FFFF");
     chip8asm_eval(chipasm, "~_crazyIDENT1234", 10, &value);
-    ASSERT_EQ(value, 0);
+    ASSERT_EQ_UINT(value, 0);
     /* Test for failure on invalid expressions */
     ASSERT(chip8asm_eval(chipasm, "~1234~", 11, &value));
     ASSERT(chip8asm_eval(chipasm, "123+", 12, &value));
     ASSERT(chip8asm_eval(chipasm, "undefined", 13, &value));
 
+    chip8asm_destroy(chipasm);
+    return 0;
+}
+
+int test_asm_if(void)
+{
+    struct chip8asm *chipasm = chip8asm_new(chip8asm_options_default());
+    struct chip8asm_program *prog = chip8asm_program_new();
+
+    ASSERT(chipasm != NULL && prog != NULL);
+
+    chip8asm_process_line(chipasm, "DEFINE TEST1");
+    chip8asm_process_line(chipasm, "DEFINE TEST2");
+    chip8asm_process_line(chipasm, "IFDEF TEST1");
+    chip8asm_process_line(chipasm, "IFDEF UNDEFINED");
+    chip8asm_process_line(chipasm, "DB 1");
+    chip8asm_process_line(chipasm, "ELSE");
+    chip8asm_process_line(chipasm, "DB 2");
+    chip8asm_process_line(chipasm, "ENDIF");
+    chip8asm_process_line(chipasm, "ELSE");
+    chip8asm_process_line(chipasm, "IFDEF TEST2");
+    chip8asm_process_line(chipasm, "DB 3");
+    chip8asm_process_line(chipasm, "ELSE");
+    chip8asm_process_line(chipasm, "DB 4");
+    chip8asm_process_line(chipasm, "ENDIF");
+    chip8asm_process_line(chipasm, "ENDIF");
+
+    ASSERT(chip8asm_emit(chipasm, prog) == 0);
+    ASSERT_EQ_UINT(prog->mem[0], 0x02);
+    ASSERT_EQ_UINT(prog->mem[1], 0x00);
+
+    chip8asm_program_destroy(prog);
     chip8asm_destroy(chipasm);
     return 0;
 }
@@ -349,21 +371,21 @@ int test_comparison(void)
     pc = chip->pc;
     /* SE V0, #45 */
     chip8_execute_opcode(chip, 0x3045);
-    ASSERT_EQ(chip->pc, pc + 4);
+    ASSERT_EQ_UINT(chip->pc, pc + 4);
     pc = chip->pc;
     /* SNE V0, #45 */
     chip8_execute_opcode(chip, 0x4045);
-    ASSERT_EQ(chip->pc, pc + 2);
+    ASSERT_EQ_UINT(chip->pc, pc + 2);
     /* LD V1, #39 */
     chip8_execute_opcode(chip, 0x6139);
     pc = chip->pc;
     /* SE V0, V1 */
     chip8_execute_opcode(chip, 0x5010);
-    ASSERT_EQ(chip->pc, pc + 2);
+    ASSERT_EQ_UINT(chip->pc, pc + 2);
     pc = chip->pc;
     /* SNE V0, V1 */
     chip8_execute_opcode(chip, 0x9010);
-    ASSERT_EQ(chip->pc, pc + 4);
+    ASSERT_EQ_UINT(chip->pc, pc + 4);
 
     chip8_destroy(chip);
     return 0;
@@ -377,19 +399,19 @@ int test_jp(void)
 
     /* JP #400 */
     chip8_execute_opcode(chip, 0x1400);
-    ASSERT_EQ(chip->pc, 0x400);
+    ASSERT_EQ_UINT(chip->pc, 0x400);
     /* CALL #200 */
     chip8_execute_opcode(chip, 0x2200);
-    ASSERT_EQ(chip->pc, 0x200);
+    ASSERT_EQ_UINT(chip->pc, 0x200);
     /* CALL #300 */
     chip8_execute_opcode(chip, 0x2300);
-    ASSERT_EQ(chip->pc, 0x300);
+    ASSERT_EQ_UINT(chip->pc, 0x300);
     /* RET */
     chip8_execute_opcode(chip, 0x00EE);
-    ASSERT_EQ(chip->pc, 0x202);
+    ASSERT_EQ_UINT(chip->pc, 0x202);
     /* RET */
     chip8_execute_opcode(chip, 0x00EE);
-    ASSERT_EQ(chip->pc, 0x402);
+    ASSERT_EQ_UINT(chip->pc, 0x402);
 
     chip8_destroy(chip);
 
@@ -405,27 +427,27 @@ int test_ld(void)
 
     /* LD V5, #67 */
     chip8_execute_opcode(chip, 0x6567);
-    ASSERT_EQ(chip->regs[REG_V5], 0x67);
+    ASSERT_EQ_UINT(chip->regs[REG_V5], 0x67);
     /* LD VA, V5 */
     chip8_execute_opcode(chip, 0x8A50);
-    ASSERT_EQ(chip->regs[REG_VA], chip->regs[REG_V5]);
+    ASSERT_EQ_UINT(chip->regs[REG_VA], chip->regs[REG_V5]);
     /* LD I, #600 */
     chip8_execute_opcode(chip, 0xA600);
-    ASSERT_EQ(chip->reg_i, 0x600);
+    ASSERT_EQ_UINT(chip->reg_i, 0x600);
     /* LD DT, V5 */
     chip8_execute_opcode(chip, 0xF515);
-    ASSERT_EQ(chip->reg_dt, chip->regs[REG_V5]);
+    ASSERT_EQ_UINT(chip->reg_dt, chip->regs[REG_V5]);
     /* LD V0, DT */
     chip8_execute_opcode(chip, 0xF007);
-    ASSERT_EQ(chip->regs[REG_V0], chip->reg_dt);
+    ASSERT_EQ_UINT(chip->regs[REG_V0], chip->reg_dt);
     /* LD ST, V0 */
     chip8_execute_opcode(chip, 0xF018);
-    ASSERT_EQ(chip->reg_st, chip->regs[REG_V0]);
+    ASSERT_EQ_UINT(chip->reg_st, chip->regs[REG_V0]);
     /* LD B, V5 */
     chip8_execute_opcode(chip, 0xF533);
-    ASSERT_EQ(chip->mem[0x600], 1);
-    ASSERT_EQ(chip->mem[0x601], 0);
-    ASSERT_EQ(chip->mem[0x602], 3);
+    ASSERT_EQ_UINT(chip->mem[0x600], 1);
+    ASSERT_EQ_UINT(chip->mem[0x601], 0);
+    ASSERT_EQ_UINT(chip->mem[0x602], 3);
 
     chip8_destroy(chip);
     return 0;
@@ -446,12 +468,12 @@ int test_quirks(void)
     chip8_execute_opcode(chip, 0x6100);
     /* SHR V1, V0 */
     chip8_execute_opcode(chip, 0x8106);
-    ASSERT_EQ(chip->regs[REG_V0], 0x07);
-    ASSERT_EQ(chip->regs[REG_V1], 0x03);
+    ASSERT_EQ_UINT(chip->regs[REG_V0], 0x07);
+    ASSERT_EQ_UINT(chip->regs[REG_V1], 0x03);
     /* SHL V0, V1 */
     chip8_execute_opcode(chip, 0x801E);
-    ASSERT_EQ(chip->regs[REG_V1], 0x03);
-    ASSERT_EQ(chip->regs[REG_V0], 0x06);
+    ASSERT_EQ_UINT(chip->regs[REG_V1], 0x03);
+    ASSERT_EQ_UINT(chip->regs[REG_V0], 0x06);
 
     chip8_destroy(chip);
     return 0;

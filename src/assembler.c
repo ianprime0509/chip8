@@ -387,6 +387,9 @@ int chip8asm_emit(struct chip8asm *chipasm, struct chip8asm_program *prog)
         }
     }
 
+    if (chipasm->if_level != 0)
+        WARN(chipasm->line,
+             "completed processing without finding matching ENDIF");
     /* All instructions emitted, so we can get rid of them */
     instructions_clear(&chipasm->instructions);
 
@@ -930,6 +933,13 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
      */
     if (!strcasecmp(op, "IFDEF")) {
         EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
+        /*
+         * It is important to keep track of the IF nesting level even if we're
+         * currently not processing instructions, because we need to know which
+         * nesting level any ELSE or ENDIF directives apply to. However, we
+         * should only process the IF directive (by setting if_skip_else) if
+         * we're currently processing instructions.
+         */
         chipasm->if_level++;
         if (chip8asm_should_process(chipasm) &&
             !ltable_get(&chipasm->labels, operands[0], NULL)) {
@@ -940,23 +950,34 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         EXPECT_OPERANDS(chipasm->line, op, 0, n_operands);
         if (chipasm->if_level == 0)
             FAIL(1, chipasm->line, "unexpected ELSE");
-        if (chip8asm_should_process(chipasm) &&
-            chipasm->if_level == chipasm->if_skip_else) {
+        /*
+         * Here, we need to check if we've reached the ELSE corresponding to an
+         * IF whose test returned false (so we've skipped the IF block and now
+         * need to process the ELSE block). If the ELSE doesn't correspond to
+         * such an IF, we need to make sure we're currently processing
+         * instructions before assuming that we should set if_skip_endif; if
+         * this check is not made, then a nested ELSE within a skipped block
+         * will not behave correctly.
+         */
+        if (chipasm->if_level == chipasm->if_skip_else)
             chipasm->if_skip_else = 0;
-        }
+        else if (chip8asm_should_process(chipasm))
+            chipasm->if_skip_endif = chipasm->if_level;
         return 0;
     } else if (!strcasecmp(op, "ENDIF")) {
         EXPECT_OPERANDS(chipasm->line, op, 0, n_operands);
         if (chipasm->if_level == 0)
             FAIL(1, chipasm->line, "unexpected ENDIF");
-        if (chip8asm_should_process(chipasm) &&
-            chipasm->if_level == chipasm->if_skip_else) {
+        /*
+         * Note that we also check if_skip_else here, since an IF block without
+         * an ELSE is ended by an ENDIF, and there is no way to tell in advance
+         * whether a particular IF block will have an ELSE without processing
+         * it.
+         */
+        if (chipasm->if_level == chipasm->if_skip_else)
             chipasm->if_skip_else = 0;
-        }
-        if (chip8asm_should_process(chipasm) &&
-            chipasm->if_level == chipasm->if_skip_endif) {
+        if (chipasm->if_level == chipasm->if_skip_endif)
             chipasm->if_skip_endif = 0;
-        }
         chipasm->if_level--;
         return 0;
     }
