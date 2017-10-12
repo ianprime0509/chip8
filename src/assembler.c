@@ -880,6 +880,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     } else if (!strcasecmp(op, "DB")) {
         EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
         instr.type = IT_DB;
+        instr.n_operands = 1;
         instr.operands[0] = strdup(operands[0]);
         /* We don't have to worry about aligning pc here */
         instr.pc = chipasm->pc;
@@ -889,6 +890,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     } else if (!strcasecmp(op, "DW")) {
         EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
         instr.type = IT_DW;
+        instr.n_operands = 1;
         instr.operands[0] = strdup(operands[0]);
         /* We don't have to worry about aligning pc here */
         instr.pc = chipasm->pc;
