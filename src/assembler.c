@@ -953,7 +953,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     {
         EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
         instr.type = IT_CHIP8_OP;
-        instr.n_operands = 1;
+        instr.n_operands = 2;
         instr.operands[0] = strdup(operands[0]);
         instr.operands[1] = strdup(operands[1]);
         /* Figure out which `SNE` we're using */
