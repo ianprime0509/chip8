@@ -391,6 +391,8 @@ int test_jp(void)
     chip8_execute_opcode(chip, 0x00EE);
     ASSERT_EQ(chip->pc, 0x402);
 
+    chip8_destroy(chip);
+
     return 0;
 }
 
