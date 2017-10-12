@@ -196,6 +196,41 @@ struct chip8asm {
      * The current program counter (address in Chip-8 memory).
      */
     uint16_t pc;
+    /**
+     * The current IF instruction nesting level.
+     * This starts out at 0 and is incremented every time we reach another
+     * nested IF directive.
+     *
+     * This is what happens when an IF directive is encountered: first, the
+     * if_level is incremented. Then, if the condition is true, we continue on
+     * until we reach the matching ELSE or ENDIF. If the condition is false, we
+     * set if_skip_else to the current if_level; this tells the assembler to
+     * not process anything until it reaches the matching ELSE (or the matching
+     * ENDIF).
+     *
+     * When the corresponding ELSE directive is encountered: if if_skip_else
+     * was nonzero (we were skipping to the ELSE), we reset it to 0, resulting
+     * in everything in the ELSE block being processed. If if_skip_else was
+     * zero, we set if_skip_endif to the current if_level, which tells the
+     * assembler to skip the ELSE block (until the ENDIF is found).
+     *
+     * When the corresponding ENDIF is found, we reset if_skip_else or
+     * if_skip_endif to 0 if either is equal to if_level, and then decrement
+     * if_level.
+     */
+    int if_level;
+    /**
+     * The IF nesting level which we should skip until reaching ELSE.
+     * This is set to 0 if we are not currently skipping until the next matching
+     * ELSE.
+     */
+    int if_skip_else;
+    /**
+     * The IF nesting level which we should skip until reaching ENDIF.
+     * This is set to 0 if we are not currently skipping until the next matching
+     * ENDIF.
+     */
+    int if_skip_endif;
 };
 
 /**
@@ -226,6 +261,13 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
                                         const char *op,
                                         const char (*operands)[MAXOP + 1],
                                         int n_operands);
+/**
+ * Returns whether the assembler should process anything right now.
+ * This will return false if, for example, we are in the middle of an IF block
+ * which is being skipped. Thus, it will be necessary to process *some* things
+ * even if this returns true (namely, IF, ELSE, and ENDIF instructions).
+ */
+static bool chip8asm_should_process(struct chip8asm *chipasm);
 /**
  * Returns the hash of the given string.
  * This is the "djb2" algorithm given on http://www.cse.yorku.ca/~oz/hash.html
@@ -541,7 +583,13 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
         } else if (line[linepos] == ':') {
             /* Found a label */
             buf[bufpos] = '\0';
-            if (bufpos == 0)
+            /* Reset bufpos to set up processing of next label */
+            bufpos = 0;
+            /* Don't process the label if we're skipping stuff */
+            if (!chip8asm_should_process(chipasm))
+                continue;
+
+            if (buf[0] == '\0')
                 FAIL(1, chipasm->line, "found empty label");
             if (chipasm->line_label)
                 FAIL(1, chipasm->line, "cannot associate more than one label "
@@ -552,8 +600,6 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
             /* Now skip whitespace before going on to find the next label */
             while (isspace(line[++linepos]))
                 ;
-            /* Reset bufpos to begin processing of next label */
-            bufpos = 0;
         } else if (isspace(line[linepos])) {
             /* This isn't a label */
             break;
@@ -645,6 +691,10 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
     if (is_assignment) {
         uint16_t value;
         int err;
+
+        /* Don't process this assignment if we're skipping things */
+        if (!chip8asm_should_process(chipasm))
+            return 0;
 
         if (n_op != 0)
             FAIL(1, chipasm->line, "too many operands given to `=`");
@@ -866,11 +916,54 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
             FAIL(1, (line), "too many operands to %s", (op));                  \
         }                                                                      \
     } while (0)
-
     /* End preprocessor abuse */
 
     struct instruction instr;
     instr.line = chipasm->line;
+
+    /*
+     * We need to try processing IF, ELSE, and ENDIF first, since they will
+     * determine if we should try to process anything else to come. You should
+     * see the documentation for the if_level field of struct chip8asm for a
+     * high-level explanation of what's going on here; relevant details will be
+     * reiterated in the comments below.
+     */
+    if (!strcasecmp(op, "IFDEF")) {
+        EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
+        chipasm->if_level++;
+        if (chip8asm_should_process(chipasm) &&
+            !ltable_get(&chipasm->labels, operands[0], NULL)) {
+            chipasm->if_skip_else = chipasm->if_level;
+        }
+        return 0;
+    } else if (!strcasecmp(op, "ELSE")) {
+        EXPECT_OPERANDS(chipasm->line, op, 0, n_operands);
+        if (chipasm->if_level == 0)
+            FAIL(1, chipasm->line, "unexpected ELSE");
+        if (chip8asm_should_process(chipasm) &&
+            chipasm->if_level == chipasm->if_skip_else) {
+            chipasm->if_skip_else = 0;
+        }
+        return 0;
+    } else if (!strcasecmp(op, "ENDIF")) {
+        EXPECT_OPERANDS(chipasm->line, op, 0, n_operands);
+        if (chipasm->if_level == 0)
+            FAIL(1, chipasm->line, "unexpected ENDIF");
+        if (chip8asm_should_process(chipasm) &&
+            chipasm->if_level == chipasm->if_skip_else) {
+            chipasm->if_skip_else = 0;
+        }
+        if (chip8asm_should_process(chipasm) &&
+            chipasm->if_level == chipasm->if_skip_endif) {
+            chipasm->if_skip_endif = 0;
+        }
+        chipasm->if_level--;
+        return 0;
+    }
+
+    /* Now we can determine whether we should skip the rest of this */
+    if (!chip8asm_should_process(chipasm))
+        return 0;
 
     /* Handle special assembler instructions */
     if (!strcasecmp(op, "DEFINE")) {
@@ -1107,6 +1200,11 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
 
 /* Nobody has to know about this */
 #undef CHIPOP
+}
+
+static bool chip8asm_should_process(struct chip8asm *chipasm)
+{
+    return chipasm->if_skip_else == 0 && chipasm->if_skip_endif == 0;
 }
 
 static unsigned long hash_str(const char *str)
