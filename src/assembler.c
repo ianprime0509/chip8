@@ -852,6 +852,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     {                                                                          \
         EXPECT_OPERANDS(chipasm->line, op, (nops), n_operands);                \
         instr.type = IT_CHIP8_OP;                                              \
+        instr.n_operands = (nops);                                             \
         instr.chipop = (it);                                                   \
         for (int i = 0; i < (nops); i++)                                       \
             instr.operands[i] = strdup(operands[i]);                           \
@@ -868,9 +869,8 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
 
     /* End preprocessor abuse */
 
-    struct instruction instr = {0};
+    struct instruction instr;
     instr.line = chipasm->line;
-    instr.n_operands = n_operands;
 
     /* Handle special assembler instructions */
     if (!strcasecmp(op, "DEFINE")) {
@@ -925,6 +925,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     else if (!strcasecmp(op, "JP"))
     {
         instr.type = IT_CHIP8_OP;
+        instr.n_operands = 1;
         /* Figure out which `JP` we're using */
         if (n_operands == 1) {
             instr.chipop = OP_JP;
@@ -939,6 +940,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     {
         EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
         instr.type = IT_CHIP8_OP;
+        instr.n_operands = 1;
         instr.operands[0] = strdup(operands[0]);
         instr.operands[1] = strdup(operands[1]);
         /* Figure out which `SE` we're using */
@@ -951,6 +953,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     {
         EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
         instr.type = IT_CHIP8_OP;
+        instr.n_operands = 1;
         instr.operands[0] = strdup(operands[0]);
         instr.operands[1] = strdup(operands[1]);
         /* Figure out which `SNE` we're using */
@@ -973,46 +976,60 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
          */
         if (!strcasecmp(operands[0], "I")) {
             instr.chipop = OP_LD_I;
+            instr.n_operands = 1;
             instr.operands[0] = strdup(operands[1]);
         } else if (!strcasecmp(operands[0], "DT")) {
             instr.chipop = OP_LD_DT_REG;
+            instr.n_operands = 1;
             instr.operands[0] = strdup(operands[1]);
         } else if (!strcasecmp(operands[0], "ST")) {
             instr.chipop = OP_LD_ST;
+            instr.n_operands = 1;
             instr.operands[0] = strdup(operands[1]);
         } else if (!strcasecmp(operands[0], "F")) {
             instr.chipop = OP_LD_F;
+            instr.n_operands = 1;
             instr.operands[0] = strdup(operands[1]);
         } else if (!strcasecmp(operands[0], "HF")) {
             instr.chipop = OP_LD_HF;
+            instr.n_operands = 1;
             instr.operands[0] = strdup(operands[1]);
         } else if (!strcasecmp(operands[0], "B")) {
             instr.chipop = OP_LD_B;
+            instr.n_operands = 1;
             instr.operands[0] = strdup(operands[1]);
         } else if (!strcasecmp(operands[0], "[I]")) {
             instr.chipop = OP_LD_DEREF_I_REG;
+            instr.n_operands = 1;
             instr.operands[0] = strdup(operands[1]);
         } else if (!strcasecmp(operands[0], "R")) {
             instr.chipop = OP_LD_R_REG;
+            instr.n_operands = 1;
             instr.operands[0] = strdup(operands[1]);
         } else if (register_num(operands[1]) != -1) {
             instr.chipop = OP_LD_REG;
+            instr.n_operands = 2;
             instr.operands[0] = strdup(operands[0]);
             instr.operands[1] = strdup(operands[1]);
         } else if (!strcasecmp(operands[1], "DT")) {
             instr.chipop = OP_LD_REG_DT;
+            instr.n_operands = 1;
             instr.operands[0] = strdup(operands[0]);
         } else if (!strcasecmp(operands[1], "K")) {
             instr.chipop = OP_LD_KEY;
+            instr.n_operands = 1;
             instr.operands[0] = strdup(operands[0]);
         } else if (!strcasecmp(operands[1], "[I]")) {
             instr.chipop = OP_LD_REG_DEREF_I;
+            instr.n_operands = 1;
             instr.operands[0] = strdup(operands[0]);
         } else if (!strcasecmp(operands[1], "R")) {
             instr.chipop = OP_LD_REG_R;
+            instr.n_operands = 1;
             instr.operands[0] = strdup(operands[0]);
         } else {
             instr.chipop = OP_LD_BYTE;
+            instr.n_operands = 2;
             instr.operands[0] = strdup(operands[0]);
             instr.operands[1] = strdup(operands[1]);
         }
@@ -1024,13 +1041,16 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         /* Figure out which `ADD` we're using */
         if (!strcasecmp(operands[0], "I")) {
             instr.chipop = OP_ADD_I;
+            instr.n_operands = 1;
             instr.operands[0] = strdup(operands[1]);
         } else if (register_num(operands[1]) != -1) {
             instr.chipop = OP_ADD_REG;
+            instr.n_operands = 2;
             instr.operands[0] = strdup(operands[0]);
             instr.operands[1] = strdup(operands[1]);
         } else {
             instr.chipop = OP_ADD_BYTE;
+            instr.n_operands = 2;
             instr.operands[0] = strdup(operands[0]);
             instr.operands[1] = strdup(operands[1]);
         }
@@ -1041,10 +1061,13 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     CHIPOP("SUB", OP_SUB, 2)
     else if (!strcasecmp(op, "SHR"))
     {
-        if (chipasm->opts.shift_quirks)
+        if (chipasm->opts.shift_quirks) {
             EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
-        else
+            instr.n_operands = 2;
+        } else {
             EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
+            instr.n_operands = 1;
+        }
         instr.type = IT_CHIP8_OP;
         instr.chipop = OP_SHR;
         instr.operands[0] = strdup(operands[0]);
@@ -1054,10 +1077,13 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     CHIPOP("SUBN", OP_SUBN, 2)
     else if (!strcasecmp(op, "SHL"))
     {
-        if (chipasm->opts.shift_quirks)
+        if (chipasm->opts.shift_quirks) {
             EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
-        else
+            instr.n_operands = 2;
+        } else {
             EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
+            instr.n_operands = 1;
+        }
         instr.type = IT_CHIP8_OP;
         instr.chipop = OP_SHL;
         instr.operands[0] = strdup(operands[0]);
