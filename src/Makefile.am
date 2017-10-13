@@ -2,9 +2,30 @@
 bin_PROGRAMS = chip8 chip8asm
 check_PROGRAMS = chip8test
 
-chip8_SOURCES = audio.c chip8.c instruction.c interpreter.c
-chip8asm_SOURCES = assembler.c chip8asm.c instruction.c
-chip8test_SOURCES = assembler.c chip8test.c instruction.c interpreter.c
+chip8_SOURCES = \
+	audio.h \
+	audio.c \
+	chip8.c \
+	instruction.h \
+	instruction.c \
+	interpreter.h \
+	interpreter.c
+
+chip8asm_SOURCES = \
+	assembler.h \
+	assembler.c \
+	chip8asm.c \
+	instruction.h \
+	instruction.c
+
+chip8test_SOURCES = \
+	assembler.h \
+	assembler.c \
+	chip8test.c \
+	instruction.h \
+	instruction.c \
+	interpreter.h \
+	interpreter.c
 
 TESTS = chip8test
 

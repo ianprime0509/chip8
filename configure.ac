@@ -27,8 +27,9 @@ AM_COND_IF([USE_DOXYGEN], [
     AC_CHECK_PROGS([DOXYGEN], [doxygen])
     AS_IF([test -z "$DOXYGEN"],
         [AC_MSG_FAILURE([Doxygen not found])])
-    AC_CONFIG_FILES([docs/Doxyfile docs/Makefile])
+    AC_CONFIG_FILES([docs/Doxyfile])
 ])
+AC_CONFIG_FILES([docs/Makefile])
 
 AC_CONFIG_FILES([Makefile src/Makefile])
 AC_OUTPUT
