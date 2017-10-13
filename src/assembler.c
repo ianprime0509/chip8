@@ -996,7 +996,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     /* Handle special assembler instructions */
     if (!strcasecmp(op, "DEFINE")) {
         EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
-        ltable_add(&chipasm->labels, strdup(operands[0]), 0);
+        ltable_add(&chipasm->labels, operands[0], 0);
         return 0;
     } else if (!strcasecmp(op, "DB")) {
         EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
