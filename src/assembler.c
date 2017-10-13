@@ -259,7 +259,7 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
  */
 static int chip8asm_process_instruction(struct chip8asm *chipasm,
                                         const char *op,
-                                        const char (*operands)[MAXOP + 1],
+                                        char (*operands)[MAXOP + 1],
                                         int n_operands);
 /**
  * Returns whether the assembler should process anything right now.
@@ -896,7 +896,7 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
 
 static int chip8asm_process_instruction(struct chip8asm *chipasm,
                                         const char *op,
-                                        const char (*operands)[MAXOP + 1],
+                                        char (*operands)[MAXOP + 1],
                                         int n_operands)
 {
 /* This is probably bordering on preprocessor abuse... */

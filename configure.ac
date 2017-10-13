@@ -11,9 +11,10 @@ AC_ARG_ENABLE([doxygen],
 
 AC_PROG_CC
 AC_PROG_CC_C99
-# Try to use -Wall -Wextra
+# Try to use -Wall -Wextra -pedantic
 AX_CHECK_COMPILE_FLAG([-Wall], [AX_APPEND_FLAG([-Wall])])
 AX_CHECK_COMPILE_FLAG([-Wextra], [AX_APPEND_FLAG([-Wextra])])
+AX_CHECK_COMPILE_FLAG([-pedantic], [AX_APPEND_FLAG([-pedantic])])
 # Check for various functions
 AC_CHECK_FUNCS([clock_gettime ffs strdup], [],
     [AC_MSG_FAILURE([a required function was not found])])
