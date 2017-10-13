@@ -15,7 +15,7 @@ AC_PROG_CC_C99
 AX_CHECK_COMPILE_FLAG([-Wall], [AX_APPEND_FLAG([-Wall])])
 AX_CHECK_COMPILE_FLAG([-Wextra], [AX_APPEND_FLAG([-Wextra])])
 # Check for various functions
-AC_CHECK_FUNCS([clock_gettime,ffs,strdup], [],
+AC_CHECK_FUNCS([clock_gettime ffs strdup], [],
     [AC_MSG_FAILURE([a required function was not found])])
 
 SDL_VERSION=2.0.0
