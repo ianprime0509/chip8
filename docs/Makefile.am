@@ -1,4 +1,4 @@
-if HAVE_DOXYGEN
+if USE_DOXYGEN
 
 doxyfile.stamp: Doxyfile
 	$(DOXYGEN) $<
