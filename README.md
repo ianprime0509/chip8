@@ -1,7 +1,9 @@
 # Chip8
 
-This is a [Chip-8](https://en.wikipedia.org/wiki/CHIP-8) emulator,
-written in C.
+This is a [Chip-8](https://en.wikipedia.org/wiki/CHIP-8) emulator, written in
+C. Currently, all the Chip-8 games I have tested are functional, and some
+Super-Chip games are as well (in particular, BLINKY). Many Super-Chip games
+don't quite work yet, though.
 
 ## General Chip-8 documentation
 
@@ -11,6 +13,10 @@ Some helpful documentation can be found in the following:
   reference](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM)
 * [Peter Miller's Chip-8 site](http://chip8.sourceforge.net/)
 * [David Winter's Chip-8 emulation page](http://www.pong-story.com/chip8/)
+
+I am also working on a sort of "reference guide" to collect information
+scattered around various sources, as well as to document this project in a more
+complete manner than this README.
 
 ## Assembler syntax
 
