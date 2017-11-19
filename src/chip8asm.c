@@ -74,6 +74,13 @@ struct progopts {
 };
 
 static struct progopts progopts_default(void);
+/**
+ * Replaces the file extension of the given filename with that of the output
+ * format. This will replace the extension if there is one, or append it if
+ * there isn't. The returned string will be allocated on the heap, and should
+ * be freed by the caller when done.
+ */
+static char *replace_extension(const char *fname);
 static int run(struct progopts opts);
 
 int main(int argc, char **argv)
@@ -85,7 +92,6 @@ int main(int argc, char **argv)
                                      {"help", no_argument, NULL, 'h'},
                                      {"version", no_argument, NULL, 'V'},
                                      {0, 0, 0, 0}};
-    char *extension;
 
     while ((option = getopt_long(argc, argv, "o:hV", options, NULL)) != -1) {
         switch (option) {
@@ -120,21 +126,8 @@ int main(int argc, char **argv)
 
     /* We try to deduce the output file name if it is not given */
     if (!opts.output) {
-        if (!strcmp(opts.input, "-")) {
-            opts.output = strdup("-");
-        } else if (!(extension = strrchr(opts.input, '.'))) {
-            /* No extension given */
-            opts.output = malloc(strlen(opts.input) + strlen(OUTPUTEXT) + 1);
-            strcpy(opts.output, opts.input);
-            strcat(opts.output, OUTPUTEXT);
-        } else {
-            /* Replace extension */
-            int extpos = extension - opts.input;
-
-            opts.output = malloc(extpos + strlen(OUTPUTEXT) + 1);
-            memcpy(opts.output, opts.input, extpos);
-            strcpy(opts.output + extpos, OUTPUTEXT);
-        }
+        opts.output = !strcmp(opts.input, "-") ? strdup("-")
+                                               : replace_extension(opts.input);
     }
 
     return run(opts);
@@ -144,6 +137,20 @@ static struct progopts progopts_default(void)
 {
     return (struct progopts){
         .shift_quirks = false, .input = NULL, .output = NULL};
+}
+
+static char *replace_extension(const char *fname)
+{
+    const char *ext = strrchr(fname, '.');
+    size_t extpos = ext ? ext - fname : strlen(fname);
+    size_t buflen = extpos + strlen(OUTPUTEXT) + 1;
+    char *buf = malloc(buflen);
+
+    memcpy(buf, fname, extpos);
+    strcpy(buf + extpos, OUTPUTEXT);
+    buf[buflen - 1] = '\0';
+
+    return buf;
 }
 
 static int run(struct progopts opts)
