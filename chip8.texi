@@ -1,4 +1,5 @@
 \input texinfo
+@include version.texi
 @setfilename chip8.info
 @settitle Chip-8 0.1.0
 
@@ -9,7 +10,7 @@ Copyright @copyright{} 2017 Ian Johnson
 
 @quotation
 This work is licensed under a
-@url{https://creativecommons.org/licenses/by-sa/4.0/,,Creative Commons
+@url{https://creativecommons.org/licenses/by-sa/4.0/,Creative Commons
 Attribution-ShareAlike 4.0 International License}.
 @end quotation
 @end copying
@@ -39,8 +40,10 @@ and Super-Chip platforms themselves.
 
 @menu
 * Overview::        An overview of the Chip-8 project.
-* Further reading::  More information about the Chip-8 and Super-Chip.
-* Index::           Complete index.
+* The emulator::    Documentation for the emulator.
+* The assembler::   Documentation for the assembler.
+* Further reading:: More information about the Chip-8 and Super-Chip.
+* Index::    html_node/index.html#Top       Complete index.
 @end menu
 
 @node Overview
@@ -49,10 +52,76 @@ and Super-Chip platforms themselves.
 
 An overview goes here.
 
+@node The emulator
+@chapter The emulator
+@cindex emulator
+
+@node The assembler
+@chapter The assembler
+@cindex assembler
+
+@menu
+* Syntax::          Overview of assembler syntax.
+* Operations::      The various operations used as instructions.
+@end menu
+
+@node Syntax
+@section Syntax
+@cindex syntax
+@cindex assembler syntax
+
+@node Line format
+@subsection Line format
+@cindex line format
+@cindex assembler line format
+
+The syntax used in the assembler is similar to that used in the popular
+CHIPPER assembler. The assembly input is processed one line at a time,
+where each line may consist of a label and/or an instruction. Blank
+lines are also allowed, for readability. A semicolon, @samp{;}, may be
+used to begin a comment; the rest of the line following the semicolon
+will be ignored.
+
+A label consists of an identifier followed by a colon, @samp{:}, and
+must be the first element on its line (optionally preceded by
+whitespace). An identifier may start with an underscore or alphabetic
+character, and may additionally contain the digits 0--9 after the
+initial character. It is not possible to define two different labels to
+refer to the same instruction, or to define two labels with the same
+identifer. Label names are case-sensitive, so @code{label1} will be
+treated as a separate label from @code{LABEL1}.
+
+An instruction consists of an operation and, depending on the operation,
+a comma-separated list of operands (@pxref{Operations} for a list of
+operations). The name of the operation is not case-sensitive, so
+@code{DRAW} is processed the same as @code{draw} and @code{dRaW}.
+Depending on the operation, each operand of an instruction may be either
+the name of a register or an expression (@pxref{Expressions}). If a
+particular operand could be interpreted either as a register name which
+would be valid in its position or as an expression, the register
+interpretation will be chosen. Thus, the instruction @code{ADD V1, V2}
+will always be interpreted as ``add register @code{V2} to register
+@code{V1}'', and not ``add the value of the label @code{V2} to register
+@code{V1}'', even if @code{V2} happens to have been defined as a label
+name.
+
+@node Expressions
+@subsection Expressions
+@cindex expressions
+@cindex assembler expressions
+
+TODO: describe expression syntax here.
+
+@node Operations
+@section Operations
+@cindex operations
+@cindex assembler operations
+
+TODO: add descriptions of operations and pseudo-operations here.
+
 @node Further reading
 @chapter Further reading
 @cindex further reading
-@cindex reading, further
 
 There are several good resources on the Web for Chip-8 information. For
 a Chip-8 instruction/opcode reference, see
