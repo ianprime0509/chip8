@@ -49,7 +49,7 @@ static const char *HELP =
     "  -h, --help             show this help message and exit\n"
     "  -V, --version          show version information and exit\n";
 static const char *USAGE = "chip8asm [OPTION...] [FILE]\n";
-static const char *VERSION_STRING = "chip8asm " VERSION "\n";
+static const char *VERSION_STRING = "chip8asm " PROJECT_VERSION "\n";
 
 /**
  * Options which can be passed to the program.
