@@ -2,3 +2,8 @@ option('documentation',
        type : 'boolean',
        value : false,
        description : 'Use Doxygen to generate code documentation')
+
+option('texinfo',
+       type : 'boolean',
+       value : true,
+       description : 'Build Texinfo project manual')
