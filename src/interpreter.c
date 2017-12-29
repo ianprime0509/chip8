@@ -22,7 +22,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
+
+#include "util.h"
 
 /**
  * The address of the low-resolution hex digit sprites in memory.
@@ -44,12 +47,14 @@
 #define CHIP8_HEX_HIGH_HEIGHT 10
 
 /* Test assumptions on hex digit sprite locations */
+/*
 static_assert(CHIP8_HEX_LOW_ADDR + 16 * CHIP8_HEX_LOW_HEIGHT <=
                   CHIP8_PROG_START,
               "Low-resolution hex digit sprites overlap program memory");
 static_assert(CHIP8_HEX_HIGH_ADDR + 16 * CHIP8_HEX_HIGH_HEIGHT <=
                   CHIP8_PROG_START,
               "High-resolution hex digit sprites overlap program memory");
+*/
 
 #define NS_PER_SECOND (1000 * 1000 * 1000)
 
@@ -382,8 +387,9 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         if (inst.addr % 2 == 0)
             return inst.addr;
         else
-            ABORT(chip, "Attempted to jump to misaligned memory address "
-                        "0x%hX; aborting",
+            ABORT(chip,
+                  "Attempted to jump to misaligned memory address "
+                  "0x%hX; aborting",
                   inst.addr);
         break;
     case OP_CALL:
@@ -396,8 +402,9 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
             chip->call_stack = node;
             return inst.addr;
         } else {
-            ABORT(chip, "Attempted to call subroutine at misaligned memory "
-                        "address 0x%hX; aborting",
+            ABORT(chip,
+                  "Attempted to call subroutine at misaligned memory "
+                  "address 0x%hX; aborting",
                   inst.addr);
         }
         break;
@@ -479,12 +486,14 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
             if (jpto < CHIP8_MEM_SIZE)
                 return jpto;
             else
-                ABORT(chip, "Attempted to jump to out of bounds memory "
-                            "address 0x%X; aborting",
+                ABORT(chip,
+                      "Attempted to jump to out of bounds memory "
+                      "address 0x%X; aborting",
                       jpto);
         } else {
-            ABORT(chip, "Attempted to jump to misaligned memory address "
-                        "0x%X; aborting",
+            ABORT(chip,
+                  "Attempted to jump to misaligned memory address "
+                  "0x%X; aborting",
                   jpto);
         }
     } break;
@@ -521,8 +530,7 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
          */
         if (chip->key_states == 0)
             return chip->pc;
-        /* Get the lowest set bit, and make sure it's 0-indexed */
-        key = ffs(chip->key_states) - 1;
+        key = lowest_set_bit(chip->key_states);
         chip->regs[inst.vx] = key;
         /* Now we need to clear it so that we don't read it twice */
         chip->key_states &= ~(1 << key);
@@ -602,12 +610,7 @@ static void chip8_timer_update(struct chip8 *chip)
 
 static void chip8_timer_update_ticks(struct chip8 *chip)
 {
-    struct timespec newtime;
-    double seconds;
-
-    clock_gettime(CLOCK_REALTIME, &newtime);
-    seconds = newtime.tv_sec + newtime.tv_nsec / 1e9;
-    chip->timer_ticks = seconds * chip->opts.timer_freq;
+    chip->timer_ticks = clock_seconds() * chip->opts.timer_freq;
 }
 
 static bool chip8_wait_cycle(struct chip8 *chip)

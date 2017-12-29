@@ -1,0 +1,4 @@
+option('documentation',
+       type : 'boolean',
+       value : false,
+       description : 'Use Doxygen to generate code documentation')
