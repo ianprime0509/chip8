@@ -17,4 +17,5 @@ endif
 
 sdl = dependency('SDL2')
 
+subdir('include')
 subdir('src')

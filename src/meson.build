@@ -1,7 +1,3 @@
-configure_file(input : 'config.h.in',
-               output : 'config.h',
-               configuration : config)
-
 chip8_src = ['audio.c',
              'chip8.c',
              'instruction.c',
