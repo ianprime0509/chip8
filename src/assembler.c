@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #define LTABLE_SIZE 256
 
@@ -595,9 +596,10 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
             if (buf[0] == '\0')
                 FAIL(1, chipasm->line, "found empty label");
             if (chipasm->line_label)
-                FAIL(1, chipasm->line, "cannot associate more than one label "
-                                       "with a statement; already found label "
-                                       "'%s'",
+                FAIL(1, chipasm->line,
+                     "cannot associate more than one label "
+                     "with a statement; already found label "
+                     "'%s'",
                      chipasm->line_label);
             chipasm->line_label = strdup(buf);
             /* Now skip whitespace before going on to find the next label */

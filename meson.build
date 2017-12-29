@@ -1,8 +1,8 @@
 project('chip8', 'c',
         version : '0.1.0',
         license : 'GPL3+',
-        default_options : [
-          'c_std=c99'])
+        default_options : ['warn_level=3',
+                           'c_std=c99'])
 add_global_arguments('-D_POSIX_C_SOURCE=200809L', language : 'c')
 
 config = configuration_data()
