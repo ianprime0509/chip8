@@ -9,9 +9,12 @@ This manual is for Chip-8, version 0.1.0.
 Copyright @copyright{} 2017 Ian Johnson
 
 @quotation
-This work is licensed under a
-@url{https://creativecommons.org/licenses/by-sa/4.0/,Creative Commons
-Attribution-ShareAlike 4.0 International License}.
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with no Front-Cover Texts, and with no Back-Cover
+Texts.  A copy of the license is included in the section entitled ``GNU
+Free Documentation License''.
 @end quotation
 @end copying
 
@@ -43,6 +46,7 @@ and Super-Chip platforms themselves.
 * The emulator::    Documentation for the emulator.
 * The assembler::   Documentation for the assembler.
 * Further reading:: More information about the Chip-8 and Super-Chip.
+* GNU Free Documentation License::   Your freedoms.
 * Index::    html_node/index.html#Top       Complete index.
 @end menu
 
@@ -133,6 +137,11 @@ many Chip-8 and Super-Chip games, as well as an emulator for DOS, see
 is also some documentation included with his emulator, which gives some
 more background on the Chip-8, including details about some variant
 implementations.
+
+@node GNU Free Documentation License
+@appendix GNU Free Documentation License
+
+@include fdl.texi
 
 @node Index
 @unnumbered Index
