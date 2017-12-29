@@ -15,6 +15,10 @@ if get_option('documentation')
   subdir('docs')
 endif
 
+if get_option('texinfo')
+  subdir('info')
+endif
+
 sdl = dependency('SDL2')
 
 subdir('src')
