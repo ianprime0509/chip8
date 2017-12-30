@@ -94,7 +94,7 @@ enum chip8_operation {
     OP_SCL,
     /**
      * Exit the interpreter (`EXIT`). Super-Chip only.
-     * Opcode `0xFD`.
+     * Opcode `00FD`.
      */
     OP_EXIT,
     /**

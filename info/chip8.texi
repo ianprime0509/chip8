@@ -43,7 +43,8 @@ and Super-Chip platforms themselves.
 @end ifnottex
 
 @menu
-* Overview::        An overview of the Chip-8 project.
+* Overview::        Overview of the Chip-8 project.
+* The Chip-8 and Super-Chip::      Description of the emulated platforms.
 * The emulator::    Documentation for the emulator.
 * The assembler::   Documentation for the assembler.
 * Further reading:: More information about the Chip-8 and Super-Chip.
@@ -57,9 +58,50 @@ and Super-Chip platforms themselves.
 
 An overview goes here.
 
+@node The Chip-8 and Super-Chip
+@chapter The Chip-8 and Super-Chip
+@cindex Chip-8
+@cindex Super-Chip
+
+@menu
+* External hardware::    The display, buzzer and controller.
+* Internal hardware::    Registers, instructions and more.
+@end menu
+
+@node External hardware
+@section External hardware
+@cindex external hardware
+@cindex hardware, external
+
+@node Internal hardware
+@section Internal hardware
+@cindex internal hardware
+@cindex hardware, internal
+
 @node The emulator
 @chapter The emulator
 @cindex emulator
+
+This package comes with a Chip-8/Super-Chip emulator, invoked as
+@command{chip8}, which aims to correctly emulate as many Chip-8 and
+Super-Chip games as possible while offering user configuration where
+applicable.  Currently, all the Chip-8 games I have tested work without
+issue, while some Super-Chip games need more work.
+
+Since both the original Chip-8 and Super-Chip were interpreters running
+on other machines rather than deedicated hardware, the terms
+``emulator'' and ``interpreter'' will be used interchangeably when
+referring to @command{chip8}.
+
+@menu
+* Invoking chip8::      Using the emulator.
+@end menu
+
+@node Invoking chip8
+@section Invoking @command{chip8}
+@cindex @command{chip8} (command)
+
+Fill this in...
 
 @node The assembler
 @chapter The assembler
@@ -193,7 +235,23 @@ corresponds directly to a Chip-8 or Super-Chip instruction, such as
 @cindex true operation
 @cindex operation, true
 
-In the operation reference below, we will use certain conventions to
+The operations described in this section form a complete description of
+the Chip-8/Super-Chip instruction set.  Every instruction used by the
+Chip-8 or Super-Chip is represented by a two-byte opcode,
+@pxref{Internal hardware}.
+
+@menu
+* Operation notation::  Conventions for writing operations and opcodes.
+* Operation reference:: List of all operations with their opcodes.
+* Alternative behavior:: Different treatment by other interpreters.
+@end menu
+
+@node Operation notation
+@subsubsection Operation notation
+@cindex operation notation
+@cindex notation, operation
+
+For consistency and readability, we will use certain conventions to
 denote the operands taken by each operation.  For operands which must be
 a certain literal value, this value is used (e.g. the @code{DT} in
 @code{LD DT, Vx}).  For register operands, we use @var{vx} and @var{vy}
@@ -231,12 +289,144 @@ For example, the instruction @code{DRW @var{vx}, @var{vy}, @var{nibble}}
 has opcode @samp{Dxyn} according to this convention, indicating that the
 concrete instruction @code{DRW V1, VA, 5} has opcode @samp{D1A5}.
 
-@subsubheading Operation reference
+@node Operation reference
+@subsubsection Operation reference
+@cindex operation reference
 
 @deffn Operation SCD nibble
 This operation scrolls the screen down by @var{nibble} pixels.  It is
-only available on the Super-Chip, and has opcode @samp{00Cn}.
+only available on the Super-Chip, and its opcode is @samp{00Cn}.
 @end deffn
+
+@deffn Operation CLS
+This operation clears the entire display.  Its opcode is @samp{00E0}.
+@end deffn
+
+@deffn Operation RET
+This operation returns from a subroutine; it is an error to use
+@code{RET} without a corresponding preceding @code{CALL}.  Its opcode is
+@samp{00EE}.
+@end deffn
+
+@deffn Operation SCR
+This operation scrolls the screen right by 4 pixels.  It is only
+available on the Super-Chip, and its opcode is @samp{00FB}.
+@end deffn
+
+@deffn Operation SCL
+This operation scrolls the screen left by 4 pixels.  It is only
+available on the Super-Chip, and its opcode is @samp{00FC}.
+@end deffn
+
+@deffn Operation EXIT
+This operation signals to the interpreter to exit immediately.  It is
+only available on the Super-Chip, and its opcode is @samp{00FD}.
+@end deffn
+
+@deffn Operation LOW
+This operation switches the display to low-resolution mode
+(@pxref{External hardware}).  It is only available on the Super-Chip,
+and its opcode is @samp{00FE}.
+@end deffn
+
+@deffn Operation HIGH
+This operation switches the display to high-resolution mode
+(@pxref{External hardware}).  It is only available on the Super-Chip,
+and its opcode is @samp{00FF}.
+@end deffn
+
+@deffn Operation JP addr
+This operation sets the program counter to @var{addr}.  It is an error
+to jump to an address which is not aligned on a 2-byte boundary.  Its
+opcode is @samp{1nnn}.
+@end deffn
+
+@deffn Operation CALL addr
+This operation calls the subroutine at @var{addr}; that is, it sets the
+program counter to @var{addr} and pushes the original program counter to
+the call stack so that it can be returned to using @code{RET}.  It is an
+error to call a subroutine which is not aligned on a 2-byte boundary.
+Its opcode is @samp{2nnn}.
+@end deffn
+
+@deffn Operation SE vx, byte
+This operation skips the next instruction if the value of @var{vx} is
+equal to @var{byte}.  Its opcode is @samp{3xkk}.
+@end deffn
+
+@deffn Operation SNE vx, byte
+This operation skips the next instruction if the value of @var{vx} is
+not equal to @var{byte}.  Its opcode is @samp{4xkk}.
+@end deffn
+
+@deffn Operation SE vx, vy
+This operation skips the next instruction if the values of @var{vx} and
+@var{vy} are equal.  Its opcode is @samp{5xy0}.
+@end deffn
+
+@deffn Operation LD vx, byte
+This operation loads @var{byte} into register @var{vx}.  Its opcode is
+@samp{6xkk}.
+@end deffn
+
+@deffn Operation ADD vx, byte
+This operation adds @var{byte} to the value of register @var{vx},
+storing the result (modulo 256) in @var{vx}.  Register @code{VF} is set
+to 1 if a carry occurred (that is, if the true sum was greater than or
+equal to 256), or 0 otherwise.  Its opcode is @samp{7xkk}.
+@end deffn
+
+@deffn Operation LD vx, vy
+This operation loads the value of @var{vy} into @var{vx}.  Its opcode is
+@samp{8xy0}.
+@end deffn
+
+@deffn Operation OR vx, vy
+This operation computes the bitwise OR of @var{vx} and @var{vy}, storing
+the result in @var{vx}.  Its opcode is @samp{8xy1}.
+@end deffn
+
+@deffn Operation AND vx, vy
+This operation computes the bitwise AND of @var{vx} and @var{vy},
+storing the result in @var{vx}.  Its opcode is @samp{8xy2}.
+@end deffn
+
+@deffn Operation XOR vx, vy
+This operation computes the bitwise XOR of @var{vx} and @var{vy},
+storing the result in @var{vx}.  Its opcode is @samp{8xy3}.
+@end deffn
+
+@deffn Operation ADD vx, vy
+This operation adds the value of @var{vy} to that of @var{vx}, storing
+the result (modulo 256) in @var{vx}.  Register @code{VF} is set to 1 if
+a carry occurred, or 0 otherwise.  Its opcode is @samp{8xy4}.
+@end deffn
+
+@deffn Operation SUB vx, vy
+This operation subtracts the value of @var{vy} from that of @var{vx},
+storing the result (modulo 256) in @var{vx}.  Register @code{VF} is set
+to 0 if a borrow occurred (that is, if the true value of the difference
+would be negative under signed arithmetic), or to 1 otherwise.  Its
+opcode is @samp{8xy5}.
+@end deffn
+
+@deffn Operation SHR vx
+This operation performs a logical right shift on the value of @var{vx},
+storing the result in @var{vx}.  The original least significant bit of
+@var{vx} is stored in register @code{VF}.  Its opcode is @samp{8x06}.
+@end deffn
+
+@node Alternative behavior
+@subsubsection Alternative behavior
+@cindex alternative behavior (of operations)
+
+Some interpreters do not behave exactly as described in the operation
+reference, and some games are developed which rely on these alternatve
+behaviors.  Currently, the only such known variant behavior is with the
+shift operations @code{SHR} and @code{SHL}, described below.  The
+interpreter (@pxref{Invoking chip8}) and assembler (@pxref{Invoking
+chip8asm}) both accept a flag instructing them to use these variant
+forms.
 
 @node Pseudo-operations
 @subsection Pseudo-operations
