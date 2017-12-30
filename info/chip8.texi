@@ -2,6 +2,7 @@
 @include version.texi
 @setfilename chip8.info
 @settitle Chip-8 0.1.0
+@syncodeindex fn cp
 
 @copying
 This manual is for Chip-8, version 0.1.0.
@@ -37,7 +38,7 @@ Free Documentation License''.
 @top Chip-8 Reference Guide
 
 This is a reference guide for the Chip-8 interpreter and assembler
-developed by Ian Johnson. It also contains documentation on the Chip-8
+developed by Ian Johnson.  It also contains documentation on the Chip-8
 and Super-Chip platforms themselves.
 @end ifnottex
 
@@ -47,7 +48,7 @@ and Super-Chip platforms themselves.
 * The assembler::   Documentation for the assembler.
 * Further reading:: More information about the Chip-8 and Super-Chip.
 * GNU Free Documentation License::   Your freedoms.
-* Index::    html_node/index.html#Top       Complete index.
+* Index::           Complete index.
 @end menu
 
 @node Overview
@@ -65,9 +66,17 @@ An overview goes here.
 @cindex assembler
 
 @menu
-* Syntax::          Overview of assembler syntax.
-* Operations::      The various operations used as instructions.
+* Invoking chip8asm::   Using the assembler.
+* Syntax::              Overview of assembler syntax.
+* Operations::          The various operations used as instructions.
 @end menu
+
+@node Invoking chip8asm
+@section Invoking @command{chip8asm}
+@cindex invoking assembler
+@cindex assembler, invocation
+
+Nothing here yet...
 
 @node Syntax
 @section Syntax
@@ -80,30 +89,30 @@ An overview goes here.
 @cindex assembler line format
 
 The syntax used in the assembler is similar to that used in the popular
-CHIPPER assembler. The assembly input is processed one line at a time,
-where each line may consist of a label and/or an instruction. Blank
-lines are also allowed, for readability. A semicolon, @samp{;}, may be
+CHIPPER assembler.  The assembly input is processed one line at a time,
+where each line may consist of a label and/or an instruction.  Blank
+lines are also allowed, for readability.  A semicolon, @samp{;}, may be
 used to begin a comment; the rest of the line following the semicolon
 will be ignored.
 
 A label consists of an identifier followed by a colon, @samp{:}, and
 must be the first element on its line (optionally preceded by
-whitespace). An identifier may start with an underscore or alphabetic
+whitespace).  An identifier may start with an underscore or alphabetic
 character, and may additionally contain the digits 0--9 after the
-initial character. It is not possible to define two different labels to
+initial character.  It is not possible to define two different labels to
 refer to the same instruction, or to define two labels with the same
-identifer. Label names are case-sensitive, so @code{label1} will be
+identifer.  Label names are case-sensitive, so @code{label1} will be
 treated as a separate label from @code{LABEL1}.
 
 An instruction consists of an operation and, depending on the operation,
 a comma-separated list of operands (@pxref{Operations} for a list of
-operations). The name of the operation is not case-sensitive, so
+operations).  The name of the operation is not case-sensitive, so
 @code{DRAW} is processed the same as @code{draw} and @code{dRaW}.
 Depending on the operation, each operand of an instruction may be either
-the name of a register or an expression (@pxref{Expressions}). If a
+the name of a register or an expression (@pxref{Expressions}).  If a
 particular operand could be interpreted either as a register name which
 would be valid in its position or as an expression, the register
-interpretation will be chosen. Thus, the instruction @code{ADD V1, V2}
+interpretation will be chosen.  Thus, the instruction @code{ADD V1, V2}
 will always be interpreted as ``add register @code{V2} to register
 @code{V1}'', and not ``add the value of the label @code{V2} to register
 @code{V1}'', even if @code{V2} happens to have been defined as a label
@@ -111,17 +120,205 @@ name.
 
 @node Expressions
 @subsection Expressions
-@cindex expressions
-@cindex assembler expressions
+@cindex expression
+@cindex assembler expression
 
-TODO: describe expression syntax here.
+The treatment of expressions in the assembler is similar to that used in
+most programming languages, such as C: they are written in infix
+notation, and label names may be used as identifiers to represent their
+values.  The meanings and precedences of the operators should also be
+mostly familiar to those experienced in other programming languages,
+particularly C.
+
+Since the Chip-8 is fundamentally a 16-bit machine, all quantities in
+expressions are treated as 16-bit unsigned numbers.  If an expression
+results in a value which is outside the range of a 16-bit unsigned
+quantity, it will be converted to one by taking its residue modulo
+@math{2^16}.  This is equivalent to assuming a two's-complement
+representation of signed numbers.  In cases where an expression is used
+in an operand which is narrower than 16 bits (for example, the @code{JP}
+operation takes a single 12-bit operand, @xref{Operations}), the result
+of the expression is truncated to fit (in the example, the lowest 12
+bits are kept and the highest 4 discarded).
+
+There are two unary operators, both of which are applied to the left of
+their operand: these are the unary negation operator @code{-} and the
+bitwise NOT operator @code{~}.  They have a higher precedence than any
+binary operator.
+
+The binary operators, in decreasing order of precedence, are given
+below; operators at the same level of precedence will be evaluated
+left-to-right (e.g. they are left-associative).
+
+@enumerate
+@item
+@code{*} for multiplication, @code{/} for division and @code{%} for
+modulus.
+
+@item
+@code{+} for addition and @code{-} for subtraction.
+
+@item
+@code{>} and @code{<}, which are the logical right and left shifts,
+respectively.  The assembler does not provide arithmetic shift
+operators, since numeric quantities are always treated as unsigned.
+
+@item
+@code{&} for the bitwise AND operation.
+
+@item
+@code{^} for the bitwise XOR operation.
+
+@item
+@code{|} for the bitwise OR operation.
+@end enumerate
 
 @node Operations
 @section Operations
-@cindex operations
-@cindex assembler operations
+@cindex operation
+@cindex assembler operation
 
-TODO: add descriptions of operations and pseudo-operations here.
+When speaking of operations in the assembler, we distinguish between
+true operations and ``pseudo-operations''.  A true operation is one that
+corresponds directly to a Chip-8 or Super-Chip instruction, such as
+@code{ADD}, while a pseudo-operation does not.
+
+@menu
+* True operations::         Reference for true operations.
+* Pseudo-operations::       Reference for pseudo-operations.
+@end menu
+
+@node True operations
+@subsection True operations
+@cindex true operation
+@cindex operation, true
+
+In the operation reference below, we will use certain conventions to
+denote the operands taken by each operation.  For operands which must be
+a certain literal value, this value is used (e.g. the @code{DT} in
+@code{LD DT, Vx}).  For register operands, we use @var{vx} and @var{vy}
+as placeholders for the register names.  For other quantities, we use
+@var{addr} for 12-bit addresses, @var{byte} for 8-bit quantities and
+@var{nibble} for 4-bit quantities.
+
+The opcodes corresponding to each instruction (operation with operands)
+follow a parallel convention.  Each opcode consists of four alphanumeric
+characters, corresponding to the four digits in its hexadecimal
+representation.  A hexadecimal digit (with letters written in uppercase)
+in a particular position indicates that that same digit is present in
+the opcode, while lowercase letters indicate that the value of some
+operand should be substituted in their position according to the table
+below.
+
+@table @samp
+@item x
+The index of register @var{vx}.
+
+@item y
+The index of register @var{vy}.
+
+@item nnn
+The 12-bit value of the address @var{addr}.
+
+@item kk
+The 8-bit value of the byte @var{byte}.
+
+@item n
+The 4-bit value of the nibble @var{nibble}.
+@end table
+
+For example, the instruction @code{DRW @var{vx}, @var{vy}, @var{nibble}}
+has opcode @samp{Dxyn} according to this convention, indicating that the
+concrete instruction @code{DRW V1, VA, 5} has opcode @samp{D1A5}.
+
+@subsubheading Operation reference
+
+@deffn Operation SCD nibble
+This operation scrolls the screen down by @var{nibble} pixels.  It is
+only available on the Super-Chip, and has opcode @samp{00Cn}.
+@end deffn
+
+@node Pseudo-operations
+@subsection Pseudo-operations
+@cindex pseudo-operation
+@cindex operation, pseudo-
+
+The first important class of pseudo-operations are those which provide
+support for conditional assembly, that is, emitting different assembly
+instructions based on a assemble-time condition.
+
+@deffn Pseudo-operation IFDEF label
+This pseudo-operation begins a conditional assembly block.  If
+@var{label} is defined when @code{IFDEF} is processed, then all
+instructions up to the matching @code{ELSE} or @code{ENDIF} are
+processed, and any instructions following the @code{ELSE} (if present)
+until the matching @code{ENDIF} are ignored.  If @var{label} is
+undefined, then the assembler ignores all instructions until the
+matching @code{ELSE} or @code{ENDIF}, instead processing those which
+follow @code{ELSE} (if present).
+@end deffn
+
+@deffn Pseudo-operation IFNDEF label
+This pseudo-operation is the opposite of @code{IFDEF}: if @var{label} is
+undefined, the conditional assembly is processed until @code{ELSE} and
+then ignored until @code{ENDIF}, and vice versa if @var{label} is
+defined.
+@end deffn
+
+@deffn Pseudo-operation ELSE
+This pseudo-operation marks the beginning of the assembly instructions
+to be processed if the corresponding conditional was false, or to be
+ignored if the corresponding conditional was true.  It may be used at
+most once within a block of conditional assembly.
+@end deffn
+
+@deffn Pseudo-operation ENDIF
+This pseudo-operation marks the end of a block of conditional assembly.
+@end deffn
+
+The second important class of pseudo-operations are those which modify
+the value of labels.  The most general of these is the special @code{=}
+pseudo-operation, which is used with the syntax @code{@var{label} =
+@var{expression}}, setting the value of @var{label} to the result of
+@var{expression}.
+
+@deffn Pseudo-operation DEFINE label
+This is equivalent to @code{@var{label} = 0}, and indicates that
+@var{label} will be used not for its value, but as a flag for
+conditional compilation using @code{IFDEF} or @code{IFNDEF}.
+@end deffn
+
+The third important class of pseudo-operations are those which insert
+literal bytes into the assembled output.
+
+@deffn Pseudo-operation DW expression
+This pseudo-operation evaluates @var{expression} and inserts the result
+(treated as a big-endian 16-bit unsigned integer) into the assembled
+output.  For example, @code{DW #1234} will insert the bytes @code{#12}
+and @code{#34} (in that order) into the assembled output.
+@end deffn
+
+@deffn Pseudo-operation DB expression
+This pseudo-operation evaluates @var{expression} and inserts the result
+(treated as an 8-bit unsigned integer) into the assembled output (only
+the least significant 8 bits of @var{expression} are kept,
+@pxref{Expressions}).  An operation following @code{DB} will be aligned
+to the next 2-byte boundary to ensure that no misaligned operations are
+produced; however, this alignement will not occur for pseudo-operations
+such as @code{DW} and @code{DB}.
+@end deffn
+
+Finally, the last class of pseudo-operations (which currently has only
+one rather useless member) are those which give a directive to the
+assembler to affect the way it processes further instructions.
+
+@deffn Pseudo-operation OPTION name
+This pseudo-operation (currently) does nothing.  Eventually, different
+values of @var{name} may be used to enable or disable certain assembly
+modes or features.  For example, perhaps @code{OPTION SHQUIRKS} could be
+used to enable shift quirks, removing the need for the @samp{-q} flag,
+@pxref{Invoking chip8asm}.
+@end deffn
 
 @node Further reading
 @chapter Further reading

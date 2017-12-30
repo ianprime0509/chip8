@@ -313,7 +313,7 @@ static bool ltable_get(const struct ltable *tab, const char *key,
 /**
  * Applies the given operator to the given stack of numbers.
  */
-static int operator_apply(char op, unsigned *numstack, int *numpos, int line);
+static int operator_apply(char op, uint16_t *numstack, int *numpos, int line);
 /**
  * Returns the precedence of the given operator.
  * A higher precedence means the operator is more tightly binding.
@@ -410,7 +410,7 @@ int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
      */
     char opstack[STACK_SIZE];
     int oppos = 0;
-    unsigned numstack[STACK_SIZE];
+    uint16_t numstack[STACK_SIZE];
     int numpos = 0;
     bool expecting_num = true;
     int err;
@@ -1350,7 +1350,7 @@ static bool ltable_get(const struct ltable *tab, const char *key,
     return false;
 }
 
-static int operator_apply(char op, unsigned *numstack, int *numpos, int line)
+static int operator_apply(char op, uint16_t *numstack, int *numpos, int line)
 {
     if (op == '~' || op == '_') {
         if (*numpos == 0)
