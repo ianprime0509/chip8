@@ -1,11 +1,11 @@
 \input texinfo
 @include version.texi
 @setfilename chip8.info
-@settitle Chip-8 0.1.0
+@settitle Chip-8 @value{VERSION}
 @syncodeindex fn cp
 
 @copying
-This manual is for Chip-8, version 0.1.0.
+This manual is for Chip-8, version @value{VERSION}.
 
 Copyright @copyright{} 2017 Ian Johnson
 
@@ -21,7 +21,7 @@ Free Documentation License''.
 
 @titlepage
 @title Chip-8 Reference
-@subtitle Version 0.1.0
+@subtitle Version @value{VERSION}
 @author Ian Johnson (@email{ianprime0509@@gmail.com})
 
 @c The following two commands start the copyright page.
