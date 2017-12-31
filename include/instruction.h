@@ -239,8 +239,8 @@ enum chip8_operation {
     /**
      * Wait for key press and store key value (`LD Vx, K`).
      * This will block until a key is pressed, and then store the lowest key
-     * number that is pressed. The buzzer will sound while any key is pressed,
-     * and this instruction will block until the key is released.
+     * number that is pressed. After the key is released, its mask is cleared so
+     * that future key operations will not detect the same key press.
      * Opcode `Fx0A`.
      */
     OP_LD_KEY,

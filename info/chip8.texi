@@ -65,7 +65,7 @@ An overview goes here.
 
 @menu
 * External hardware::    The display, buzzer and controller.
-* Internal hardware::    Registers, instructions and more.
+* Internal hardware::    Registers, memory and more.
 @end menu
 
 @node External hardware
@@ -73,10 +73,48 @@ An overview goes here.
 @cindex external hardware
 @cindex hardware, external
 
+@menu
+* Display::     The displays of the Chip-8 and Super-Chip.
+* Buzzer::      Making noise.
+* Controller::  Interacting with programs.
+@end menu
+
+@node Display
+@subsection Display
+@cindex display
+
+@node Buzzer
+@subsection Buzzer
+@cindex buzzer
+
+@node Controller
+@subsection Controller
+@cindex controller
+
 @node Internal hardware
 @section Internal hardware
 @cindex internal hardware
 @cindex hardware, internal
+
+@menu
+* Registers::                  The Chip-8 registers.
+* Memory and program storage:: How programs are stored in memory.
+* Graphics storage::           How sprites are stored in memory.
+@end menu
+
+@node Registers
+@subsection Registers
+@cindex register
+
+@node Memory and program storage
+@subsection Memory and program storage
+@cindex memory
+@cindex program
+@cindex storage, of programs
+
+@node Graphics storage
+@subsection Graphics storage
+@cindex storage, of graphics
 
 @node The emulator
 @chapter The emulator
@@ -293,6 +331,15 @@ concrete instruction @code{DRW V1, VA, 5} has opcode @samp{D1A5}.
 @subsubsection Operation reference
 @cindex operation reference
 
+The descriptions of the operations given here reflect the behavior of
+the included emulator, @command{chip8}, and are intended to reflect as
+accurately as possible the conventional understanding of each operation.
+However, owing to the diversity of emulators in existence, there may be
+alternate behaviors for some operations (@pxref{Alternative behavior}).
+It is also possible that I've made a mistake somewhere, especially with
+some of the less conventional operations; if you find such a mistake,
+please let me know so that I can fix it.
+
 @deffn Operation SCD nibble
 This operation scrolls the screen down by @var{nibble} pixels.  It is
 only available on the Super-Chip, and its opcode is @samp{00Cn}.
@@ -416,6 +463,148 @@ storing the result in @var{vx}.  The original least significant bit of
 @var{vx} is stored in register @code{VF}.  Its opcode is @samp{8x06}.
 @end deffn
 
+@deffn Operation SUBN vx, vy
+This operation subtracts the value of @var{vx} from that of @var{vx},
+storing the result in @var{vx}.  Register @code{VF} is set to 0 if a
+borrow occurred, or to 1 otherwise.  Its opcode is @samp{8xy7}.
+@end deffn
+
+@deffn Operation SHL vx
+This operation performs a left shift on the value of @var{vx}, storing
+the result in @var{vx}.  The original most significant bit of @var{vx}
+is stored in register @code{VF}.  Its opcode is @samp{8x0E}.
+@end deffn
+
+@deffn Operation SNE vx, vy
+This operation skips the next instruction if the values of @var{vx} and
+@var{vy} are not equal.  Its opcode is @samp{9xy0}.
+@end deffn
+
+@deffn Operation LD I, addr
+This operation loads @var{addr} into register @code{I}.  Its opcode is
+@samp{Annn}.
+@end deffn
+
+@deffn Operation JP V0, addr
+This operation computes the sum @var{addr} and the value of @code{V0},
+and jumps to the resulting address.  It is an error if the computed
+address is not aligned on a 2-byte boundary.  Its opcode is @samp{Bnnn}.
+@end deffn
+
+@deffn Operation RND vx, byte
+This operation generates a random byte and performs a logical AND with
+@var{byte}, storing the resulting value in @var{vx}.  Its opcode is
+@samp{Cxkk}.
+@end deffn
+
+@deffn Operation DRW vx, vy, nibble
+This operation loads a sprite @var{nibble} bytes long starting at the
+memory location indicated by the value of register @code{I}.  The sprite
+is drawn at position (@var{vx}, @var{vy}); register @code{VF} is set to
+1 if a collision occurs, or to 0 otherwise.  On the Super-Chip only,
+@var{nibble} may be 0, in which case a 16x16-pixel sprite will be read.
+For more information about how sprites are loaded and drawn,
+@pxref{Graphics storage}.
+
+Its opcode is @samp{Dxyn}.
+@end deffn
+
+@deffn Operation SKP vx
+This operation takes the name of a key from the lower four bits of the
+value of @var{vx}, and skips the next instruction if that key is
+currently being pressed.  For more information about keys,
+@pxref{Controller}.  Its opcode is @samp{Ex9E}.
+@end deffn
+
+@deffn Operation SKNP vx
+This operation takes the number of a key from the lower four bits of the
+value of @var{vx}, and skips the next instruction if that key is not
+currently being pressed.  Its opcode is @samp{ExA1}.
+@end deffn
+
+@deffn Operation LD vx, DT
+This operation loads the value of the delay timer (register @code{DT})
+into @var{vx}.  Its opcode is @samp{Fx07}.
+@end deffn
+
+@deffn Operation LD vx, K
+This operation waits for a key press, and then stores the number of the
+key in @var{vx}.  If several keys are pressed at once, priority goes to
+the one with the lower number.  After a key press is detected and
+processed, the same key will not be detected by further operations
+unless it is released and pressed again.
+
+Its opcode is @samp{Fx0A}.
+@end deffn
+
+@deffn Operation LD DT, vx
+This operation loads the value of @var{vx} into the delay timer
+(register @code{DT}).  Its opcode is @samp{Fx15}.
+@end deffn
+
+@deffn Operation LD ST, vx
+This operation loads the value of @var{vx} into the sound timer
+(register @code{ST}).  Its opcode is @samp{Fx18}.
+@end deffn
+
+@deffn Operation ADD I, vx
+This operation adds the value of @var{vx} to register @code{I}, storing
+the result in @code{I}.  If the result is too large to fit in the 16-bit
+register @code{I}, the behavior is undefined.  Its opcode is
+@samp{Fx1E}.
+@end deffn
+
+@deffn Operation LD F, vx
+This operation treats the lower four bits of @var{vx} as a hexadecimal
+digit, and stores in register @code{I} the location in memory of the
+low-resolution font sprite for that digit.  For more information about
+these pre-defined sprites, @pxref{Graphics storage}.  Its opcode is
+@samp{Fx29}.
+@end deffn
+
+@deffn Operation LD HF, vx
+This operation is similar to @code{LD F, @var{vx}}, but the address
+stored in register @code{I} is the location of a high-definition font
+sprite for the desired digit.  It is only available on the Super-Chip,
+and its opcode is @samp{Fx30}.
+@end deffn
+
+@deffn Operation LD B, vx
+This operation stores the three-digit binary-coded decimal
+representation of the value of @var{vx} in the three bytes starting at
+the value of register @code{I} (with the most significant digit first).
+For example, if the value of @var{vx} is @samp{123} in decimal, then the
+three bytes stored will be @samp{1}, @samp{2} and @samp{3}, in that
+order.
+
+Its opcode is @samp{Fx33}.
+@end deffn
+
+@deffn Operation LD [I], vx
+This operation takes the values of registers @code{V0} through @var{vx}
+(inclusive) and stores them sequentially in memory starting at the
+address stored in register @code{I}.  Its opcode is @samp{Fx55}.
+@end deffn
+
+@deffn Operation LD vx, [I]
+This operation copies bytes sequentially into the registers @code{V0}
+through @var{vx} (inclusive) starting at the address stored in register
+@code{I}.  Thus, it is the inverse operation to @code{LD [I], @var{vx}}.
+Its opcode is @samp{Fx65}.
+@end deffn
+
+@deffn Operation LD R, vx
+This operation has something to do with the registers on an HP-48
+calculator, but I don't really know and it seems nobody else does
+either.  It is only available on the Super-Chip, and its opcode is
+@samp{Fx75}.
+@end deffn
+
+@deffn Operation LD vx, R
+This operation should be the inverse to @code{LD R, @var{vx}}.  It is
+only available on the Super-Chip, and its opcode is @samp{Fx85}.
+@end deffn
+
 @node Alternative behavior
 @subsubsection Alternative behavior
 @cindex alternative behavior (of operations)
@@ -518,12 +707,13 @@ There are several good resources on the Web for Chip-8 information. For
 a Chip-8 instruction/opcode reference, see
 @url{http://devernay.free.fr/hacks/chip8/C8TECH10.HTM,Cowgod's Chip-8
 Technical Reference}; it also lists the opcodes for Super-Chip
-instructions, but does not give their descriptions. For a collection of
+instructions, but does not give their descriptions.  For a collection of
 many Chip-8 and Super-Chip games, as well as an emulator for DOS, see
-@url{http://www.pong-story.com/chip8/,David Winter's Chip-8 page}. There
-is also some documentation included with his emulator, which gives some
-more background on the Chip-8, including details about some variant
-implementations.
+@url{http://www.pong-story.com/chip8/,David Winter's Chip-8 page}.
+There is also some documentation included with his emulator, which gives
+some more background on the Chip-8, including details about some variant
+implementations.  There is also some information here:
+@url{http://chip8.sourceforge.net/chip8-1.1.pdf}.
 
 @node GNU Free Documentation License
 @appendix GNU Free Documentation License
