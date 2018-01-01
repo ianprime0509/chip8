@@ -21,7 +21,7 @@ Free Documentation License''.
 @end copying
 
 @titlepage
-@title Chip-8 Reference
+@title Chip-8
 @subtitle Version @value{VERSION}
 @author Ian Johnson (@email{ianprime0509@@gmail.com})
 
