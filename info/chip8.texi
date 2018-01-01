@@ -351,6 +351,13 @@ which coexists alongside the original Chip-8 font; each
 higher-resolution font character is 8x10 pixels, and can be accessed
 using the @code{LD HF, @var{vx}} instruction.
 
+A note about timing: every @code{DRW} operation is delayed until the
+start of the next clock cycle.  By default, the clock runs at 60 Hz, the
+same frequency as the @code{DT} and @code{ST} timer registers
+(@pxref{Registers}).  Some emulators appear to do their timing
+differently, but doing it this way produces good results with all the
+games I've tried.
+
 @node The emulator
 @chapter The emulator
 @cindex emulator
@@ -374,7 +381,47 @@ referring to @command{chip8}.
 @section Invoking @command{chip8}
 @cindex @command{chip8} (command)
 
-Fill this in...
+The command @command{chip8} must be invoked with the name of a program
+file to run, unless either the @option{--help} or @option{--version}
+option is used.  The following options are understood:
+
+@table @option
+@item --frequency=@var{freq}
+Set the internal game timer to @var{freq} Hz; default 60.  This affects
+the behavior of the @code{ST} and @code{DT} registers as well as the
+delay between @code{DRW} operations.
+
+@item --shift-quirks
+@itemx -q
+Enable shift quirks mode, which uses the alternative, two-operand
+interpretation of the operations @code{SHR} and @code{SHL} rather than
+the default, one-operand interpretation. @xref{Alternative behavior}.
+
+@item --scale=@var{scale}
+@itemx -s @var{scale}
+Set the game display scale; default 6.  In the Super-Chip's
+high-resolution mode, each pixel of the 128x64 grid will be displayed as
+@var{scale} square pixels on the user's display.  This is doubled in
+low-resolution mode, resulting in the same user-facing window
+size. @xref{Display}.
+
+@item --tone=@var{tone}
+@itemx -t @var{tone}
+Set the game buzzer tone, in Hz; default 440.  This is the tone that
+will sound (using a square wave) when the sound timer @code{ST} is
+nonzero. @xref{Buzzer}.
+
+@item --volume=@var{volume}
+Set the game buzzer volume, as a value from 0 to 100; default 10.
+
+@item --help
+@itemx -h
+Show a description of usage and available options, and exit.
+
+@item --version
+@itemx -V
+Show program version information, and exit.
+@end table
 
 @node The assembler
 @chapter The assembler
@@ -391,7 +438,32 @@ Fill this in...
 @cindex invoking assembler
 @cindex assembler, invocation
 
-Nothing here yet...
+The command @command{chip8asm} must be invoked with the name of a source
+file to assemble, unless either the @option{--help} or
+@option{--version} option is used.  The following options are
+understood:
+
+@table @option
+@item --output=@var{output}
+@itemx -o @var{output}
+Sets the output file name.  The default is to take the input file name
+and change the extension (if any) to @samp{.bin}.
+
+@item --shift-quirks
+@itemx -q
+Enable shift quirks mode, which uses the alternative, two-operand
+interpretation of the operations @code{SHR} and @code{SHL} rather than
+the default, one-operand interpretation. @xref{Alternative behavior}.
+
+@item --help
+@itemx -h
+Show a description of usage and available options, and exit.
+
+@item --version
+@itemx -V
+Show program version information, and exit.
+@end table
+
 
 @node Syntax
 @section Syntax

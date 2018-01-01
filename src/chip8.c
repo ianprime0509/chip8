@@ -33,7 +33,7 @@ static const char *HELP =
     "\n"
     "Options:\n"
     "      --frequency=FREQ        set game timer frequency (in Hz)\n"
-    "  -q, --shift-quirks          whether to use shift quirks mode\n"
+    "  -q, --shift-quirks          enable shift quirks mode\n"
     "  -s, --scale=SCALE           set game display scale\n"
     "  -t, --tone=FREQ             set game buzzer tone (in Hz)\n"
     "      --volume=VOL            set game buzzer volume (0-100)\n"
