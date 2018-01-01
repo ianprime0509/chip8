@@ -1,4 +1,0 @@
--std=gnu11
--Wall
--Wextra
--Iinclude
