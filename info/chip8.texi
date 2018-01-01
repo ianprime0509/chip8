@@ -2,6 +2,7 @@
 @include version.texi
 @setfilename chip8.info
 @settitle Chip-8 @value{VERSION}
+@documentencoding UTF-8
 @syncodeindex fn cp
 
 @copying
@@ -54,14 +55,61 @@ and Super-Chip platforms themselves.
 
 @node Overview
 @chapter Overview
-@cindex overview
 
-An overview goes here.
+This manual is the primary documentation for the Chip-8 project, which
+consists of the emulator @command{chip8} and the assembler
+@command{chip8asm}.  Since having an emulator would be useless without
+knowledge of the original system, however, we will begin with a
+description of the Chip-8 and Super-Chip platforms which this emulator
+targets.  They are relatively simple systems, without many of the
+features that make even the simplest common platforms (such as the NES)
+complex, but still provide enough functionality to create interesting
+games.
+
+Despite their simplicity, the Chip-8 and Super-Chip are somewhat unique
+in the realm of emulators in that most of the information we have about
+them comes from secondary sources.  I haven't yet been able to find any
+primary sources documenting either platform, perhaps due to their age
+and the relative lack of popularity of the original systems.  The
+secondary source material is often enough to reconstruct an adequate
+description of the systems (@pxref{Further reading}), but there is
+occasionally conflicting information and behaviors which some games rely
+on (@pxref{Alternative behavior}).  This disunity, and the lack of a
+single comprehensive resource detailing the quirks and differences
+previously mentioned, is part of my motivation for including such
+details in this manual.  That way, it may serve as a useful reference
+for other emulator developers, even if they don't make use of the
+emulator or assembler that it documents.
 
 @node The Chip-8 and Super-Chip
 @chapter The Chip-8 and Super-Chip
 @cindex Chip-8
 @cindex Super-Chip
+
+The history of the Chip-8 and the Super-Chip is described in some detail
+on @url{https://en.wikipedia.org/wiki/CHIP-8,its Wikipedia page}.  To
+summarize, it was developed as an interpreted programming language for a
+pair of microcomputers in the mid-1970s, and accordingly its
+capabilities are rather primitive in comparison to other popular
+emulation targets, such as the NES.  This lack of features, however,
+makes it a popular target for developing emulators (like this one),
+since there are not as many details to consider and the instruction set
+is of a manageable size.
+
+When a Chip-8 emulator was developed for the HP-48 series of graphing
+calculators, it came with some extensions to the core Chip-8 features,
+such as an option for a higher-resolution display mode and several new
+operations.  The resulting platform, including these extensions, became
+known as the Super-Chip.  The Super-Chip extensions are usually
+implemented in modern Chip-8 emulators, since they don't require much
+extra work for the developer.
+
+There may be other extensions out there (I remember hearing of an
+``Ultra-Chip'' somewhere, but have not been able to find any
+documentation), but I don't know of them.  Once the core functionality
+is stable, it might be interesting for me to try making some extensions
+of my own (in particular, having more than one tone available for the
+buzzer would be cool).
 
 @menu
 * External hardware::    The display, buzzer and controller.
@@ -83,13 +131,112 @@ An overview goes here.
 @subsection Display
 @cindex display
 
+The original Chip-8 had a single display mode, with only two colors and
+a resolution of 64x32.  The Super-Chip retained the monochrome display,
+but added a 128x64 ``high-resolution'' display mode (remember that the
+Super-Chip was developed for graphing calculators, which don't exactly
+have high resolutions to begin with).  On the Super-Chip, the
+high-resolution mode coexists with the original Chip-8
+``low-resolution'' mode, and programs can either opt-in or explicitly
+opt-out using the @code{LOW} and @code{HIGH} instructions
+(@pxref{Operation reference}).
+
+What isn't clear from the above information is how exactly these two
+modes should interact with each other.  Should it be legal to switch
+between them during execution and, if so, what effect should this have?
+There doesn't appear to be a ``right answer'' to these questions, since
+existing emulators appear to disagree.
+
+To remain compatible with Chip-8 programs which are unaware of the
+Super-Chip extensions, @command{chip8} will always start execution in
+low-resolution mode.  The underlying display buffer, however, is always
+128x64; in low-resolution mode, the upper-left 64x32 rectangle is scaled
+to fit the display window.  Thus, it is possible for a program to switch
+freely between these two modes during execution with predictable
+results.
+
 @node Buzzer
 @subsection Buzzer
 @cindex buzzer
 
+The sound capabilities of both the original Chip-8 and the Super-Chip
+are limited to a single monotone buzzer, which can be programmed using
+the @code{ST} (sound timer) register.  As long as @code{ST} is nonzero,
+the buzzer will sound; since all Chip-8 timers decrease at a frequency
+of 60 Hz, the buzzer can be made to sound for specific lengths of time.
+@xref{Registers}.
+
 @node Controller
 @subsection Controller
 @cindex controller
+
+The controller used with the Chip-8 has sixteen keys, each labeled with
+a hexadecimal digit in a 4x4 arrangement.  The arrangement is as
+follows:
+
+@multitable .1 .1 .1 .1
+@item @kbd{1}
+@tab @kbd{2}
+@tab @kbd{3}
+@tab @kbd{C}
+@item @kbd{4}
+@tab @kbd{5}
+@tab @kbd{6}
+@tab @kbd{D}
+@item @kbd{7}
+@tab @kbd{8}
+@tab @kbd{9}
+@tab @kbd{E}
+@item @kbd{A}
+@tab @kbd{0}
+@tab @kbd{B}
+@tab @kbd{F}
+@end multitable
+
+The corresponding arrangement of keys on an HP-48 calculator, which
+would have been the typical input method for the Super-Chip, is as
+follows:
+
+@multitable .1 .1 .1 .1
+@item @kbd{7}
+@tab @kbd{8}
+@tab @kbd{9}
+@tab @kbd{÷}
+@item @kbd{4}
+@tab @kbd{5}
+@tab @kbd{6}
+@tab @kbd{×}
+@item @kbd{1}
+@tab @kbd{2}
+@tab @kbd{3}
+@tab @kbd{-}
+@item @kbd{0}
+@tab @kbd{.}
+@tab @kbd{SPC}
+@tab @kbd{+}
+@end multitable
+
+The emulator key mapping (which unfortunately is not yet configurable)
+is as follows:
+
+@multitable .1 .1 .1 .1
+@item @kbd{1}
+@tab @kbd{2}
+@tab @kbd{3}
+@tab @kbd{4}
+@item @kbd{q}
+@tab @kbd{w}
+@tab @kbd{e}
+@tab @kbd{r}
+@item @kbd{a}
+@tab @kbd{s}
+@tab @kbd{d}
+@tab @kbd{f}
+@item @kbd{z}
+@tab @kbd{x}
+@tab @kbd{c}
+@tab @kbd{v}
+@end multitable
 
 @node Internal hardware
 @section Internal hardware
@@ -106,15 +253,103 @@ An overview goes here.
 @subsection Registers
 @cindex register
 
+The Chip-8 has sixteen general-purpose registers, labeled @code{V0}
+through @code{VF}, each of which stores a single unsigned 8-bit value.
+Register @code{VF} is used by many operations to signal certain
+conditions (such as collisions when drawing sprites, @pxref{Operation
+reference}).  There is no stack, and reading values from particular
+memory locations is cumbersome, so registers are really the only
+reliable means of passing data between subroutines.
+
+There is a special register, labeled @code{I}, which holds an unsigned
+16-bit value and is used by many operations as storage for an address in
+memory.  For example, the @code{DRW} operation uses the value of
+@code{I} as the address of the sprite to draw at the given coordinates.
+
+There are two timer registers, @code{DT} and @code{ST}, each of which
+holds an unsigned 8-bit value and decreases to 0 at a rate of 60 Hz once
+it is set.  Register @code{DT} is known as the ``delay timer''; it has
+no predefined function, and can be used anywhere a timer is needed.
+Register @code{ST} is the ``sound timer'', and will cause the buzzer to
+sound for as long as it holds a nonzero value (@pxref{Buzzer}).
+
+The final register is the program counter, which stores the address of
+the currently executing instruction.  It is not accessible to programs
+except through the @code{JP}, @code{CALL} and @code{RET} instructions.
+For use with the @code{CALL} and @code{RET} instructions, a stack of
+program counter values (the @dfn{call stack}) is maintained internally;
+@command{chip8} has an unbounded call stack, but other emulators may
+have restrictions.
+
 @node Memory and program storage
 @subsection Memory and program storage
 @cindex memory
 @cindex program
 @cindex storage, of programs
 
+The Chip-8 and Super-Chip both provide 4096 bytes of addressable memory,
+512 bytes of which are reserved for the interpreter.  Although modern
+emulators no longer store the interpreter itself in these lower 512
+bytes, it is still used as a reliable location to store the built-in
+sprite font characters, since programs know not to use it
+(@pxref{Graphics storage}).
+
+When the emulator is directed to run a program, it loads the entire
+program into memory starting at address @samp{0x200} (just past the 512
+bytes of reserved memory) and sets the program counter to this value.
+Every Chip-8 instruction is two bytes wide and appears in the program
+MSB (most significant byte) first; that is, the Chip-8 is big-endian.
+The two bytes of each instruction are also known as the instruction's
+@dfn{opcode}.  For a list of all valid opcodes, @pxref{List of
+operations}.
+
+It should be noted that all instructions must be aligned on two-byte
+boundaries; it is an error to attempt to jump to a misaligned memory
+address, to prevent reading bogus instructions.
+
 @node Graphics storage
 @subsection Graphics storage
 @cindex storage, of graphics
+
+The original Chip-8 supported drawing simple images (or @dfn{sprites})
+of exactly eight pixels in width and between one and fifteen (inclusive)
+pixels in height using the @code{DRW} operation.  Each row of a sprite
+would be represented by a single byte, with the bits in the byte
+indicating whether the corresponding pixel should be set or cleared (the
+most significant bit being the left-most pixel in the row).  Thus, the
+third operand to @code{DRW}, which specifies the number of bytes that
+the sprite occupies in memory, is also the sprite's height in pixels.
+The sprite is drawn from top to bottom, so that the first byte read
+represents the top-most row of the sprite on screen.
+
+The Super-Chip, supporting a higher display resolution, extended the
+@code{DRW} operation with support for 16x16 pixel sprites.  By
+specifying @samp{0} as the third operand to @code{DRW}, the Super-Chip
+reads sixteen pairs of bytes from the indicated memory location (namely,
+the value of register @code{I}; @pxref{List of operations}), drawing the
+sprite from left to right, top to bottom.  That is, the first byte read
+gives the left-most eight pixels of the sprite's top row, the second
+byte gives the right-most eight pixels of the same row, and so on,
+continuing downwards.
+
+Sprites are drawn to screen using the bitwise @code{XOR} operation.
+This means that drawing the same sprite at the same location twice will
+have no net effect on the display.  It will, however, have an effect on
+the code: if any collision is encountered when drawing a sprite (that
+is, if any pixels are turned off during the operation), the @code{VF}
+register is set to @samp{1}.  If there is no collision, the @code{VF}
+register is set to @samp{0}.
+
+The Chip-8 also comes with a simple bitmap font for the hexadecimal
+digits @samp{0} through @samp{F}.  Each font sprite is 4x5 pixels, and
+is stored in memory below the 512-byte program boundary.  The memory
+location of the sprite (for drawing) can be loaded into the @code{I}
+register using the @code{LD H, @var{vx}} instruction, where the lower
+four bits of @var{vx} are taken as the desired hexadecimal digit.  The
+Super-Chip adds a higher-resolution font with the same character set,
+which coexists alongside the original Chip-8 font; each
+higher-resolution font character is 8x10 pixels, and can be accessed
+using the @code{LD HF, @var{vx}} instruction.
 
 @node The emulator
 @chapter The emulator
@@ -264,12 +499,12 @@ corresponds directly to a Chip-8 or Super-Chip instruction, such as
 @code{ADD}, while a pseudo-operation does not.
 
 @menu
-* True operations::         Reference for true operations.
+* Operation reference::         Reference for ``true'' operations.
 * Pseudo-operations::       Reference for pseudo-operations.
 @end menu
 
-@node True operations
-@subsection True operations
+@node Operation reference
+@subsection Operation reference
 @cindex true operation
 @cindex operation, true
 
@@ -280,7 +515,7 @@ Chip-8 or Super-Chip is represented by a two-byte opcode,
 
 @menu
 * Operation notation::  Conventions for writing operations and opcodes.
-* Operation reference:: List of all operations with their opcodes.
+* List of operations:: List of all operations with their opcodes.
 * Alternative behavior:: Different treatment by other interpreters.
 @end menu
 
@@ -327,8 +562,8 @@ For example, the instruction @code{DRW @var{vx}, @var{vy}, @var{nibble}}
 has opcode @samp{Dxyn} according to this convention, indicating that the
 concrete instruction @code{DRW V1, VA, 5} has opcode @samp{D1A5}.
 
-@node Operation reference
-@subsubsection Operation reference
+@node List of operations
+@subsubsection List of operations
 @cindex operation reference
 
 The descriptions of the operations given here reflect the behavior of
