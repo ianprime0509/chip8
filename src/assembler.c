@@ -332,8 +332,10 @@ struct chip8asm *chip8asm_new(struct chip8asm_options opts)
     chipasm->opts = opts;
     chipasm->pc = CHIP8_PROG_START;
     /* There's a good chance we'll need space for at least 128 instructions */
-    if (instructions_reserve(&chipasm->instructions, 128))
+    if (instructions_reserve(&chipasm->instructions, 128)) {
+        free(chipasm);
         return NULL;
+    }
 
     return chipasm;
 }

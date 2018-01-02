@@ -171,13 +171,9 @@ struct chip8_options chip8_options_default(void)
 
 struct chip8 *chip8_new(struct chip8_options opts)
 {
-    struct chip8 *chip = malloc(sizeof *chip);
+    struct chip8 *chip = calloc(1, sizeof *chip);
 
     chip->opts = opts;
-    memset(chip->mem, 0, sizeof chip->mem);
-    memset(chip->display, 0, sizeof chip->display);
-    memset(chip->regs, 0, sizeof chip->regs);
-    chip->reg_dt = chip->reg_st = chip->reg_i = 0;
     /* Start program at beginning of usable memory */
     chip->pc = 0x200;
     chip->halted = false;
