@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with Chip-8.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 /**
  * @file
  * Simple unit tests for the project.
@@ -29,24 +29,22 @@
 
 #include "assembler.h"
 #include "interpreter.h"
+#include "log.h"
 
 #define TEST_RUN(test) testing_run(#test, test)
 #define ASSERT(cond)                                                           \
     do {                                                                       \
         if (!(cond)) {                                                         \
-            fprintf(stderr, "ERR: assertion failed on line %d: " #cond "\n",   \
-                    __LINE__);                                                 \
+            log_error("Assertion failed on line %d: " #cond, __LINE__);        \
             return 1;                                                          \
         }                                                                      \
     } while (0)
 #define ASSERT_EQ(lhs, rhs, fmtstr)                                            \
     do {                                                                       \
         if ((lhs) != (rhs)) {                                                  \
-            fprintf(stderr, "ERR: assertion failed on line %d: " #lhs          \
-                            " == " #rhs "\n",                                  \
-                    __LINE__);                                                 \
-            fprintf(stderr, "     LHS = " fmtstr "\n", (lhs));                 \
-            fprintf(stderr, "     RHS = " fmtstr "\n", (rhs));                 \
+            log_error("Assertion failed on line %d: " #lhs " == " #rhs,        \
+                      __LINE__);                                               \
+            log_info("LHS = " fmtstr "; RHS = " fmtstr, (lhs), (rhs));         \
             return 1;                                                          \
         }                                                                      \
     } while (0)
@@ -243,7 +241,9 @@ int test_asm(void)
 
     /* But labels are case-sensitive */
     ASSERT(!chip8asm_process_line(chipasm, "JP PROGRAM_START"));
+    log_set_output(NULL);
     ASSERT(chip8asm_emit(chipasm, prog));
+    log_set_output(stdout);
 
     chip8asm_program_destroy(prog);
     chip8asm_destroy(chipasm);
@@ -319,9 +319,11 @@ int test_asm_eval(void)
     chip8asm_eval(chipasm, "~_crazyIDENT1234", 10, &value);
     ASSERT_EQ_UINT(value, 0);
     /* Test for failure on invalid expressions */
+    log_set_output(NULL);
     ASSERT(chip8asm_eval(chipasm, "~1234~", 11, &value));
     ASSERT(chip8asm_eval(chipasm, "123+", 12, &value));
     ASSERT(chip8asm_eval(chipasm, "undefined", 13, &value));
+    log_set_output(stdout);
 
     chip8asm_destroy(chipasm);
     return 0;
@@ -489,24 +491,25 @@ static void testing_run(const char *name, int (*test)(void))
 {
     int res;
 
-    printf("=====Running test %s\n", name);
+    log_info("Running test %s", name);
     if ((res = test())) {
-        printf("-----Test FAILED with status %d\n", res);
+        log_error("Test %s FAILED with status %d", name, res);
         n_failures++;
     } else {
-        printf("+++++Test PASSED\n\n");
+        log_info("Test %s PASSED", name);
     }
 }
 
 static void testing_setup(void)
 {
-    printf("Starting tests\n");
+    log_init(stdout, LOG_DEBUG);
+    log_debug("Starting tests");
 }
 
 static int testing_teardown(void)
 {
-    printf("All tests finished with %d failure%s\n", n_failures,
-           n_failures == 1 ? "" : "s");
+    log_info("All tests finished with %d failure%s", n_failures,
+             n_failures == 1 ? "" : "s");
     if (n_failures != 0)
         return 1;
     return 0;

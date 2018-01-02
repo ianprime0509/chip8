@@ -81,18 +81,21 @@ void log_message(enum log_level level, const char *fmt, ...)
 
 void log_message_begin(enum log_level level)
 {
-    fprintf(log_output, "%s: ", log_level_string(level));
+    if (log_output != NULL)
+        fprintf(log_output, "%s: ", log_level_string(level));
 }
 
 void log_message_part(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    vfprintf(log_output, fmt, args);
+    if (log_output != NULL)
+        vfprintf(log_output, fmt, args);
     va_end(args);
 }
 
 void log_message_end(void)
 {
-    putc('\n', log_output);
+    if (log_output != NULL)
+        putc('\n', log_output);
 }
