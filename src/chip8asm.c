@@ -93,7 +93,7 @@ int main(int argc, char **argv)
                                      {"version", no_argument, NULL, 'V'},
                                      {0, 0, 0, 0}};
 
-    while ((option = getopt_long(argc, argv, "o:hV", options, NULL)) != -1) {
+    while ((option = getopt_long(argc, argv, "o:qhV", options, NULL)) != -1) {
         switch (option) {
         case 'o':
             if (opts.output)
