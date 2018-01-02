@@ -74,6 +74,18 @@ void log_set_output(FILE *output);
  */
 void log_message(enum log_level level, const char *fmt, ...);
 /**
+ * Begins a multi-part log message.
+ */
+void log_message_begin(enum log_level level);
+/**
+ * Logs part of a multi-part log message.
+ */
+void log_message_part(const char *fmt, ...);
+/**
+ * Ends a multi-part log message.
+ */
+void log_message_end(void);
+/**
  * Logs an error message.
  */
 #define log_error(...) log_message(LOG_ERROR, __VA_ARGS__)

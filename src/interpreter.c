@@ -18,13 +18,14 @@
  */
 #include "interpreter.h"
 
-#include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <time.h>
 
+#include "log.h"
 #include "util.h"
 
 /**
@@ -226,7 +227,7 @@ int chip8_load_from_bytes(struct chip8 *chip, uint8_t *bytes, size_t len)
 
     while (len--) {
         if (mempos >= CHIP8_MEM_SIZE) {
-            fprintf(stderr, "Input program is too big\n");
+            log_error("Input program is too big");
             return -1;
         }
         chip->mem[mempos++] = *bytes++;
@@ -236,20 +237,20 @@ int chip8_load_from_bytes(struct chip8 *chip, uint8_t *bytes, size_t len)
 
 int chip8_load_from_file(struct chip8 *chip, FILE *file)
 {
-    int c, err;
+    int c;
     int mempos = CHIP8_PROG_START;
 
     while ((c = getc(file)) != EOF) {
         if (mempos >= CHIP8_MEM_SIZE) {
-            fprintf(stderr, "Input program is too big\n");
+            log_error("Input program is too big");
             return -1;
         }
         chip->mem[mempos++] = c;
     }
 
-    if ((err = ferror(file))) {
-        fprintf(stderr, "Error reading from game file (code %d)\n", err);
-        return err;
+    if (ferror(file)) {
+        log_error("Error reading from game file: ", strerror(errno));
+        return 1;
     }
     return 0;
 }
@@ -258,7 +259,7 @@ void chip8_step(struct chip8 *chip)
 {
     if (!chip->halted) {
         if (chip->pc >= CHIP8_MEM_SIZE) {
-            fprintf(stderr, "Program counter went out of bounds\n");
+            log_error("Program counter went out of bounds");
             chip->halted = true;
         } else {
             chip->pc = chip8_execute(chip, chip8_current_instr(chip));
@@ -333,9 +334,9 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
 
     switch (inst.op) {
     case OP_INVALID:
-        fprintf(stderr,
-                "Invalid instruction encountered and ignored (opcode 0x%hX)\n",
-                inst.opcode);
+        log_warning(
+            "Invalid instruction encountered and ignored (opcode 0x%hX)",
+            inst.opcode);
         break;
     case OP_SCD:
         if (!chip8_wait_cycle(chip))

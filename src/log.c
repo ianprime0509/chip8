@@ -62,6 +62,8 @@ static char *log_level_string(enum log_level level)
         return "INFO";
     case LOG_DEBUG:
         return "DEBUG";
+    default:
+        return "UNKNOWN";
     }
 }
 
@@ -70,9 +72,27 @@ void log_message(enum log_level level, const char *fmt, ...)
     va_list args;
     va_start(args, fmt);
     if (log_output != NULL && level <= max_level) {
-        fprintf(log_output, "%s: ", log_level_string(level));
+        log_message_begin(level);
         vfprintf(log_output, fmt, args);
-        putc('\n', log_output);
+        log_message_end();
     }
     va_end(args);
+}
+
+void log_message_begin(enum log_level level)
+{
+    fprintf(log_output, "%s: ", log_level_string(level));
+}
+
+void log_message_part(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(log_output, fmt, args);
+    va_end(args);
+}
+
+void log_message_end(void)
+{
+    putc('\n', log_output);
 }
