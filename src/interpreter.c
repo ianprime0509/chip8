@@ -64,9 +64,8 @@ static_assert(CHIP8_HEX_HIGH_ADDR + 16 * CHIP8_HEX_HIGH_HEIGHT <=
  */
 #define ABORT(chip, ...)                                                       \
     do {                                                                       \
-        fprintf(stderr, "ABORT: " __VA_ARGS__);                                \
-        fprintf(stderr, "\n");                                                 \
-        chip8_dump_regs(chip, stderr);                                         \
+        log_error("ABORT: " __VA_ARGS__);                                      \
+        chip8_log_regs(chip);                                                  \
         exit(EXIT_FAILURE);                                                    \
     } while (0)
 
@@ -128,10 +127,9 @@ static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
 static bool chip8_draw_sprite_high(struct chip8 *chip, int x, int y,
                                    uint16_t sprite_start);
 /**
- * Dumps the state of the interpreter registers to the given file.
- * Errors in writing will be ignored.
+ * Logs the state of the registers (using level LOG_DEBUG).
  */
-static void chip8_dump_regs(const struct chip8 *chip, FILE *output);
+static void chip8_log_regs(const struct chip8 *chip);
 /**
  * Executes the given instruction in the interpreter.
  *
@@ -315,16 +313,15 @@ static bool chip8_draw_sprite_high(struct chip8 *chip, int x, int y,
     return collision;
 }
 
-static void chip8_dump_regs(const struct chip8 *chip, FILE *output)
+static void chip8_log_regs(const struct chip8 *chip)
 {
-    for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++) {
-            int reg = 4 * i + j;
-            fprintf(output, "V%X = %02X%s", reg, chip->regs[reg],
-                    j == 3 ? "\n" : "    ");
-        }
-    fprintf(output, "\nDT = %02X    ST = %02X     I = %04X  PC = %04X\n",
-            chip->reg_dt, chip->reg_st, chip->reg_i, chip->pc);
+    log_message_begin(LOG_DEBUG);
+    log_message_part("Register values: ");
+    for (int i = 0; i < 16; i++)
+        log_message_part("V%X = %02X; ", i, chip->regs[i]);
+    log_message_part("DT = %02X; ST = %02X; I = %04X; PC = %04X", chip->reg_dt,
+                     chip->reg_st, chip->reg_i, chip->pc);
+    log_message_end();
 }
 
 static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)

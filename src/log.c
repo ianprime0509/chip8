@@ -25,6 +25,13 @@
  */
 static enum log_level max_level;
 /**
+ * The current message log level.
+ *
+ * This is undefined if there is no message currently being logged; a message
+ * should always be started with the log_message_begin function.
+ */
+static enum log_level message_level;
+/**
  * The current log output file.
  */
 static FILE *log_output;
@@ -72,16 +79,17 @@ void log_message(enum log_level level, const char *fmt, ...)
     va_list args;
     va_start(args, fmt);
     if (log_output != NULL && level <= max_level) {
-        log_message_begin(level);
+        fprintf(log_output, "%s: ", log_level_string(level));
         vfprintf(log_output, fmt, args);
-        log_message_end();
+        putc('\n', log_output);
     }
     va_end(args);
 }
 
 void log_message_begin(enum log_level level)
 {
-    if (log_output != NULL)
+    message_level = level;
+    if (log_output != NULL && message_level <= max_level)
         fprintf(log_output, "%s: ", log_level_string(level));
 }
 
@@ -89,13 +97,13 @@ void log_message_part(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    if (log_output != NULL)
+    if (log_output != NULL && message_level <= max_level)
         vfprintf(log_output, fmt, args);
     va_end(args);
 }
 
 void log_message_end(void)
 {
-    if (log_output != NULL)
+    if (log_output != NULL && message_level <= max_level)
         putc('\n', log_output);
 }
