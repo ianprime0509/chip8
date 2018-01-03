@@ -430,6 +430,7 @@ int test_ld(void)
 {
     struct chip8_options opts = chip8_options_testing();
     struct chip8 *chip = chip8_new(opts);
+    uint16_t reg_i;
 
     ASSERT(chip != NULL);
 
@@ -456,6 +457,23 @@ int test_ld(void)
     ASSERT_EQ_UINT(chip->mem[0x600], 1);
     ASSERT_EQ_UINT(chip->mem[0x601], 0);
     ASSERT_EQ_UINT(chip->mem[0x602], 3);
+
+    /* Put some values in memory */
+    reg_i = chip->reg_i;
+    chip->mem[reg_i] = 0x12;
+    chip->mem[reg_i + 1] = 0x34;
+    /* LD V1, [I] */
+    chip8_execute_opcode(chip, 0xF165);
+    ASSERT_EQ_UINT(chip->reg_i, reg_i);
+    ASSERT_EQ_UINT(chip->regs[REG_V0], 0x12);
+    ASSERT_EQ_UINT(chip->regs[REG_V1], 0x34);
+    chip->reg_i += 2;
+    reg_i = chip->reg_i;
+    /* LD [I], V1 */
+    chip8_execute_opcode(chip, 0xF155);
+    ASSERT_EQ_UINT(chip->reg_i, reg_i);
+    ASSERT_EQ_UINT(chip->mem[reg_i], 0x12);
+    ASSERT_EQ_UINT(chip->mem[reg_i + 1], 0x34);
 
     chip8_destroy(chip);
     return 0;
