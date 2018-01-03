@@ -91,7 +91,7 @@ int test_jp(void);
  */
 int test_ld(void);
 /**
- * Tests shift quirks mode behavior.
+ * Tests shift and load quirks mode behavior.
  */
 int test_quirks(void);
 
@@ -465,7 +465,9 @@ int test_quirks(void)
 {
     struct chip8 *chip;
     struct chip8_options opts = chip8_options_testing();
+    uint16_t reg_i;
 
+    opts.load_quirks = true;
     opts.shift_quirks = true;
     chip = chip8_new(opts);
     ASSERT(chip != NULL);
@@ -482,6 +484,15 @@ int test_quirks(void)
     chip8_execute_opcode(chip, 0x801E);
     ASSERT_EQ_UINT(chip->regs[REG_V1], 0x03);
     ASSERT_EQ_UINT(chip->regs[REG_V0], 0x06);
+
+    /* LD [I], V1 */
+    reg_i = chip->reg_i;
+    chip8_execute_opcode(chip, 0xF155);
+    ASSERT_EQ_UINT(chip->reg_i, reg_i + 4);
+    /* LD V1, [I] */
+    reg_i = chip->reg_i;
+    chip8_execute_opcode(chip, 0xF165);
+    ASSERT_EQ_UINT(chip->reg_i, reg_i + 4);
 
     chip8_destroy(chip);
     return 0;

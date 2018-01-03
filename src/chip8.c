@@ -34,6 +34,7 @@ static const char *HELP =
     "\n"
     "Options:\n"
     "      --frequency=FREQ        set game timer frequency (in Hz)\n"
+    "  -l, --load-quirks           enable load quirks mode\n"
     "  -q, --shift-quirks          enable shift quirks mode\n"
     "  -s, --scale=SCALE           set game display scale\n"
     "  -t, --tone=FREQ             set game buzzer tone (in Hz)\n"
@@ -65,6 +66,10 @@ struct progopts {
      * The frequency (in Hz) of the game timer (default 60).
      */
     long game_freq;
+    /**
+     * Whether to use load quirks mode (default false).
+     */
+    bool load_quirks;
     /**
      * Whether to use shift quirks mode (default false).
      */
@@ -124,6 +129,7 @@ int main(int argc, char **argv)
     int got_volume = 0;
     const struct option options[] = {
         {"frequency", required_argument, &got_frequency, 1},
+        {"load-quirks", no_argument, NULL, 'l'},
         {"shift-quirks", no_argument, NULL, 'q'},
         {"scale", required_argument, NULL, 's'},
         {"tone", required_argument, NULL, 't'},
@@ -134,9 +140,12 @@ int main(int argc, char **argv)
         {0, 0, 0, 0},
     };
 
-    while ((option = getopt_long(argc, argv, "qs:t:vhV", options, NULL)) !=
+    while ((option = getopt_long(argc, argv, "lqs:t:vhV", options, NULL)) !=
            -1) {
         switch (option) {
+        case 'l':
+            opts.load_quirks = true;
+            break;
         case 'q':
             opts.shift_quirks = true;
             break;
@@ -213,6 +222,7 @@ static struct progopts progopts_default(void)
         .verbosity = 0,
         .scale = 6,
         .game_freq = 60,
+        .load_quirks = false,
         .shift_quirks = false,
         .tone_freq = 440,
         .tone_vol = 10,
@@ -246,6 +256,7 @@ static int run(struct progopts opts)
         log_init(stderr, LOG_DEBUG);
 
     /* Set options for the interpreter */
+    chipopts.load_quirks = opts.load_quirks;
     chipopts.shift_quirks = opts.shift_quirks;
     chipopts.timer_freq = opts.game_freq;
 

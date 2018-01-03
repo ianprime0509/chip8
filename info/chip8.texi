@@ -917,12 +917,44 @@ only available on the Super-Chip, and its opcode is @samp{Fx85}.
 @cindex alternative behavior (of operations)
 
 Some interpreters do not behave exactly as described in the operation
-reference, and some games are developed which rely on these alternatve
-behaviors.  Currently, the only such known variant behavior is with the
-shift operations @code{SHR} and @code{SHL}, described below.  The
+reference, and some games are developed which rely on these alternative
+behaviors.  This section documents all the alternative behavior I have
+encountered so far.
+
+The @code{SHL} and @code{SHR} operations have the following variant
+forms, accepting two operands rather than the usual one.  The
 interpreter (@pxref{Invoking chip8}) and assembler (@pxref{Invoking
 chip8asm}) both accept a flag instructing them to use these variant
 forms.
+
+@deffn {Alternate operation} SHR vx, vy
+This operation performs a logical right shift on the value of @var{vy},
+storing the result in @var{vx}.  The original least significant bit of
+@var{vy} is stored in register @code{VF}.  Its opcode is @samp{8xy6}.
+@end deffn
+
+@deffn {Alternate operation} SHL vx, vy
+This operation performs a logical left shift on the value of @var{vy},
+storing the result in @var{vx}.  The original most significant bit of
+@var{vy} is stored in register @code{VF}.  Its opcode is @samp{8xyE}.
+@end deffn
+
+There are also alternative behaviors for operations which copy register
+data to and from memory (that is, the operations involving @code{[I]}).
+The interpreter accepts a flag instructing it to use these alternative
+behaviors (they make no difference to the assembler).
+
+@deffn {Alternate operation} LD [I], vx
+This operation is the same as @code{LD [I], @var{vx}}, but after
+execution the value of register @code{I} is set to the memory address
+directly after that of the stored values.
+@end deffn
+
+@deffn {Alternate operation} LD vx, [I]
+This operation is the same as @code{LD @var{vx}, [I]}, but after
+execution the value of register @code{I} is set to the memory address
+directly after that of the loaded values.
+@end deffn
 
 @node Pseudo-operations
 @subsection Pseudo-operations

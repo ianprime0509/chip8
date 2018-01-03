@@ -558,6 +558,8 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         if (chip->reg_i + cpy_len >= CHIP8_MEM_SIZE)
             ABORT(chip, "Tried to write to out of bounds memory; aborting");
         memcpy(chip->mem + chip->reg_i, chip->regs, cpy_len);
+        if (chip->opts.load_quirks)
+            chip->reg_i += 2 * (inst.vx + 1);
     } break;
     case OP_LD_REG_DEREF_I: {
         size_t cpy_len = sizeof chip->regs[0] * (inst.vx + 1);
@@ -565,6 +567,8 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         if (chip->reg_i + cpy_len >= CHIP8_MEM_SIZE)
             ABORT(chip, "Tried to read from out of bounds memory; aborting");
         memcpy(chip->regs, chip->mem + chip->reg_i, cpy_len);
+        if (chip->opts.load_quirks)
+            chip->reg_i += 2 * (inst.vx + 1);
     } break;
     case OP_LD_R_REG:
     case OP_LD_REG_R:

@@ -55,6 +55,14 @@ struct chip8_options {
      */
     bool enable_timer;
     /**
+     * Whether to enable load quirks mode (default false).
+     *
+     * In load quirks mode, the I register is incremented when the LD [I], VX or
+     * LD VX, [I] instructions are used.  The default is to not modify the I
+     * register at all.
+     */
+    bool load_quirks;
+    /**
      * Whether to enable shift quirks mode (default false).
      * In shift quirks mode, the instructions `SHR` and `SHL` take two register
      * arguments rather than one; the first register will be set to the shifted
