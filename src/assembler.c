@@ -26,6 +26,8 @@
 #include <string.h>
 #include <strings.h>
 
+#include "log.h"
+
 #define LTABLE_SIZE 256
 
 /**
@@ -43,17 +45,19 @@
 
 #define FAIL(errcode, line, ...)                                               \
     do {                                                                       \
-        fprintf(stderr, "ERROR on line %d: ", (line));                         \
-        fprintf(stderr, __VA_ARGS__);                                          \
-        fprintf(stderr, "\n");                                                 \
+        log_message_begin(LOG_ERROR);                                          \
+        log_message_part("On line %d: ", (line));                              \
+        log_message_part(__VA_ARGS__);                                         \
+        log_message_end();                                                     \
         return (errcode);                                                      \
     } while (0)
 
 #define WARN(line, ...)                                                        \
     do {                                                                       \
-        fprintf(stderr, "WARNING on line %d: ", (line));                       \
-        fprintf(stderr, __VA_ARGS__);                                          \
-        fprintf(stderr, "\n");                                                 \
+        log_message_begin(LOG_WARNING);                                        \
+        log_message_part("On line %d: ", (line));                              \
+        log_message_part(__VA_ARGS__);                                         \
+        log_message_end();                                                     \
     } while (0)
 
 /**

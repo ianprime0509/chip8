@@ -18,13 +18,14 @@
  */
 #include "interpreter.h"
 
-#include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <time.h>
 
+#include "log.h"
 #include "util.h"
 
 /**
@@ -63,9 +64,8 @@ static_assert(CHIP8_HEX_HIGH_ADDR + 16 * CHIP8_HEX_HIGH_HEIGHT <=
  */
 #define ABORT(chip, ...)                                                       \
     do {                                                                       \
-        fprintf(stderr, "ABORT: " __VA_ARGS__);                                \
-        fprintf(stderr, "\n");                                                 \
-        chip8_dump_regs(chip, stderr);                                         \
+        log_error("ABORT: " __VA_ARGS__);                                      \
+        chip8_log_regs(chip);                                                  \
         exit(EXIT_FAILURE);                                                    \
     } while (0)
 
@@ -127,10 +127,9 @@ static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
 static bool chip8_draw_sprite_high(struct chip8 *chip, int x, int y,
                                    uint16_t sprite_start);
 /**
- * Dumps the state of the interpreter registers to the given file.
- * Errors in writing will be ignored.
+ * Logs the state of the registers (using level LOG_DEBUG).
  */
-static void chip8_dump_regs(const struct chip8 *chip, FILE *output);
+static void chip8_log_regs(const struct chip8 *chip);
 /**
  * Executes the given instruction in the interpreter.
  *
@@ -222,7 +221,7 @@ int chip8_load_from_bytes(struct chip8 *chip, uint8_t *bytes, size_t len)
 
     while (len--) {
         if (mempos >= CHIP8_MEM_SIZE) {
-            fprintf(stderr, "Input program is too big\n");
+            log_error("Input program is too big");
             return -1;
         }
         chip->mem[mempos++] = *bytes++;
@@ -232,20 +231,20 @@ int chip8_load_from_bytes(struct chip8 *chip, uint8_t *bytes, size_t len)
 
 int chip8_load_from_file(struct chip8 *chip, FILE *file)
 {
-    int c, err;
+    int c;
     int mempos = CHIP8_PROG_START;
 
     while ((c = getc(file)) != EOF) {
         if (mempos >= CHIP8_MEM_SIZE) {
-            fprintf(stderr, "Input program is too big\n");
+            log_error("Input program is too big");
             return -1;
         }
         chip->mem[mempos++] = c;
     }
 
-    if ((err = ferror(file))) {
-        fprintf(stderr, "Error reading from game file (code %d)\n", err);
-        return err;
+    if (ferror(file)) {
+        log_error("Error reading from game file: ", strerror(errno));
+        return 1;
     }
     return 0;
 }
@@ -254,7 +253,7 @@ void chip8_step(struct chip8 *chip)
 {
     if (!chip->halted) {
         if (chip->pc >= CHIP8_MEM_SIZE) {
-            fprintf(stderr, "Program counter went out of bounds\n");
+            log_error("Program counter went out of bounds");
             chip->halted = true;
         } else {
             chip->pc = chip8_execute(chip, chip8_current_instr(chip));
@@ -310,16 +309,15 @@ static bool chip8_draw_sprite_high(struct chip8 *chip, int x, int y,
     return collision;
 }
 
-static void chip8_dump_regs(const struct chip8 *chip, FILE *output)
+static void chip8_log_regs(const struct chip8 *chip)
 {
-    for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++) {
-            int reg = 4 * i + j;
-            fprintf(output, "V%X = %02X%s", reg, chip->regs[reg],
-                    j == 3 ? "\n" : "    ");
-        }
-    fprintf(output, "\nDT = %02X    ST = %02X     I = %04X  PC = %04X\n",
-            chip->reg_dt, chip->reg_st, chip->reg_i, chip->pc);
+    log_message_begin(LOG_DEBUG);
+    log_message_part("Register values: ");
+    for (int i = 0; i < 16; i++)
+        log_message_part("V%X = %02X; ", i, chip->regs[i]);
+    log_message_part("DT = %02X; ST = %02X; I = %04X; PC = %04X", chip->reg_dt,
+                     chip->reg_st, chip->reg_i, chip->pc);
+    log_message_end();
 }
 
 static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
@@ -329,9 +327,9 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
 
     switch (inst.op) {
     case OP_INVALID:
-        fprintf(stderr,
-                "Invalid instruction encountered and ignored (opcode 0x%hX)\n",
-                inst.opcode);
+        log_warning(
+            "Invalid instruction encountered and ignored (opcode 0x%hX)",
+            inst.opcode);
         break;
     case OP_SCD:
         if (!chip8_wait_cycle(chip))

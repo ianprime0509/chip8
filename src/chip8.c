@@ -27,6 +27,7 @@
 
 #include "audio.h"
 #include "interpreter.h"
+#include "log.h"
 
 static const char *HELP =
     "A Chip-8/Super-Chip interpreter.\n"
@@ -36,6 +37,7 @@ static const char *HELP =
     "  -q, --shift-quirks          enable shift quirks mode\n"
     "  -s, --scale=SCALE           set game display scale\n"
     "  -t, --tone=FREQ             set game buzzer tone (in Hz)\n"
+    "  -v, --verbose               increase verbosity\n"
     "      --volume=VOL            set game buzzer volume (0-100)\n"
     "  -h, --help                  show this help message and exit\n"
     "  -V, --version               show version information and exit\n";
@@ -47,7 +49,15 @@ static const char *VERSION_STRING = "chip8 " PROJECT_VERSION "\n";
  */
 struct progopts {
     /**
+     * The output verbosity (default 0).
+     *
+     * The higher this is, the more log messages will be output (currently,
+     * anything over 2 won't give any extra messages).
+     */
+    int verbosity;
+    /**
      * The scale of the display (default 6).
+     *
      * One Super-Chip pixel will be displayed as a square of width `scale`.
      */
     int scale;
@@ -117,13 +127,15 @@ int main(int argc, char **argv)
         {"shift-quirks", no_argument, NULL, 'q'},
         {"scale", required_argument, NULL, 's'},
         {"tone", required_argument, NULL, 't'},
+        {"verbose", no_argument, NULL, 'v'},
         {"volume", required_argument, &got_volume, 1},
         {"help", no_argument, NULL, 'h'},
         {"version", no_argument, NULL, 'V'},
         {0, 0, 0, 0},
     };
 
-    while ((option = getopt_long(argc, argv, "qs:t:hV", options, NULL)) != -1) {
+    while ((option = getopt_long(argc, argv, "qs:t:vhV", options, NULL)) !=
+           -1) {
         switch (option) {
         case 'q':
             opts.shift_quirks = true;
@@ -134,6 +146,9 @@ int main(int argc, char **argv)
             break;
         case 't':
             opts.tone_freq = atoi(optarg);
+            break;
+        case 'v':
+            opts.verbosity++;
             break;
         case 0:
             /* Long option found */
@@ -195,6 +210,7 @@ static void draw(SDL_Surface *surface, struct chip8 *chip, int scale,
 static struct progopts progopts_default(void)
 {
     return (struct progopts){
+        .verbosity = 0,
         .scale = 6,
         .game_freq = 60,
         .shift_quirks = false,
@@ -221,19 +237,27 @@ static int run(struct progopts opts)
     bool should_exit = false;
     int retval = 0;
 
+    /* Set up logging */
+    if (opts.verbosity == 0)
+        log_init(stderr, LOG_WARNING);
+    else if (opts.verbosity == 1)
+        log_init(stderr, LOG_INFO);
+    else
+        log_init(stderr, LOG_DEBUG);
+
     /* Set options for the interpreter */
     chipopts.shift_quirks = opts.shift_quirks;
     chipopts.timer_freq = opts.game_freq;
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
-        fprintf(stderr, "Could not initialize SDL: %s\n", SDL_GetError());
+        log_error("Could not initialize SDL: %s", SDL_GetError());
         retval = 1;
         goto ERROR_NOTHING_INITIALIZED;
     }
     if (!(win = SDL_CreateWindow("Chip-8", SDL_WINDOWPOS_UNDEFINED,
                                  SDL_WINDOWPOS_UNDEFINED, win_width, win_height,
                                  SDL_WINDOW_SHOWN))) {
-        fprintf(stderr, "Could not create SDL window: %s\n", SDL_GetError());
+        log_error("Could not create SDL window: %s", SDL_GetError());
         retval = 1;
         goto ERROR_SDL_INITIALIZED;
     }
@@ -241,7 +265,7 @@ static int run(struct progopts opts)
     /* Set up audio */
     if (!(audio_ring = audio_square_wave(48000, opts.tone_freq,
                                          opts.tone_vol * INT16_MAX / 100))) {
-        fprintf(stderr, "Could not create audio ring buffer\n");
+        log_error("Could not create audio ring buffer");
         retval = 1;
         goto ERROR_WINDOW_CREATED;
     }
@@ -253,7 +277,7 @@ static int run(struct progopts opts)
     as_want.callback = audio_callback;
     as_want.userdata = audio_ring;
     if (!(audio_device = SDL_OpenAudioDevice(NULL, 0, &as_want, &as_got, 0))) {
-        fprintf(stderr, "Could not initialize SDL audio: %s\n", SDL_GetError());
+        log_error("Could not initialize SDL audio: %s", SDL_GetError());
         retval = 1;
         goto ERROR_AUDIO_RING_CREATED;
     }
@@ -266,12 +290,12 @@ static int run(struct progopts opts)
     SDL_UpdateWindowSurface(win);
 
     if (!(input = fopen(opts.fname, "r"))) {
-        fprintf(stderr, "Failed to open game file; aborting\n");
+        log_error("Failed to open game file; aborting");
         retval = 1;
         goto ERROR_CHIP8_CREATED;
     }
     if (chip8_load_from_file(chip, input)) {
-        fprintf(stderr, "Could not load game; aborting\n");
+        log_error("Could not load game; aborting");
         fclose(input);
         retval = 1;
         goto ERROR_CHIP8_CREATED;
@@ -306,7 +330,7 @@ static int run(struct progopts opts)
             chip->needs_refresh = false;
         }
         if (chip->halted) {
-            printf("Interpreter was halted\n");
+            log_info("Interpreter was halted");
             should_exit = true;
         }
     }

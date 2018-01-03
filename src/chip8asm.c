@@ -22,12 +22,14 @@
  */
 #include <config.h>
 
+#include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "assembler.h"
+#include "log.h"
 
 /**
  * The size of the temporary input line buffer.
@@ -46,6 +48,7 @@ static const char *HELP =
     "Options:\n"
     "  -o, --output=OUTPUT    set output file name\n"
     "  -q, --shift-quirks     enable shift quirks mode\n"
+    "  -v, --verbose          increase verbosity\n"
     "  -h, --help             show this help message and exit\n"
     "  -V, --version          show version information and exit\n";
 static const char *USAGE = "chip8asm [OPTION...] [FILE]\n";
@@ -55,6 +58,13 @@ static const char *VERSION_STRING = "chip8asm " PROJECT_VERSION "\n";
  * Options which can be passed to the program.
  */
 struct progopts {
+    /**
+     * The output verbosity (default 0).
+     *
+     * The higher this is, the more log messages will be output (currently,
+     * anything over 2 won't give any extra messages).
+     */
+    int verbosity;
     /**
      * Whether to use shift quirks mode (default false).
      */
@@ -89,11 +99,12 @@ int main(int argc, char **argv)
     struct progopts opts = progopts_default();
     const struct option options[] = {{"output", required_argument, NULL, 'o'},
                                      {"shift-quirks", no_argument, NULL, 'q'},
+                                     {"verbose", no_argument, NULL, 'v'},
                                      {"help", no_argument, NULL, 'h'},
                                      {"version", no_argument, NULL, 'V'},
                                      {0, 0, 0, 0}};
 
-    while ((option = getopt_long(argc, argv, "o:qhV", options, NULL)) != -1) {
+    while ((option = getopt_long(argc, argv, "o:qvhV", options, NULL)) != -1) {
         switch (option) {
         case 'o':
             if (opts.output)
@@ -102,6 +113,9 @@ int main(int argc, char **argv)
             break;
         case 'q':
             opts.shift_quirks = true;
+            break;
+        case 'v':
+            opts.verbosity++;
             break;
         case 'h':
             printf("%s%s", USAGE, HELP);
@@ -136,7 +150,7 @@ int main(int argc, char **argv)
 static struct progopts progopts_default(void)
 {
     return (struct progopts){
-        .shift_quirks = false, .input = NULL, .output = NULL};
+        .verbosity = 0, .shift_quirks = false, .input = NULL, .output = NULL};
 }
 
 static char *replace_extension(const char *fname)
@@ -163,15 +177,24 @@ static int run(struct progopts opts)
     int err;
     int retval = 0;
 
+    /* Set up logging */
+    if (opts.verbosity == 0)
+        log_init(stderr, LOG_WARNING);
+    else if (opts.verbosity == 1)
+        log_init(stderr, LOG_INFO);
+    else
+        log_init(stderr, LOG_DEBUG);
+
     asmopts.shift_quirks = opts.shift_quirks;
 
     if (!(chipasm = chip8asm_new(asmopts))) {
-        perror("Could not create assembler");
+        log_error("Could not create assembler: %s", strerror(errno));
         retval = 1;
         goto EXIT_NOTHING_CREATED;
     }
     if (!(prog = chip8asm_program_new())) {
-        perror("Could not allocate space for program buffer");
+        log_error("Could not allocate space for program buffer: %s",
+                  strerror(errno));
         retval = 1;
         goto EXIT_CHIPASM_CREATED;
     }
@@ -179,27 +202,27 @@ static int run(struct progopts opts)
     if (!strcmp(opts.input, "-")) {
         input = stdin;
     } else if (!(input = fopen(opts.input, "r"))) {
-        perror("Could not open input file for reading");
+        log_error("Could not open input file for reading: %s", strerror(errno));
         retval = 1;
         goto EXIT_PROG_CREATED;
     }
 
     while (fgets(str, MAXLINE, input)) {
         if ((err = chip8asm_process_line(chipasm, str))) {
-            fprintf(stderr, "Could not process input file; aborting\n");
+            log_error("Could not process input file; aborting");
             retval = 1;
             goto EXIT_INPUT_OPENED;
         }
     }
     /* Make sure there wasn't an error in reading */
     if (ferror(input)) {
-        perror("Error reading from input file");
+        log_error("Error reading from input file: %s", strerror(errno));
         retval = 1;
         goto EXIT_INPUT_OPENED;
     }
 
     if ((err = chip8asm_emit(chipasm, prog))) {
-        fprintf(stderr, "Assembler second pass failed; aborting\n");
+        log_error("Assembler second pass failed; aborting");
         retval = 1;
         goto EXIT_INPUT_OPENED;
     }
@@ -207,14 +230,15 @@ static int run(struct progopts opts)
     if (!strcmp(opts.output, "-")) {
         output = stdout;
     } else if (!(output = fopen(opts.output, "w"))) {
-        perror("Could not open output file for writing");
+        log_error("Could not open output file for writing: %s",
+                  strerror(errno));
         retval = 1;
         goto EXIT_INPUT_OPENED;
     }
 
     fwrite(prog->mem, 1, prog->len, output);
     if (ferror(output)) {
-        perror("Error writing to output file");
+        log_error("Error writing to output file: %s", strerror(errno));
         retval = 1;
         goto EXIT_OUTPUT_OPENED;
     }
