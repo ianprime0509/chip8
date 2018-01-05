@@ -35,6 +35,10 @@
  * The address where programs should be loaded.
  */
 #define CHIP8_PROG_START 0x200
+/**
+ * The maximum size of a Chip-8 program, in bytes.
+ */
+#define CHIP8_PROG_SIZE (CHIP8_MEM_SIZE - CHIP8_PROG_START)
 
 /**
  * A Chip-8 register.

@@ -30,11 +30,6 @@
 #include "instruction.h"
 
 /**
- * The maximum size of a Chip-8 program, in bytes.
- */
-#define CHIP8_PROG_SIZE (CHIP8_MEM_SIZE - CHIP8_PROG_START)
-
-/**
  * Options which can be set for the assembler.
  */
 struct chip8asm_options {

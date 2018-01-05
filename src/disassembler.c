@@ -1,0 +1,414 @@
+/*
+ * Copyright 2018 Ian Johnson
+ *
+ * This file is part of Chip-8.
+ *
+ * Chip-8 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Chip-8 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Chip-8.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#include "disassembler.h"
+
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+
+#include "instruction.h"
+#include "log.h"
+
+/**
+ * An ordered collection of jump and return points.
+ *
+ * This is a rather strange structure, so it is a good idea to go over a few
+ * points.  A "jump" point is the address of a jump instruction, and a "return"
+ * point is the address to which the jump instruction points.  Since any valid
+ * instruction address in the Chip-8 is even (all instructions must be aligned
+ * on a 16-bit boundary), this allows us to use pointer tagging to distinguish
+ * these two types of address.  We declare that the address of a return point
+ * will be unmodified, while the address of a jump point will have its lowest
+ * bit set.
+ *
+ * This decision is not arbitrary, and actually makes things easier to deal
+ * with.  The goal of knowing where the jump and return points are is to be
+ * able to detect sections of the program that should be disassembled as data
+ * rather than as instructions.  Such a data section must be unreachable when
+ * the program is executed, and in all normal programs a data section will be
+ * precisely the area between a jump point and a return point (exclusive on
+ * both ends).  Thus, it is advantageous to order return points after jump
+ * points of the same address in order to make this detection easy (this
+ * situation may occur if there is an infinite loop of some kind).
+ *
+ * Naturally, this list should always be sorted in ascending order, and there
+ * must be no duplicate elements.  We use a "vector" (in C++ terminology) since
+ * a linked list or even a heap seem like overkill given the relatively small
+ * number of points we could possibly be dealing with.
+ *
+ * Also, by convention, the addresses stored in this list should not include
+ * the 512-byte interpreter area offset; that is, the address 0x200 in a
+ * program will be represented as 0x0 in the list for the disassembler's
+ * convenience.
+ */
+struct jpret_list {
+    /**
+     * The capacity of the list.
+     */
+    size_t cap;
+    /**
+     * The length of the list.
+     */
+    size_t len;
+    /**
+     * The actual list data (jump/return point addresses).
+     */
+    uint16_t *data;
+};
+
+struct chip8disasm {
+    /**
+     * The program being disassembled.
+     *
+     * Keep in mind that this is only the program memory (it does not include
+     * the reserved 512 bytes of interpreter memory), but that all the
+     * addresses referred to by instructions in the program *will* be offset by
+     * these 512 bytes.
+     */
+    uint8_t *mem;
+    /**
+     * The length of the program being disassembled.
+     */
+    size_t proglen;
+    /**
+     * The list of jump/return points.
+     */
+    struct jpret_list jpret_list;
+    /**
+     * Whether to use shift quirks mode.
+     */
+    bool shift_quirks;
+};
+
+/**
+ * Popuates the jpret_list with the addresses it can find.
+ *
+ * @return An error code.
+ */
+static int chip8disasm_populate_jpret_list(struct chip8disasm *disasm);
+
+/**
+ * Initializes a new jpret_list with the given capacity.
+ *
+ * The capacity is allowed to be zero.
+ *
+ * @return An error code.
+ */
+static int jpret_list_init(struct jpret_list *lst, size_t cap);
+
+/**
+ * Adds the given entry to the list.
+ *
+ * This should be the address as it appears in the program (that is, including
+ * the 512-byte offset), but with the lowest bit set according to whether it is
+ * a jump or return address.
+ *
+ * @return An error code.
+ */
+static int jpret_list_add(struct jpret_list *lst, uint16_t addr);
+/**
+ * Clears the given list, freeing the list memory.
+ *
+ * It's fine to pass NULL to this function; it will do nothing in that case.
+ */
+static void jpret_list_clear(struct jpret_list *lst);
+/**
+ * Finds the index of the given element in the list.
+ *
+ * @return The index, or -1 if the element is not in the list.
+ */
+static int jpret_list_find(const struct jpret_list *lst, uint16_t addr);
+/**
+ * Finds the index of the first equal or greater element in the list.
+ *
+ * @return The index, or the length of the list if there was no such element.
+ */
+static int jpret_list_find_ge(const struct jpret_list *lst, uint16_t addr);
+/**
+ * Grows the list, doubling its capacity.
+ *
+ * @return An error code.
+ */
+static int jpret_list_grow(struct jpret_list *lst);
+/**
+ * Removes the list element at the specified index.
+ */
+static void jpret_list_remove(struct jpret_list *lst, size_t idx);
+
+struct chip8disasm *chip8disasm_from_file(const char *fname)
+{
+    struct chip8disasm *disasm = calloc(1, sizeof *disasm);
+    struct stat stats;
+    FILE *input;
+
+    if (!disasm)
+        return NULL;
+    /* Figure out how long the program is */
+    if (stat(fname, &stats)) {
+        log_error("Could not stat '%s': %s", fname, strerror(errno));
+        goto FAIL;
+    }
+    disasm->proglen = stats.st_size;
+    if (disasm->proglen > CHIP8_PROG_SIZE) {
+        log_error("Input program is too large");
+        goto FAIL;
+    }
+    disasm->mem = malloc(disasm->proglen);
+    /* Read in the program data */
+    if (!(input = fopen(fname, "r"))) {
+        log_error("Could not open input file '%s': %s", fname, strerror(errno));
+        goto FAIL;
+    }
+    fread(disasm->mem, 1, disasm->proglen, input);
+    if (ferror(input)) {
+        log_error("Error reading from file '%s': %s", fname, strerror(errno));
+        fclose(input);
+        goto FAIL;
+    }
+    fclose(input);
+
+    if (jpret_list_init(&disasm->jpret_list, 64)) {
+        log_error("Could not create internal address list");
+        goto FAIL;
+    }
+    if (chip8disasm_populate_jpret_list(disasm))
+        goto FAIL;
+    return disasm;
+
+FAIL:
+    chip8disasm_destroy(disasm);
+    return NULL;
+}
+
+void chip8disasm_destroy(struct chip8disasm *disasm)
+{
+    if (!disasm)
+        return;
+    free(disasm->mem);
+    jpret_list_clear(&disasm->jpret_list);
+    free(disasm);
+}
+
+static int chip8disasm_populate_jpret_list(struct chip8disasm *disasm)
+{
+    /*
+     * OK, so basically what's happening here is this: we start off with a
+     * temporary list of addresses that contains only 0x0, the beginning of
+     * execution.  Then, until that temporary list is empty, we start looking
+     * at instructions in sequence, starting at one of the addresses in the
+     * list, and adding all the return points we find along the way to the
+     * temporary list.  When we find a jump point (note that we need to be
+     * careful, since a jump instruction after an instruction like SE is not a
+     * jump point, being only conditional), we add it to the list in 'disasm'
+     * and continue to the next start of execution in our temporary list.
+     *
+     * The idea behind all of this is that we are effectively simulating
+     * execution along all possible paths in order to see which instructions
+     * are reachable.  Of course, we can check to make sure that we don't check
+     * the same path twice, which should make things a little faster.
+     */
+    /* A list of addresses to start searching at */
+    struct jpret_list starts;
+    /* Whether we have just passed a "skip" instruction */
+    bool after_skip = false;
+
+    if (jpret_list_init(&starts, 64)) {
+        log_error("Could not create temporary address list");
+        return 1;
+    }
+    /*
+     * Remember that addresses in the list ignore the 512-byte interpreter
+     * area, so the start-of-execution address is stored as 0x0.
+     */
+    jpret_list_add(&starts, 0x0);
+
+    while (starts.len != 0) {
+        after_skip = false;
+        uint16_t pc;
+        for (pc = starts.data[starts.len - 1];; pc += 2) {
+            struct chip8_instruction inst;
+
+            /* We can skip this path if we've already gone down it */
+            if (jpret_list_find(&disasm->jpret_list, pc) != -1)
+                break;
+            if (jpret_list_add(&disasm->jpret_list, pc)) {
+                log_error("Could not add item to internal address list");
+                goto FAIL;
+            }
+            if (pc >= disasm->proglen) {
+                log_warning("Control path went out of program bounds");
+                break;
+            }
+            inst = chip8_instruction_from_opcode(
+                ((uint16_t)disasm->mem[pc] << 8) + disasm->mem[pc + 1],
+                disasm->shift_quirks);
+
+            switch (inst.op) {
+            case OP_RET:
+            case OP_EXIT:
+                if (!after_skip)
+                    goto BREAK_FOR;
+                after_skip = false;
+                break;
+            case OP_CALL:
+            case OP_JP:
+                if (jpret_list_add(&starts, inst.addr - CHIP8_PROG_START)) {
+                    log_error("Could not add item to temporary address list");
+                    goto FAIL;
+                }
+                if (!after_skip)
+                    goto BREAK_FOR;
+                after_skip = false;
+                break;
+            case OP_SE_BYTE:
+            case OP_SNE_BYTE:
+            case OP_SE_REG:
+            case OP_SNE_REG:
+            case OP_SKP:
+            case OP_SKNP:
+                after_skip = true;
+                break;
+            case OP_JP_V0:
+                log_warning("The disassembler doesn't support JP V0 yet");
+                if (!after_skip)
+                    goto BREAK_FOR;
+                after_skip = false;
+                break;
+            default:
+                after_skip = false;
+                break;
+            }
+        }
+    BREAK_FOR:
+        if (jpret_list_add(&disasm->jpret_list, pc | 1)) {
+            log_error("Could not add item to internal address list");
+            goto FAIL;
+        }
+        jpret_list_remove(&starts, starts.len - 1);
+    }
+
+    jpret_list_clear(&starts);
+    return 0;
+
+FAIL:
+    jpret_list_clear(&starts);
+    return 1;
+}
+
+static int jpret_list_init(struct jpret_list *lst, size_t cap)
+{
+    if (cap == 0)
+        lst->data = NULL;
+    else if (!(lst->data = malloc(cap * sizeof *lst->data)))
+        return 1;
+
+    lst->cap = cap;
+    lst->len = 0;
+
+    return 0;
+}
+
+static int jpret_list_add(struct jpret_list *lst, uint16_t addr)
+{
+    size_t pos;
+
+    /* Find the position at which to add addr */
+    for (pos = 0; pos < lst->len; pos++)
+        if (lst->data[pos] == addr)
+            return 0; /* Nothing to do, already in list */
+        else if (lst->data[pos] < addr)
+            break;
+    /* Try to grow the list if needed */
+    if (lst->len == lst->cap)
+        if (jpret_list_grow(lst))
+            return 1;
+    /* Move the elements at the end of the list */
+    for (size_t i = lst->len; i > pos; i--)
+        lst->data[i] = lst->data[i - 1];
+    /* Finally, we can store our element */
+    lst->data[pos] = addr;
+    lst->len++;
+
+    return 0;
+}
+
+static void jpret_list_clear(struct jpret_list *lst)
+{
+    if (!lst)
+        return;
+    free(lst->data);
+    lst->cap = 0;
+    lst->len = 0;
+}
+
+static int jpret_list_find(const struct jpret_list *lst, uint16_t addr)
+{
+    int ge = jpret_list_find_ge(lst, addr);
+
+    if (ge < lst->len && lst->data[ge] == addr)
+        return ge;
+    else
+        return -1;
+}
+
+static int jpret_list_find_ge(const struct jpret_list *lst, uint16_t addr)
+{
+    int start, end;
+
+    if (lst->len == 0)
+        return 0;
+
+    start = 0;
+    end = lst->len - 1;
+    while (start < end) {
+        int mid = (start + end) / 2;
+
+        if (lst->data[mid] < addr)
+            start = mid + 1;
+        else if (lst->data[mid] > addr)
+            end = mid;
+        else
+            return mid;
+    }
+
+    return end;
+}
+
+static int jpret_list_grow(struct jpret_list *lst)
+{
+    size_t new_cap = lst->cap == 0 ? 1 : 2 * lst->cap;
+    uint16_t *new_data = realloc(lst->data, new_cap);
+
+    if (!new_data)
+        return 1;
+    lst->cap = new_cap;
+    lst->data = new_data;
+
+    return 0;
+}
+
+static void jpret_list_remove(struct jpret_list *lst, size_t idx)
+{
+    if (idx >= lst->len)
+        return;
+    for (size_t i = idx; i < lst->len - 1; i++)
+        lst->data[i] = lst->data[i + 1];
+    lst->len--;
+}
