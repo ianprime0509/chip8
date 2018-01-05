@@ -12,6 +12,12 @@ chip8asm_src = ['assembler.c',
                 'log.c']
 executable('chip8asm', chip8asm_src, include_directories : incdir)
 
+chip8disasm_src = ['chip8disasm.c',
+                   'disassembler.c',
+                   'instruction.c',
+                   'log.c']
+executable('chip8disasm', chip8disasm_src, include_directories : incdir)
+
 chip8test_src = ['assembler.c',
                  'chip8test.c',
                  'instruction.c',

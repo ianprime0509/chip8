@@ -190,6 +190,9 @@ struct chip8disasm *chip8disasm_from_file(const char *fname)
     }
     if (chip8disasm_populate_jpret_list(disasm))
         goto FAIL;
+    puts("Addresses:");
+    for (int i = 0; i < disasm->jpret_list.len; i++)
+        printf("%u\n", disasm->jpret_list.data[i]);
     return disasm;
 
 FAIL:
@@ -228,6 +231,7 @@ static int chip8disasm_populate_jpret_list(struct chip8disasm *disasm)
     struct jpret_list starts;
     /* Whether we have just passed a "skip" instruction */
     bool after_skip = false;
+    int retval = 0;
 
     if (jpret_list_init(&starts, 64)) {
         log_error("Could not create temporary address list");
@@ -240,22 +244,29 @@ static int chip8disasm_populate_jpret_list(struct chip8disasm *disasm)
     jpret_list_add(&starts, 0x0);
 
     while (starts.len != 0) {
+        uint16_t pc = starts.data[starts.len - 1];
+
         after_skip = false;
-        uint16_t pc;
-        for (pc = starts.data[starts.len - 1];; pc += 2) {
+        jpret_list_remove(&starts, starts.len - 1);
+        /* We can skip this path if we've already gone down it */
+        if (jpret_list_find(&disasm->jpret_list, pc) != -1)
+            goto BREAK_FOR;
+        /* All the starting points of this loop are return points */
+        if (jpret_list_add(&disasm->jpret_list, pc)) {
+            log_error("Could not add item to internal address list");
+            retval = 1;
+            goto EXIT;
+        }
+
+        /* Traverse the code from the starting point */
+        for (;; pc += 2) {
             struct chip8_instruction inst;
 
-            /* We can skip this path if we've already gone down it */
-            if (jpret_list_find(&disasm->jpret_list, pc) != -1)
-                break;
-            if (jpret_list_add(&disasm->jpret_list, pc)) {
-                log_error("Could not add item to internal address list");
-                goto FAIL;
-            }
             if (pc >= disasm->proglen) {
                 log_warning("Control path went out of program bounds");
                 break;
             }
+            /* This is the instruction we're currently looking at */
             inst = chip8_instruction_from_opcode(
                 ((uint16_t)disasm->mem[pc] << 8) + disasm->mem[pc + 1],
                 disasm->shift_quirks);
@@ -271,7 +282,13 @@ static int chip8disasm_populate_jpret_list(struct chip8disasm *disasm)
             case OP_JP:
                 if (jpret_list_add(&starts, inst.addr - CHIP8_PROG_START)) {
                     log_error("Could not add item to temporary address list");
-                    goto FAIL;
+                    retval = 1;
+                    goto EXIT;
+                }
+                if (jpret_list_add(&disasm->jpret_list, pc | 1)) {
+                    log_error("Could not add item to internal address list");
+                    retval = 1;
+                    goto EXIT;
                 }
                 if (!after_skip)
                     goto BREAK_FOR;
@@ -296,20 +313,12 @@ static int chip8disasm_populate_jpret_list(struct chip8disasm *disasm)
                 break;
             }
         }
-    BREAK_FOR:
-        if (jpret_list_add(&disasm->jpret_list, pc | 1)) {
-            log_error("Could not add item to internal address list");
-            goto FAIL;
-        }
-        jpret_list_remove(&starts, starts.len - 1);
+    BREAK_FOR:;
     }
 
+EXIT:
     jpret_list_clear(&starts);
-    return 0;
-
-FAIL:
-    jpret_list_clear(&starts);
-    return 1;
+    return retval;
 }
 
 static int jpret_list_init(struct jpret_list *lst, size_t cap)
@@ -327,14 +336,10 @@ static int jpret_list_init(struct jpret_list *lst, size_t cap)
 
 static int jpret_list_add(struct jpret_list *lst, uint16_t addr)
 {
-    size_t pos;
+    size_t pos = jpret_list_find_ge(lst, addr);
 
-    /* Find the position at which to add addr */
-    for (pos = 0; pos < lst->len; pos++)
-        if (lst->data[pos] == addr)
-            return 0; /* Nothing to do, already in list */
-        else if (lst->data[pos] < addr)
-            break;
+    if (pos < lst->len && lst->data[pos] == addr)
+        return 0; /* Nothing to do */
     /* Try to grow the list if needed */
     if (lst->len == lst->cap)
         if (jpret_list_grow(lst))
@@ -376,7 +381,7 @@ static int jpret_list_find_ge(const struct jpret_list *lst, uint16_t addr)
         return 0;
 
     start = 0;
-    end = lst->len - 1;
+    end = lst->len;
     while (start < end) {
         int mid = (start + end) / 2;
 
