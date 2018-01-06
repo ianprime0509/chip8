@@ -337,9 +337,11 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         for (int y = 0; y < CHIP8_DISPLAY_HEIGHT - inst.nibble; y++)
             for (int x = 0; x < CHIP8_DISPLAY_WIDTH; x++)
                 chip->display[x][y] = chip->display[x][y + inst.nibble];
+        chip->needs_refresh = true;
         break;
     case OP_CLS:
         memset(chip->display, 0, sizeof chip->display);
+        chip->needs_refresh = true;
         break;
     case OP_RET:
         if (chip->call_stack) {
@@ -360,6 +362,7 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         for (int x = 0; x < CHIP8_DISPLAY_WIDTH - 4; x++)
             memcpy(&chip->display[x], &chip->display[x + 4],
                    sizeof chip->display[x]);
+        chip->needs_refresh = true;
         break;
     case OP_SCL:
         if (!chip8_wait_cycle(chip))
@@ -367,15 +370,18 @@ static uint16_t chip8_execute(struct chip8 *chip, struct chip8_instruction inst)
         for (int x = CHIP8_DISPLAY_WIDTH - 5; x > 0; x--)
             memcpy(&chip->display[x + 4], &chip->display[x],
                    sizeof chip->display[x]);
+        chip->needs_refresh = true;
         break;
     case OP_EXIT:
         chip->halted = true;
         break;
     case OP_LOW:
         chip->highres = false;
+        chip->needs_refresh = true;
         break;
     case OP_HIGH:
         chip->highres = true;
+        chip->needs_refresh = true;
         break;
     case OP_JP:
         if (inst.addr % 2 == 0)
