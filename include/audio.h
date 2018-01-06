@@ -28,6 +28,7 @@
 
 /**
  * A simple audio ring buffer.
+ *
  * This struct just holds some audio data (like a square wave) and can be used
  * repeatedly to fill an audio callback buffer with data. Right now, we use
  * signed 16-bit samples with native endianness and mono output.

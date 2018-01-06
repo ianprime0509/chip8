@@ -48,9 +48,10 @@ struct chip8_options {
     bool delay_draws;
     /**
      * Whether to enable the timer (default true).
+     *
      * The only reason you should set this to false is if you're trying to run
      * the interpreter in a test environment where you don't want to have the
-     * timer ticking while tests are being run. Obviously, if the timer is
+     * timer ticking while tests are being run.  Obviously, if the timer is
      * disabled, the delay timer and sound timer won't work.
      */
     bool enable_timer;
@@ -64,9 +65,10 @@ struct chip8_options {
     bool load_quirks;
     /**
      * Whether to enable shift quirks mode (default false).
+     *
      * In shift quirks mode, the instructions `SHR` and `SHL` take two register
      * arguments rather than one; the first register will be set to the shifted
-     * value of the second. The default is to just shift the single register
+     * value of the second.  The default is to just shift the single register
      * given as an argument.
      */
     bool shift_quirks;
@@ -90,6 +92,7 @@ struct chip8 {
     uint8_t mem[CHIP8_MEM_SIZE];
     /**
      * The display.
+     *
      * Each element in the display array is a boolean value specifying whether
      * that pixel is on or off.
      */
@@ -136,6 +139,7 @@ struct chip8 {
     bool timer_waiting;
     /**
      * The internal timer, in ticks.
+     *
      * The frequency of these ticks is configured in the options passed to the
      * `chip8_new` function.
      */
@@ -146,6 +150,7 @@ struct chip8 {
     struct chip8_call_node *call_stack;
     /**
      * Which keys are currently being pressed.
+     *
      * Each bit (0x0-0xF) represents the state of the corresponding key 0-F.
      */
     uint16_t key_states;
@@ -164,24 +169,28 @@ void chip8_destroy(struct chip8 *chip);
  */
 struct chip8_instruction chip8_current_instr(struct chip8 *chip);
 /**
- * Executes the given opcode at the current program location.
+ * Inserts and executes the given opcode at the current program location.
+ *
+ * @return An error code.
  */
-void chip8_execute_opcode(struct chip8 *chip, uint16_t opcode);
+int chip8_execute_opcode(struct chip8 *chip, uint16_t opcode);
 /**
  * Loads a program in binary format from the given byte array.
  *
- * @return A non-zero value if there was an error.
+ * @return An error code.
  */
 int chip8_load_from_bytes(struct chip8 *chip, uint8_t *bytes, size_t len);
 /**
  * Loads a program in binary format from the given file.
  *
- * @return A non-zero value if there was an error.
+ * @return An error code.
  */
 int chip8_load_from_file(struct chip8 *chip, FILE *file);
 /**
  * Executes the next instruction.
+ *
+ * @return An error code.
  */
-void chip8_step(struct chip8 *chip);
+int chip8_step(struct chip8 *chip);
 
 #endif

@@ -18,6 +18,7 @@
  */
 #include <config.h>
 
+#include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -90,11 +91,13 @@ struct progopts {
 
 /**
  * The keymap to use in-game.
+ *
  * The layout of the original Chip-8 keyboard is as follows:
  * 1 2 3 C
  * 4 5 6 D
  * 7 8 9 E
  * A 0 B F
+ *
  * So for now, I just map those to the left side of the keyboard:
  * 1 2 3 4
  * q w e r
@@ -140,8 +143,12 @@ int main(int argc, char **argv)
         {0, 0, 0, 0},
     };
 
+    log_init(stderr, LOG_WARNING);
+
     while ((option = getopt_long(argc, argv, "lqs:t:vhV", options, NULL)) !=
            -1) {
+        char *numend;
+
         switch (option) {
         case 'l':
             opts.load_quirks = true;
@@ -150,11 +157,26 @@ int main(int argc, char **argv)
             opts.shift_quirks = true;
             break;
         case 's':
-            /* TODO: change atoi to something a little better */
-            opts.scale = atoi(optarg);
+            errno = 0;
+            opts.scale = strtoul(optarg, &numend, 10);
+            if (errno != 0) {
+                log_error("Error processing scale: %s", strerror(errno));
+                return 1;
+            } else if (*numend != '\0') {
+                log_error("Scale arguemnt '%s' is invalid", optarg);
+                return 1;
+            }
             break;
         case 't':
-            opts.tone_freq = atoi(optarg);
+            errno = 0;
+            opts.tone_freq = strtoul(optarg, &numend, 10);
+            if (errno != 0) {
+                log_error("Error processing frequency: %s", strerror(errno));
+                return 1;
+            } else if (*numend != '\0') {
+                log_error("Frequency arguemnt '%s' is invalid", optarg);
+                return 1;
+            }
             break;
         case 'v':
             opts.verbosity++;
@@ -247,13 +269,11 @@ static int run(struct progopts opts)
     bool should_exit = false;
     int retval = 0;
 
-    /* Set up logging */
-    if (opts.verbosity == 0)
-        log_init(stderr, LOG_WARNING);
-    else if (opts.verbosity == 1)
-        log_init(stderr, LOG_INFO);
-    else
-        log_init(stderr, LOG_DEBUG);
+    /* Set correct log level */
+    if (opts.verbosity == 1)
+        log_set_level(LOG_INFO);
+    else if (opts.verbosity >= 2)
+        log_set_level(LOG_DEBUG);
 
     /* Set options for the interpreter */
     chipopts.load_quirks = opts.load_quirks;

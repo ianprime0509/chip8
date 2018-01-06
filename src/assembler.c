@@ -39,7 +39,7 @@
  */
 #define MAX_OPERANDS 3
 /**
- * The maximum size of the stacks in the `chip8asm_eval` method.
+ * The maximum size of the stacks in the 'chip8asm_eval' method.
  */
 #define STACK_SIZE 100
 
@@ -71,8 +71,9 @@
 
 /**
  * The type of an assembler instruction.
- * This could be one of the Chip-8 operations, such as `OP_CLS`, or an assembler
- * instruction like `DW`.
+ *
+ * This could be one of the Chip-8 operations, such as 'OP_CLS', or an
+ * assembler instruction like 'DW'.
  */
 enum instruction_type {
     /**
@@ -84,17 +85,18 @@ enum instruction_type {
      */
     IT_CHIP8_OP,
     /**
-     * Declare a byte (`DB`).
+     * Declare a byte ('DB').
      */
     IT_DB,
     /**
-     * Declare a word (`DW`).
+     * Declare a word ('DW').
      */
     IT_DW,
 };
 
 /**
  * An assembler instruction.
+ *
  * This is used to delay evaluation of operands until all the labels have been
  * processed.
  */
@@ -104,14 +106,15 @@ struct instruction {
      */
     enum instruction_type type;
     /**
-     * If the instruction type is `IT_CHIP8_OP`, the corresponding operation.
+     * If the instruction type is 'IT_CHIP8_OP', the corresponding operation.
      */
     enum chip8_operation chipop;
     /**
      * The operands.
-     * Pseudo-operands like the `HF` in `LD HF, Vx` are not to be included in
+     *
+     * Pseudo-operands like the 'HF' in 'LD HF, Vx' are not to be included in
      * this array; to do so would be redundant, since this information is
-     * already contained in `chipop`, and would make several aspects of
+     * already contained in 'chipop', and would make several aspects of
      * processing these instructions more complicated.
      */
     char *operands[MAX_OPERANDS];
@@ -134,10 +137,6 @@ struct instruction {
  */
 struct instructions {
     /**
-     * The underlying data.
-     */
-    struct instruction *data;
-    /**
      * The length.
      */
     size_t len;
@@ -145,10 +144,15 @@ struct instructions {
      * The capacity.
      */
     size_t cap;
+    /**
+     * The underlying data.
+     */
+    struct instruction *data;
 };
 
 /**
  * A label table, for associating labels with addresses.
+ *
  * This is just a hash table that uses a linked list for each bucket. It's not
  * the most efficient, but it works.
  */
@@ -185,6 +189,7 @@ struct chip8asm {
     struct ltable labels;
     /**
      * The instructions that have been processed.
+     *
      * This list is populated during the first pass, and during the second pass
      * is used to emit the actual opcodes.
      */
@@ -203,19 +208,20 @@ struct chip8asm {
     uint16_t pc;
     /**
      * The current IF instruction nesting level.
+     *
      * This starts out at 0 and is incremented every time we reach another
      * nested IF directive.
      *
      * This is what happens when an IF directive is encountered: first, the
-     * if_level is incremented. Then, if the condition is true, we continue on
-     * until we reach the matching ELSE or ENDIF. If the condition is false, we
-     * set if_skip_else to the current if_level; this tells the assembler to
+     * if_level is incremented.  Then, if the condition is true, we continue on
+     * until we reach the matching ELSE or ENDIF.  If the condition is false,
+     * we set if_skip_else to the current if_level; this tells the assembler to
      * not process anything until it reaches the matching ELSE (or the matching
      * ENDIF).
      *
      * When the corresponding ELSE directive is encountered: if if_skip_else
      * was nonzero (we were skipping to the ELSE), we reset it to 0, resulting
-     * in everything in the ELSE block being processed. If if_skip_else was
+     * in everything in the ELSE block being processed.  If if_skip_else was
      * zero, we set if_skip_endif to the current if_level, which tells the
      * assembler to skip the ELSE block (until the ENDIF is found).
      *
@@ -226,12 +232,14 @@ struct chip8asm {
     int if_level;
     /**
      * The IF nesting level which we should skip until reaching ELSE.
+     *
      * This is set to 0 if we are not currently skipping until the next matching
      * ELSE.
      */
     int if_skip_else;
     /**
      * The IF nesting level which we should skip until reaching ENDIF.
+     *
      * This is set to 0 if we are not currently skipping until the next matching
      * ENDIF.
      */
@@ -248,19 +256,26 @@ static int chip8asm_add_instruction(struct chip8asm *chipasm,
                                     struct instruction instr);
 /**
  * Attempts to compile the given Chip-8 instruction into an opcode.
- * The given instruction MUST have type `IT_CHIP8_OP`, or the results are
+ *
+ * The given instruction MUST have type 'IT_CHIP8_OP', or the results are
  * undefined.
  *
+ * @param chipasm The assembler to compile with.
+ * @param instr The instruction to compile.
  * @param[out] opcode The resulting opcode.
+ * @return An error code.
  */
 static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
                                     const struct instruction *instr,
                                     uint16_t *opcode);
 /**
  * Processes the given operation with the given operands.
+ *
  * This will take the instruction, which is given to us in split form (the
- * operation and operands have been extracted for us), convert it to a `struct
- * instruction`, and add it to `chipasm`'s instruction list.
+ * operation and operands have been extracted for us), convert it to a 'struct
+ * instruction', and add it to 'chipasm''s instruction list.
+ *
+ * @return An error code.
  */
 static int chip8asm_process_instruction(struct chip8asm *chipasm,
                                         const char *op,
@@ -268,31 +283,45 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
                                         int n_operands);
 /**
  * Returns whether the assembler should process anything right now.
+ *
  * This will return false if, for example, we are in the middle of an IF block
  * which is being skipped. Thus, it will be necessary to process *some* things
  * even if this returns true (namely, IF, ELSE, and ENDIF instructions).
  */
 static bool chip8asm_should_process(struct chip8asm *chipasm);
+
 /**
  * Returns the hash of the given string.
- * This is the "djb2" algorithm given on http://www.cse.yorku.ca/~oz/hash.html
  */
 static unsigned long hash_str(const char *str);
+
+/**
+ * Initializes a new instruction list with the given capacity.
+ *
+ * The capacity may be zero.
+ *
+ * @return An error code.
+ */
+static int instructions_init(struct instructions *lst, size_t cap);
+
 /**
  * Adds an instruction to the instruction list.
+ *
+ * @return An error code.
  */
 static int instructions_add(struct instructions *lst, struct instruction instr);
 /**
  * Clears the given instruction list.
+ *
  * This also frees the underlying data, so it should be used for cleanup too.
  */
 static void instructions_clear(struct instructions *lst);
 /**
- * Reserves space for the instructions list.
- * Calling this function will ensure that the capacity of the list is at least
- * the given capacity.
+ * Grows the list, doubling its capacity.
+ *
+ * @return An error code.
  */
-static int instructions_reserve(struct instructions *lst, size_t cap);
+static int instructions_grow(struct instructions *lst);
 /**
  * Adds the given label/address pair to the table.
  * The label name will be copied inside this function, so you don't need to do
@@ -336,7 +365,7 @@ struct chip8asm *chip8asm_new(struct chip8asm_options opts)
     chipasm->opts = opts;
     chipasm->pc = CHIP8_PROG_START;
     /* There's a good chance we'll need space for at least 128 instructions */
-    if (instructions_reserve(&chipasm->instructions, 128)) {
+    if (instructions_init(&chipasm->instructions, 128)) {
         free(chipasm);
         return NULL;
     }
@@ -410,9 +439,9 @@ int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
      * We use the shunting-yard algorithm
      * (https://en.wikipedia.org/wiki/Shunting-yard_algorithm) here, since it's
      * simple and does what we need. We do need to be a bit careful about the
-     * unary `-` operator: if the last token read was an operator, then any `-`
+     * unary '-' operator: if the last token read was an operator, then any '-'
      * should be parsed as the unary operator, but otherwise it is the binary
-     * operator. Internally, we will use '_' to represent the unary `-`.
+     * operator. Internally, we will use '_' to represent the unary '-'.
      */
     char opstack[STACK_SIZE];
     int oppos = 0;
@@ -491,7 +520,7 @@ int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
                 ident[identpos++] = expr[i++];
             ident[identpos] = '\0';
             if (!ltable_get(&chipasm->labels, ident, &val))
-                FAIL(1, line, "unknown identifier `%s`", ident);
+                FAIL(1, line, "unknown identifier '%s'", ident);
             numstack[numpos++] = val;
             expecting_num = false;
         } else if (expr[i] == '(') {
@@ -513,14 +542,14 @@ int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
              * We need to treat any unary operators a little differently, since
              * they should be right-associative instead of left-associative like
              * the binary operators, and we should only process them when
-             * `expecting_num == true`, since otherwise an expression like `1 ~`
-             * would be parsed the same as `~ 1`.
+             * 'expecting_num == true', since otherwise an expression like '1 ~'
+             * would be parsed the same as '~ 1'.
              */
             int p = precedence(expr[i]);
             if (!expecting_num)
-                FAIL(1, line, "did not expect unary operator `~`");
+                FAIL(1, line, "did not expect unary operator '~'");
             /*
-             * Note the `precedence(...) > p instead of >=; this is what makes
+             * Note the 'precedence(...) > p instead of >=; this is what makes
              * the operator right-associative.
              */
             while (oppos > 0 && precedence(opstack[oppos - 1]) > p)
@@ -533,7 +562,7 @@ int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
             int p = precedence(expr[i]);
 
             if (p < 0)
-                FAIL(1, line, "unknown operator `%c`", expr[i]);
+                FAIL(1, line, "unknown operator '%c'", expr[i]);
             while (oppos > 0 && precedence(opstack[oppos - 1]) >= p)
                 if ((err = operator_apply(opstack[--oppos], numstack, &numpos,
                                           line)))
@@ -627,8 +656,8 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
     while (isspace(line[linepos]))
         linepos++;
     /*
-     * At this point, whatever is in `buf` is the name of an operation, or of a
-     * variable to be assigned using `=`; if `buf` is empty, that means there's
+     * At this point, whatever is in 'buf' is the name of an operation, or of a
+     * variable to be assigned using '='; if 'buf' is empty, that means there's
      * nothing left on the line to inspect
      */
     if (bufpos == 0)
@@ -640,7 +669,7 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
     if (line[linepos] == ';' || line[linepos] == '\0')
         return chip8asm_process_instruction(chipasm, buf, operands, 0);
 
-    /* If we come across an `=`, that means we have a variable assignment */
+    /* If we come across an '=', that means we have a variable assignment */
     if (line[linepos] == '=') {
         linepos++;
         is_assignment = true;
@@ -685,7 +714,7 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
             while (isspace(line[++linepos]))
                 ;
             if (line[linepos] == '\0')
-                FAIL(1, chipasm->line, "expected operand after `,`");
+                FAIL(1, chipasm->line, "expected operand after ','");
             oppos = 0;
         } else {
             if (oppos >= MAXOP)
@@ -708,12 +737,12 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
             return 0;
 
         if (n_op != 0)
-            FAIL(1, chipasm->line, "too many operands given to `=`");
+            FAIL(1, chipasm->line, "too many operands given to '='");
         if ((err = chip8asm_eval(chipasm, operands[0], chipasm->line, &value)))
             FAIL(err, chipasm->line, "failed to evaluate expression");
-        /* Now, `buf` stores the name of the variable with value `value` */
+        /* Now, 'buf' stores the name of the variable with value 'value' */
         if (ltable_add(&chipasm->labels, buf, value))
-            FAIL(1, chipasm->line, "duplicate label or variable `%s` found",
+            FAIL(1, chipasm->line, "duplicate label or variable '%s' found",
                  buf);
         return 0;
     } else {
@@ -750,12 +779,14 @@ static int chip8asm_add_instruction(struct chip8asm *chipasm,
     /* Add label to ltable, if any */
     if (chipasm->line_label) {
         if (ltable_add(&chipasm->labels, chipasm->line_label, instr.pc))
-            FAIL(1, chipasm->line, "duplicate label or variable `%s` found",
+            FAIL(1, chipasm->line, "duplicate label or variable '%s' found",
                  chipasm->line_label);
         free(chipasm->line_label);
         chipasm->line_label = NULL;
     }
-    instructions_add(&chipasm->instructions, instr);
+    if (instructions_add(&chipasm->instructions, instr))
+        FAIL(1, chipasm->line, "Could not store instruction (out of memory)");
+
     return 0;
 }
 
@@ -773,12 +804,12 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     ci.op = instr->chipop;
     /*
      * We group the cases here by which arguments they have, and set the
-     * corresponding fields of `ci` appropriately. Converting `ci`
-     * to an opcode is outsourced to another function in `instruction.h`.
+     * corresponding fields of 'ci' appropriately. Converting 'ci'
+     * to an opcode is outsourced to another function in 'instruction.h'.
      *
      * This switch statement is much simpler because we made the (smart)
      * decision not to include pseudo-operands in the instruction operands array
-     * (`instr->operands`), so in `LD K, Vx`, `Vx` is the first operand in the
+     * ('instr->operands'), so in 'LD K, Vx', 'Vx' is the first operand in the
      * array, reducing the number of distinct cases to check below.
      */
     switch (instr->chipop) {
@@ -1057,7 +1088,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     {
         instr.type = IT_CHIP8_OP;
         instr.n_operands = 1;
-        /* Figure out which `JP` we're using */
+        /* Figure out which 'JP' we're using */
         if (n_operands == 1) {
             instr.chipop = OP_JP;
             instr.operands[0] = strdup(operands[0]);
@@ -1074,7 +1105,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         instr.n_operands = 2;
         instr.operands[0] = strdup(operands[0]);
         instr.operands[1] = strdup(operands[1]);
-        /* Figure out which `SE` we're using */
+        /* Figure out which 'SE' we're using */
         if (register_num(operands[1]) != -1)
             instr.chipop = OP_SE_REG;
         else
@@ -1087,7 +1118,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         instr.n_operands = 2;
         instr.operands[0] = strdup(operands[0]);
         instr.operands[1] = strdup(operands[1]);
-        /* Figure out which `SNE` we're using */
+        /* Figure out which 'SNE' we're using */
         if (register_num(operands[1]) != -1)
             instr.chipop = OP_SNE_REG;
         else
@@ -1098,7 +1129,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
         instr.type = IT_CHIP8_OP;
         /*
-         * Figure out which `LD` we're using.
+         * Figure out which 'LD' we're using.
          * This is very ugly, owing to the large number of overloads for this
          * operation name. First, we check for special values of the first
          * operand; then, special values of the second operand, including a
@@ -1169,7 +1200,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     {
         EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
         instr.type = IT_CHIP8_OP;
-        /* Figure out which `ADD` we're using */
+        /* Figure out which 'ADD' we're using */
         if (!strcasecmp(operands[0], "I")) {
             instr.chipop = OP_ADD_I;
             instr.n_operands = 1;
@@ -1227,7 +1258,7 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     CHIPOP("SKNP", OP_SKNP, 1)
 
     if (instr.type == IT_INVALID)
-        FAIL(1, chipasm->line, "invalid instruction (operation `%s`)", op);
+        FAIL(1, chipasm->line, "invalid instruction (operation '%s')", op);
 
     /* Every Chip-8 instruction is exactly 2 bytes long */
     chipasm->pc += 2;
@@ -1245,6 +1276,10 @@ static bool chip8asm_should_process(struct chip8asm *chipasm)
 
 static unsigned long hash_str(const char *str)
 {
+    /*
+     * This is the "djb2" algorithm given on
+     * http://www.cse.yorku.ca/~oz/hash.html
+     */
     unsigned long hash = 5381;
     int c;
 
@@ -1254,18 +1289,24 @@ static unsigned long hash_str(const char *str)
     return hash;
 }
 
+static int instructions_init(struct instructions *lst, size_t cap)
+{
+    if (cap == 0)
+        lst->data = NULL;
+    else if (!(lst->data = malloc(cap * sizeof *lst->data)))
+        return 1;
+
+    lst->cap = cap;
+    lst->len = 0;
+
+    return 0;
+}
+
 static int instructions_add(struct instructions *lst, struct instruction instr)
 {
-    if (lst->len >= lst->cap) {
-        int err;
-        /* Reserve more space */
-        if (lst->cap == 0) {
-            if ((err = instructions_reserve(lst, 1)))
-                return err;
-        } else if ((err = instructions_reserve(lst, lst->cap * 2))) {
-            return err;
-        }
-    }
+    if (lst->len >= lst->cap)
+        if (instructions_grow(lst))
+            return 1;
 
     lst->data[lst->len++] = instr;
     return 0;
@@ -1282,17 +1323,17 @@ static void instructions_clear(struct instructions *lst)
     lst->len = lst->cap = 0;
 }
 
-static int instructions_reserve(struct instructions *lst, size_t cap)
+static int instructions_grow(struct instructions *lst)
 {
-    struct instruction *new;
+    size_t new_cap = lst->cap == 0 ? 1 : 2 * lst->cap;
+    struct instruction *new_data =
+        realloc(lst->data, new_cap * sizeof *new_data);
 
-    if (cap <= lst->cap)
-        return 0;
-    if (!(new = realloc(lst->data, cap * sizeof *lst->data)))
+    if (!new_data)
         return 1;
+    lst->cap = new_cap;
+    lst->data = new_data;
 
-    lst->data = new;
-    lst->cap = cap;
     return 0;
 }
 
@@ -1414,7 +1455,7 @@ static int operator_apply(char op, uint16_t *numstack, int *numpos, int line)
         numstack[*numpos - 1] = -numstack[*numpos - 1];
         break;
     default:
-        FAIL(1, line, "unknown operator `%c`", op);
+        FAIL(1, line, "unknown operator '%c'", op);
     }
 
     return 0;
