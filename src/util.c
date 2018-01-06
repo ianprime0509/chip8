@@ -18,6 +18,8 @@
  */
 #include "util.h"
 
+#include <time.h>
+
 unsigned lowest_set_bit(unsigned n)
 {
     unsigned b = 0;
@@ -30,5 +32,8 @@ unsigned lowest_set_bit(unsigned n)
 
 double clock_seconds(void)
 {
-    return (double)clock() / CLOCKS_PER_SEC;
+    struct timespec ts;
+
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return ts.tv_sec + (double)ts.tv_nsec / 1e9;
 }

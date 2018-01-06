@@ -23,8 +23,6 @@
 #ifndef CHIP8_UTIL_H
 #define CHIP8_UTIL_H
 
-#include <time.h>
-
 /**
  * Returns the index of the lowest set bit of the given number.
  *

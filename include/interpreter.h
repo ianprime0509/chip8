@@ -73,7 +73,7 @@ struct chip8_options {
     /**
      * The frequency at which to run the game (default 60Hz).
      */
-    long timer_freq;
+    unsigned long timer_freq;
 };
 
 /**
