@@ -75,6 +75,10 @@ struct jpret_list {
 
 struct chip8disasm {
     /**
+     * Options to use with this instance of the disassembler.
+     */
+    struct chip8disasm_options opts;
+    /**
      * The program being disassembled.
      *
      * Keep in mind that this is only the program memory (it does not include
@@ -99,10 +103,6 @@ struct chip8disasm {
      * indecipherable address.
      */
     struct jpret_list label_list;
-    /**
-     * Whether to use shift quirks mode.
-     */
-    bool shift_quirks;
 };
 
 /**
@@ -164,7 +164,8 @@ static bool jpret_list_in_data(const struct jpret_list *lst, uint16_t addr);
  */
 static void jpret_list_remove(struct jpret_list *lst, size_t idx);
 
-struct chip8disasm *chip8disasm_from_file(const char *fname)
+struct chip8disasm *chip8disasm_from_file(struct chip8disasm_options opts,
+                                          const char *fname)
 {
     struct chip8disasm *disasm = calloc(1, sizeof *disasm);
     struct stat stats;
@@ -172,6 +173,7 @@ struct chip8disasm *chip8disasm_from_file(const char *fname)
 
     if (!disasm)
         return NULL;
+    disasm->opts = opts;
     /* Figure out how long the program is */
     if (stat(fname, &stats)) {
         log_error("Could not stat '%s': %s", fname, strerror(errno));
@@ -246,8 +248,8 @@ int chip8disasm_dump(const struct chip8disasm *disasm, FILE *out)
         if (jpret_list_in_data(&disasm->jpret_list, i)) {
             fprintf(out, "DW #%04X\n", opcode);
         } else {
-            struct chip8_instruction instr =
-                chip8_instruction_from_opcode(opcode, disasm->shift_quirks);
+            struct chip8_instruction instr = chip8_instruction_from_opcode(
+                opcode, disasm->opts.shift_quirks);
             bool use_addr = chip8_instruction_uses_addr(instr);
 
             /*
@@ -258,7 +260,7 @@ int chip8disasm_dump(const struct chip8disasm *disasm, FILE *out)
                 snprintf(label, sizeof label, "L%03X",
                          instr.addr - CHIP8_PROG_START);
             chip8_instruction_format(instr, use_addr ? label : NULL, buf,
-                                     sizeof buf, disasm->shift_quirks);
+                                     sizeof buf, disasm->opts.shift_quirks);
             fprintf(out, "%s\n", buf);
         }
         if (ferror(out)) {
@@ -269,6 +271,11 @@ int chip8disasm_dump(const struct chip8disasm *disasm, FILE *out)
     }
 
     return 0;
+}
+
+struct chip8disasm_options chip8disasm_options_default(void)
+{
+    return (struct chip8disasm_options){.shift_quirks = false};
 }
 
 static int chip8disasm_populate_lists(struct chip8disasm *disasm)
@@ -334,7 +341,7 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
             /* This is the instruction we're currently looking at */
             inst = chip8_instruction_from_opcode(
                 ((uint16_t)disasm->mem[pc] << 8) + disasm->mem[pc + 1],
-                disasm->shift_quirks);
+                disasm->opts.shift_quirks);
 
             /* Add to the label list if we need to */
             if (chip8_instruction_uses_addr(inst)) {

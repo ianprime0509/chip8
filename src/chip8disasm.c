@@ -130,10 +130,21 @@ int main(int argc, char **argv)
 static int run(struct progopts opts)
 {
     struct chip8disasm *disasm;
+    struct chip8disasm_options disopts = chip8disasm_options_default();
     FILE *output;
     int retval = 0;
 
-    if (!(disasm = chip8disasm_from_file(opts.input))) {
+    if (opts.verbosity == 1)
+        log_init(stdout, LOG_INFO);
+    else if (opts.verbosity == 2)
+        log_init(stdout, LOG_DEBUG);
+    else
+        log_init(stdout, LOG_WARNING);
+
+    if (opts.shift_quirks)
+        disopts.shift_quirks = true;
+
+    if (!(disasm = chip8disasm_from_file(disopts, opts.input))) {
         log_error("Could not create disassembler");
         retval = 1;
         goto EXIT_NOTHING_DONE;
