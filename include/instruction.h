@@ -332,9 +332,16 @@ struct chip8_instruction {
 
 /**
  * Formats a Chip-8 instruction into a string.
+ *
+ * @param instr The instruction to format.
+ * @param label The name of the label to use for an address, if one is present
+ * in the instruction.  If NULL, the raw address is used in the output.
+ * @param dest The buffer to store the formatted string.
+ * @param sz The size of the 'dest' buffer.
+ * @param shift_quirks Whether to use shift quirks mode.
  */
-void chip8_instruction_format(struct chip8_instruction instr, char *dest,
-                              size_t sz, bool shift_quirks);
+void chip8_instruction_format(struct chip8_instruction instr, const char *label,
+                              char *dest, size_t sz, bool shift_quirks);
 /**
  * Converts a Chip-8 opcode to an instruction.
  *
@@ -349,5 +356,9 @@ struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode,
  */
 uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr,
                                      bool shift_quirks);
+/**
+ * Returns whether the given instruction takes an address operand.
+ */
+bool chip8_instruction_uses_addr(struct chip8_instruction instr);
 
 #endif

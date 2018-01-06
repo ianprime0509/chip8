@@ -92,17 +92,25 @@ struct chip8disasm {
      */
     struct jpret_list jpret_list;
     /**
+     * The list of labelled locations.
+     *
+     * Every address which is accessed or used by some instruction should be
+     * put in here, so that a nice label name can be displayed instead of an
+     * indecipherable address.
+     */
+    struct jpret_list label_list;
+    /**
      * Whether to use shift quirks mode.
      */
     bool shift_quirks;
 };
 
 /**
- * Popuates the jpret_list with the addresses it can find.
+ * Popuates the jpret_list and label_list with the addresses it can find.
  *
  * @return An error code.
  */
-static int chip8disasm_populate_jpret_list(struct chip8disasm *disasm);
+static int chip8disasm_populate_lists(struct chip8disasm *disasm);
 
 /**
  * Initializes a new jpret_list with the given capacity.
@@ -192,7 +200,11 @@ struct chip8disasm *chip8disasm_from_file(const char *fname)
         log_error("Could not create internal address list");
         goto FAIL;
     }
-    if (chip8disasm_populate_jpret_list(disasm))
+    if (jpret_list_init(&disasm->label_list, 64)) {
+        log_error("Could not create internal label list");
+        goto FAIL;
+    }
+    if (chip8disasm_populate_lists(disasm))
         goto FAIL;
 
     return disasm;
@@ -208,38 +220,58 @@ void chip8disasm_destroy(struct chip8disasm *disasm)
         return;
     free(disasm->mem);
     jpret_list_clear(&disasm->jpret_list);
+    jpret_list_clear(&disasm->label_list);
     free(disasm);
 }
 
 int chip8disasm_dump(const struct chip8disasm *disasm, FILE *out)
 {
-    char buf[50];
+    char buf[64];
+    char label[8];
 
     for (int i = 0; i < (int)disasm->proglen; i += 2) {
         uint16_t opcode = ((uint16_t)disasm->mem[i] << 8) + disasm->mem[i + 1];
+
+        /* Print label if necessary */
+        if (jpret_list_find(&disasm->label_list, i) != -1)
+            fprintf(out, "L%03X: ", (unsigned)i);
+        else
+            fprintf(out, "      ");
+        if (ferror(out)) {
+            log_error("Could not dump disassembly to output file: %s",
+                      strerror(errno));
+            return 1;
+        }
+
         if (jpret_list_in_data(&disasm->jpret_list, i)) {
-            if (fprintf(out, "DW #%04X\n", opcode) < 0) {
-                log_error("Could not dump disassembly to output file: %s",
-                          strerror(errno));
-                return 1;
-            }
+            fprintf(out, "DW #%04X\n", opcode);
         } else {
             struct chip8_instruction instr =
                 chip8_instruction_from_opcode(opcode, disasm->shift_quirks);
-            chip8_instruction_format(instr, buf, sizeof buf,
-                                     disasm->shift_quirks);
-            if (fprintf(out, "%s\n", buf) < 0) {
-                log_error("Could not dump disassembly to output file: %s",
-                          strerror(errno));
-                return 1;
-            }
+            bool use_addr = chip8_instruction_uses_addr(instr);
+
+            /*
+             * If the instruction uses an address, we need to construct the
+             * corresponding label for nice output.
+             */
+            if (use_addr)
+                snprintf(label, sizeof label, "L%03X",
+                         instr.addr - CHIP8_PROG_START);
+            chip8_instruction_format(instr, use_addr ? label : NULL, buf,
+                                     sizeof buf, disasm->shift_quirks);
+            fprintf(out, "%s\n", buf);
+        }
+        if (ferror(out)) {
+            log_error("Could not dump disassembly to output file: %s",
+                      strerror(errno));
+            return 1;
         }
     }
 
     return 0;
 }
 
-static int chip8disasm_populate_jpret_list(struct chip8disasm *disasm)
+static int chip8disasm_populate_lists(struct chip8disasm *disasm)
 {
     /*
      * OK, so basically what's happening here is this: we start off with a
@@ -256,6 +288,9 @@ static int chip8disasm_populate_jpret_list(struct chip8disasm *disasm)
      * execution along all possible paths in order to see which instructions
      * are reachable.  Of course, we can check to make sure that we don't check
      * the same path twice, which should make things a little faster.
+     *
+     * At the same time, we populate the label_list with all referenced
+     * addresses.
      */
     /* A list of addresses to start searching at */
     struct jpret_list starts;
@@ -300,6 +335,16 @@ static int chip8disasm_populate_jpret_list(struct chip8disasm *disasm)
             inst = chip8_instruction_from_opcode(
                 ((uint16_t)disasm->mem[pc] << 8) + disasm->mem[pc + 1],
                 disasm->shift_quirks);
+
+            /* Add to the label list if we need to */
+            if (chip8_instruction_uses_addr(inst)) {
+                if (jpret_list_add(&disasm->label_list,
+                                   inst.addr - CHIP8_PROG_START)) {
+                    log_error("Could not add item to internal label list");
+                    retval = 1;
+                    goto EXIT;
+                }
+            }
 
             switch (inst.op) {
             case OP_RET:
