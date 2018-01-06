@@ -151,7 +151,7 @@ static int run(struct progopts opts)
     }
     if (!strcmp(opts.output, "-")) {
         output = stdout;
-    } else if (!(output = fopen(opts.output, "r"))) {
+    } else if (!(output = fopen(opts.output, "w"))) {
         log_error("Could not open output file '%s': %s", opts.output,
                   strerror(errno));
         retval = 1;
