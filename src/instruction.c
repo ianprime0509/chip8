@@ -283,6 +283,14 @@ struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode,
             ins.op = OP_LD_REG_DEREF_I;
             ins.vx = OPCODE2VX(opcode);
             break;
+        case 0x75:
+            ins.op = OP_LD_R_REG;
+            ins.vx = OPCODE2VX(opcode);
+            break;
+        case 0x85:
+            ins.op = OP_LD_REG_R;
+            ins.vx = OPCODE2VX(opcode);
+            break;
         }
     }
 
@@ -393,8 +401,8 @@ uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr,
     return 0;
 }
 
-void chip8_instruction_format(struct chip8_instruction instr, char *dest,
-                              size_t sz, bool shift_quirks)
+void chip8_instruction_format(struct chip8_instruction instr, const char *label,
+                              char *dest, size_t sz, bool shift_quirks)
 {
     switch (instr.op) {
     case OP_INVALID:
@@ -425,10 +433,16 @@ void chip8_instruction_format(struct chip8_instruction instr, char *dest,
         snprintf(dest, sz, "HIGH");
         break;
     case OP_JP:
-        snprintf(dest, sz, "JP #%03X", instr.addr);
+        if (!label)
+            snprintf(dest, sz, "JP #%03X", instr.addr);
+        else
+            snprintf(dest, sz, "JP %s", label);
         break;
     case OP_CALL:
-        snprintf(dest, sz, "CALL #%03X", instr.addr);
+        if (!label)
+            snprintf(dest, sz, "CALL #%03X", instr.addr);
+        else
+            snprintf(dest, sz, "CALL %s", label);
         break;
     case OP_SE_BYTE:
         snprintf(dest, sz, "SE V%X, #%02X", instr.vx, instr.byte);
@@ -482,10 +496,16 @@ void chip8_instruction_format(struct chip8_instruction instr, char *dest,
         snprintf(dest, sz, "SNE V%X, V%X", instr.vx, instr.vy);
         break;
     case OP_LD_I:
-        snprintf(dest, sz, "LD I, #%03X", instr.addr);
+        if (!label)
+            snprintf(dest, sz, "LD I, #%03X", instr.addr);
+        else
+            snprintf(dest, sz, "LD I, %s", label);
         break;
     case OP_JP_V0:
-        snprintf(dest, sz, "JP V0, #%03X", instr.addr);
+        if (!label)
+            snprintf(dest, sz, "JP V0, #%03X", instr.addr);
+        else
+            snprintf(dest, sz, "JP V0, %s", label);
         break;
     case OP_RND:
         snprintf(dest, sz, "RND V%X, #%02X", instr.vx, instr.byte);
@@ -513,7 +533,7 @@ void chip8_instruction_format(struct chip8_instruction instr, char *dest,
         snprintf(dest, sz, "LD ST, V%X", instr.vx);
         break;
     case OP_ADD_I:
-        snprintf(dest, sz, "LD I, V%X", instr.vx);
+        snprintf(dest, sz, "ADD I, V%X", instr.vx);
         break;
     case OP_LD_F:
         snprintf(dest, sz, "LD F, V%X", instr.vx);
@@ -536,5 +556,18 @@ void chip8_instruction_format(struct chip8_instruction instr, char *dest,
     case OP_LD_REG_R:
         snprintf(dest, sz, "LD V%X, R", instr.vx);
         break;
+    }
+}
+
+bool chip8_instruction_uses_addr(struct chip8_instruction instr)
+{
+    switch (instr.op) {
+    case OP_JP:
+    case OP_CALL:
+    case OP_LD_I:
+    case OP_JP_V0:
+        return true;
+    default:
+        return false;
     }
 }
