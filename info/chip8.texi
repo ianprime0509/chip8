@@ -411,6 +411,12 @@ Set the game buzzer tone, in Hz; default 440.  This is the tone that
 will sound (using a square wave) when the sound timer @code{ST} is
 nonzero. @xref{Buzzer}.
 
+@item --verbose
+@itemx -v
+Increase output verbosity.  You can pass this option multiple times to
+show more output; currently, passing this option more than twice has no
+further effect.
+
 @item --volume=@var{volume}
 Set the game buzzer volume, as a value from 0 to 100; default 10.
 
@@ -454,6 +460,12 @@ and change the extension (if any) to @samp{.bin}.
 Enable shift quirks mode, which uses the alternative, two-operand
 interpretation of the operations @code{SHR} and @code{SHL} rather than
 the default, one-operand interpretation. @xref{Alternative behavior}.
+
+@item --verbose
+@itemx -v
+Increase output verbosity.  You can pass this option multiple times to
+show more output; currently, passing this option more than twice has no
+further effect.
 
 @item --help
 @itemx -h
