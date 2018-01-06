@@ -283,6 +283,14 @@ struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode,
             ins.op = OP_LD_REG_DEREF_I;
             ins.vx = OPCODE2VX(opcode);
             break;
+        case 0x75:
+            ins.op = OP_LD_R_REG;
+            ins.vx = OPCODE2VX(opcode);
+            break;
+        case 0x85:
+            ins.op = OP_LD_REG_R;
+            ins.vx = OPCODE2VX(opcode);
+            break;
         }
     }
 

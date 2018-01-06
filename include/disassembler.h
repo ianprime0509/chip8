@@ -41,4 +41,11 @@ struct chip8disasm *chip8disasm_from_file(const char *fname);
  */
 void chip8disasm_destroy(struct chip8disasm *disasm);
 
+/**
+ * Dumps the disassembly to the given file.
+ *
+ * @return An error code.
+ */
+int chip8disasm_dump(const struct chip8disasm *disasm, FILE *out);
+
 #endif

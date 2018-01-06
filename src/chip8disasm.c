@@ -18,6 +18,7 @@
  */
 #include <config.h>
 
+#include <errno.h>
 #include <getopt.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -129,6 +130,7 @@ int main(int argc, char **argv)
 static int run(struct progopts opts)
 {
     struct chip8disasm *disasm;
+    FILE *output;
     int retval = 0;
 
     if (!(disasm = chip8disasm_from_file(opts.input))) {
@@ -136,7 +138,25 @@ static int run(struct progopts opts)
         retval = 1;
         goto EXIT_NOTHING_DONE;
     }
+    if (!strcmp(opts.output, "-")) {
+        output = stdout;
+    } else if (!(output = fopen(opts.output, "r"))) {
+        log_error("Could not open output file '%s': %s", opts.output,
+                  strerror(errno));
+        retval = 1;
+        goto EXIT_DISASM_CREATED;
+    }
 
+    if (chip8disasm_dump(disasm, output)) {
+        log_error("Disassembly dump failed");
+        retval = 1;
+        goto EXIT_OUTPUT_OPENED;
+    }
+
+EXIT_OUTPUT_OPENED:
+    if (output != stdout)
+        fclose(output);
+EXIT_DISASM_CREATED:
     chip8disasm_destroy(disasm);
 EXIT_NOTHING_DONE:
     free(opts.input);
