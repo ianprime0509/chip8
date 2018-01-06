@@ -521,7 +521,7 @@ void chip8_instruction_format(struct chip8_instruction instr, char *dest,
         snprintf(dest, sz, "LD ST, V%X", instr.vx);
         break;
     case OP_ADD_I:
-        snprintf(dest, sz, "LD I, V%X", instr.vx);
+        snprintf(dest, sz, "ADD I, V%X", instr.vx);
         break;
     case OP_LD_F:
         snprintf(dest, sz, "LD F, V%X", instr.vx);
