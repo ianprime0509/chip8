@@ -244,9 +244,11 @@ static int run(struct progopts opts)
     }
 
 EXIT_OUTPUT_OPENED:
-    fclose(output);
+    if (output != stdout)
+        fclose(output);
 EXIT_INPUT_OPENED:
-    fclose(input);
+    if (input != stdin)
+        fclose(input);
 EXIT_PROG_CREATED:
     chip8asm_program_destroy(prog);
 EXIT_CHIPASM_CREATED:

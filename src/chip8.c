@@ -351,7 +351,11 @@ static int run(struct progopts opts)
                         chip->key_states &= ~(1 << i);
             }
         }
-        chip8_step(chip);
+        if (chip8_step(chip)) {
+            log_error("Shutting down interpreter");
+            retval = 1;
+            goto ERROR_CHIP8_CREATED;
+        }
         /* Pause/unpause the audio track as needed */
         SDL_PauseAudioDevice(audio_device, chip->reg_st == 0);
         /* Refresh display as needed */
