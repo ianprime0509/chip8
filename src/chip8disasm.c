@@ -135,11 +135,11 @@ static int run(struct progopts opts)
     int retval = 0;
 
     if (opts.verbosity == 1)
-        log_init(stdout, LOG_INFO);
+        log_init(stderr, LOG_INFO);
     else if (opts.verbosity == 2)
-        log_init(stdout, LOG_DEBUG);
+        log_init(stderr, LOG_DEBUG);
     else
-        log_init(stdout, LOG_WARNING);
+        log_init(stderr, LOG_WARNING);
 
     if (opts.shift_quirks)
         disopts.shift_quirks = true;

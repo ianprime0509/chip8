@@ -410,8 +410,15 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
                 break;
             case OP_JP_V0:
                 log_warning("The disassembler doesn't support JP V0 yet");
-                if (!after_skip)
+                if (!after_skip) {
+                    if (jpret_list_add(&disasm->jpret_list, pc | 1)) {
+                        log_error(
+                            "Could not add item to internal address list");
+                        retval = 1;
+                        goto EXIT;
+                    }
                     goto BREAK_FOR;
+                }
                 after_skip = false;
                 break;
             default:

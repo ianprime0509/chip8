@@ -48,6 +48,7 @@ and Super-Chip platforms themselves.
 * The Chip-8 and Super-Chip::      Description of the emulated platforms.
 * The emulator::    Documentation for the emulator.
 * The assembler::   Documentation for the assembler.
+* The disassembler:: Documentation for the disassembler.
 * Further reading:: More information about the Chip-8 and Super-Chip.
 * GNU Free Documentation License::   Your freedoms.
 * Index::           Complete index.
@@ -57,14 +58,14 @@ and Super-Chip platforms themselves.
 @chapter Overview
 
 This manual is the primary documentation for the Chip-8 project, which
-consists of the emulator @command{chip8} and the assembler
-@command{chip8asm}.  Since having an emulator would be useless without
-knowledge of the original system, however, we will begin with a
-description of the Chip-8 and Super-Chip platforms which this emulator
-targets.  They are relatively simple systems, without many of the
-features that make even the simplest common platforms (such as the NES)
-complex, but still provide enough functionality to create interesting
-games.
+consists of the emulator @command{chip8}, the assembler
+@command{chip8asm} and the disassembler @command{chip8disasm}.  Since
+having an emulator would be useless without knowledge of the original
+system, however, we will begin with a description of the Chip-8 and
+Super-Chip platforms which this emulator targets.  They are relatively
+simple systems, without many of the features that make even the simplest
+common platforms (such as the NES) complex, but still provide enough
+functionality to create interesting games.
 
 Despite their simplicity, the Chip-8 and Super-Chip are somewhat unique
 in the realm of emulators in that most of the information we have about
@@ -1037,6 +1038,104 @@ modes or features.  For example, perhaps @code{OPTION SHQUIRKS} could be
 used to enable shift quirks, removing the need for the @samp{-q} flag,
 @pxref{Invoking chip8asm}.
 @end deffn
+
+@node The disassembler
+@chapter The disassembler
+
+Since this project includes an assembler, it's not too much of a stretch
+to expect it to have a disassembler as well.  The disassembler included
+with this project, @command{chip8disasm}, aims to be a reliable tool for
+use with the vast majority of Chip-8 programs.
+
+@menu
+* Invoking chip8disasm::    Using the disassembler.
+* Output format::           The standard disassembler output format.
+@end menu
+
+@node Invoking chip8disasm
+@section Invoking @command{chip8disasm}
+
+The command @command{chip8disasm} must be invoked with the name of a
+program file to disassemble, unless either the @option{--help} or
+@option{--version} option is used; currently, reading the program from
+the standard input is not supported.  The following options are
+understood:
+
+@table @option
+@item --output=@var{output}
+@itemx -o @var{output}
+Set the output file name.  The default is to print to the standard
+output (i.e. the terminal).
+
+@item --shift-quirks
+@itemx -q
+Enable shift quirks mode, which uses the alternative, two-operand
+interpretation of the operations @code{SHR} and @code{SHL} rather than
+the default, one-operand interpretation. @xref{Alternative behavior}.
+
+@item --verbose
+@itemx -v
+Increase output verbosity.  You can pass this option multiple times to
+show more output; currently, passing this option more than twice has no
+further effect.
+
+@item --help
+@itemx -h
+Show a description of usage and available options, and exit.
+
+@item --version
+@itemx -V
+Show program version information, and exit.
+@end table
+
+@node Output format
+@section Output format
+
+The disassembler output format is compatible with the input format used
+in the assembler.  That is, if you disassemble a Chip-8 program with
+@command{chip8disasm} and then re-assemble it with @command{chip8asm},
+you should get a file identical to the original.  There are some
+exceptions to this: for example, programs that use the alternative
+behavior for shift instructions (@pxref{Alternative behavior}) will need
+to be both disassembled and assembled with the @option{--shift-quirks}
+flag (@pxref{Invoking chip8disasm}).
+
+@menu
+* Detecting code versus data::  Basic control flow analysis.
+* Labels in output::            How the disassembler uses labels.
+@end menu
+
+@node Detecting code versus data
+@subsection Detecting code versus data
+
+One complication which the disassembler addresses is the lack of
+distinction between code and data in Chip-8 assembly.  Thus, a naïve
+disassembler that attempts to decode each 2-byte word as an instruction
+will run into problems and report many invalid instructions (which
+aren't really instructions at all, but data).  @command{chip8disasm}
+solves this problem using a simple form of ``control flow analysis'',
+which analyzes the program structure to detect which sections are
+reachable (code) and which are not (data).
+
+The current implementation should work for the vast majority of programs
+in existence (and has worked for all the ones I've tried), but isn't
+perfect.  The most notable omission is that the @code{JP V0, @var{addr}}
+instruction is not fully supported, so that the locations it jumps to
+will not be marked as reachable.  Of course, by using the lack of
+code/data distinction to your advantage, you could devise all sorts of
+programs to intentionally make control flow analysis impossible, like
+explicitly synthesizing instructions in memory during execution.  But
+why would you do something like that, anyways?
+
+@node Labels in output
+@subsection Labels in output
+
+To make reading the disassembled code easier, the disassembler will
+replace explicit address operands with labels.  The labels are named
+predictably: a label that points to the address @samp{#2A8} will have
+the name @samp{L0A8}.  That is, the label name is formed from the
+address minus 512 bytes (the first 512 bytes of memory being reserved
+for the interpreter; @pxref{Memory and program storage}).
 
 @node Further reading
 @chapter Further reading
