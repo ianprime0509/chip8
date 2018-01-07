@@ -700,7 +700,7 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
              * Trim whitespace off the end by moving back to the last
              * non-whitespace character
              */
-            while (isspace(operands[n_op][--oppos]))
+            while (oppos > 0 && isspace(operands[n_op][--oppos]))
                 ;
             /*
              * Now we need to move one space forward again, because the
@@ -802,6 +802,8 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     int err;
 
     ci.op = instr->chipop;
+    /* Initialize fields so 'scan-build' doesn't complain */
+    ci.vx = ci.vy = REG_V0;
     /*
      * We group the cases here by which arguments they have, and set the
      * corresponding fields of 'ci' appropriately. Converting 'ci'
@@ -1256,9 +1258,10 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     CHIPOP("DRW", OP_DRW, 3)
     CHIPOP("SKP", OP_SKP, 1)
     CHIPOP("SKNP", OP_SKNP, 1)
-
-    if (instr.type == IT_INVALID)
+    else
+    {
         FAIL(1, chipasm->line, "invalid instruction (operation '%s')", op);
+    }
 
     /* Every Chip-8 instruction is exactly 2 bytes long */
     chipasm->pc += 2;

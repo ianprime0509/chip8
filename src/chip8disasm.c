@@ -71,12 +71,6 @@ struct progopts {
 static struct progopts progopts_default(void);
 static int run(struct progopts opts);
 
-static struct progopts progopts_default(void)
-{
-    return (struct progopts){
-        .verbosity = 0, .shift_quirks = false, .input = NULL, .output = NULL};
-}
-
 int main(int argc, char **argv)
 {
     int option;
@@ -87,12 +81,12 @@ int main(int argc, char **argv)
                                      {"help", no_argument, NULL, 'h'},
                                      {"version", no_argument, NULL, 'V'},
                                      {0, 0, 0, 0}};
+    int retval = 0;
 
     while ((option = getopt_long(argc, argv, "o:qvhV", options, NULL)) != -1) {
         switch (option) {
         case 'o':
-            if (opts.output)
-                free(opts.output);
+            free(opts.output);
             opts.output = strdup(optarg);
             break;
         case 'q':
@@ -103,13 +97,14 @@ int main(int argc, char **argv)
             break;
         case 'h':
             printf("%s%s", USAGE, HELP);
-            return 0;
+            goto EXIT;
         case 'V':
             printf("%s", VERSION_STRING);
-            return 0;
+            goto EXIT;
         case '?':
             fprintf(stderr, "%s", USAGE);
-            return 1;
+            retval = 1;
+            goto EXIT;
         }
     }
 
@@ -117,14 +112,26 @@ int main(int argc, char **argv)
         opts.input = strdup(argv[optind]);
     } else {
         fprintf(stderr, "%s", USAGE);
-        return 1;
+        retval = 1;
+        goto EXIT;
     }
 
     /* Use stdout as default output */
     if (!opts.output)
         opts.output = strdup("-");
 
-    return run(opts);
+    retval = run(opts);
+
+EXIT:
+    free(opts.output);
+    free(opts.input);
+    return retval;
+}
+
+static struct progopts progopts_default(void)
+{
+    return (struct progopts){
+        .verbosity = 0, .shift_quirks = false, .input = NULL, .output = NULL};
 }
 
 static int run(struct progopts opts)
@@ -170,7 +177,5 @@ EXIT_OUTPUT_OPENED:
 EXIT_DISASM_CREATED:
     chip8disasm_destroy(disasm);
 EXIT_NOTHING_DONE:
-    free(opts.input);
-    free(opts.output);
     return retval;
 }

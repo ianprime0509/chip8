@@ -474,6 +474,7 @@ int test_display(void)
     ASSERT_EQ_ROW(13, 6, row_zero);
     ASSERT_EQ_ROW(5, 7, row_zero);
 
+    chip8_destroy(chip);
     return 0;
 #undef ASSERT_EQ_ROW
 }

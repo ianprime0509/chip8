@@ -103,12 +103,12 @@ int main(int argc, char **argv)
                                      {"help", no_argument, NULL, 'h'},
                                      {"version", no_argument, NULL, 'V'},
                                      {0, 0, 0, 0}};
+    int retval = 0;
 
     while ((option = getopt_long(argc, argv, "o:qvhV", options, NULL)) != -1) {
         switch (option) {
         case 'o':
-            if (opts.output)
-                free(opts.output);
+            free(opts.output);
             opts.output = strdup(optarg);
             break;
         case 'q':
@@ -119,13 +119,14 @@ int main(int argc, char **argv)
             break;
         case 'h':
             printf("%s%s", USAGE, HELP);
-            return 0;
+            goto EXIT;
         case 'V':
             printf("%s", VERSION_STRING);
-            return 0;
+            goto EXIT;
         case '?':
             fprintf(stderr, "%s", USAGE);
-            return 1;
+            retval = 1;
+            goto EXIT;
         }
     }
 
@@ -135,7 +136,8 @@ int main(int argc, char **argv)
         opts.input = strdup("-");
     } else {
         fprintf(stderr, "%s", USAGE);
-        return 1;
+        retval = 1;
+        goto EXIT;
     }
 
     /* We try to deduce the output file name if it is not given */
@@ -144,7 +146,12 @@ int main(int argc, char **argv)
                                                : replace_extension(opts.input);
     }
 
-    return run(opts);
+    retval = run(opts);
+
+EXIT:
+    free(opts.output);
+    free(opts.input);
+    return retval;
 }
 
 static struct progopts progopts_default(void)
@@ -254,7 +261,5 @@ EXIT_PROG_CREATED:
 EXIT_CHIPASM_CREATED:
     chip8asm_destroy(chipasm);
 EXIT_NOTHING_CREATED:
-    free(opts.input);
-    free(opts.output);
     return retval;
 }
