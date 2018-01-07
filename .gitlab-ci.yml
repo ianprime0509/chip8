@@ -15,9 +15,14 @@ build:
     - meson
     - ninja
     - ninja info/chip8.info
+  artifacts:
+    paths:
+      - build/
 
 test:
   stage: test
   script:
     - cd build
     - ninja test
+  dependencies:
+    - build
