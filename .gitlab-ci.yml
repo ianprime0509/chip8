@@ -18,7 +18,7 @@ build:
     - ninja info/chip8.info
   artifacts:
     paths:
-      - build/
+      - build
 
 test:
   stage: test
@@ -36,3 +36,8 @@ pages:
     - mv info/html/ ../public/
   dependencies:
     - build
+  artifacts:
+    paths:
+      - public
+  only:
+    - master
