@@ -145,7 +145,7 @@ static int run(struct progopts opts)
         disopts.shift_quirks = true;
 
     if (!(disasm = chip8disasm_from_file(disopts, opts.input))) {
-        log_error("Could not create disassembler");
+        log_error("Could not disassemble input file '%s'", opts.input);
         retval = 1;
         goto EXIT_NOTHING_DONE;
     }

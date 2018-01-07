@@ -386,6 +386,11 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
                 after_skip = false;
                 break;
             case OP_CALL:
+                if (inst.addr % 2 != 0) {
+                    log_error("Misaligned CALL operand encountered");
+                    retval = 1;
+                    goto EXIT;
+                }
                 /*
                  * CALL instructions always keep executing after RET in the
                  * subroutine, so they're not jump points.
@@ -398,6 +403,11 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
                 after_skip = false;
                 break;
             case OP_JP:
+                if (inst.addr % 2 != 0) {
+                    log_error("Misaligned JP operand encountered");
+                    retval = 1;
+                    goto EXIT;
+                }
                 if (jpret_list_add(&starts, inst.addr - CHIP8_PROG_START)) {
                     log_error("Could not add item to temporary address list");
                     retval = 1;
