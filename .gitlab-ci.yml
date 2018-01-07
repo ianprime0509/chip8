@@ -19,4 +19,5 @@ build:
 test:
   stage: test
   script:
+    - cd build
     - ninja test
