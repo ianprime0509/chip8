@@ -250,7 +250,14 @@ int chip8disasm_dump(const struct chip8disasm *disasm, FILE *out)
         } else {
             struct chip8_instruction instr = chip8_instruction_from_opcode(
                 opcode, disasm->opts.shift_quirks);
-            bool use_addr = chip8_instruction_uses_addr(instr);
+            /*
+             * Don't forget to check that the address actually corresponds to a
+             * label!
+             */
+            bool use_addr =
+                chip8_instruction_uses_addr(instr) &&
+                jpret_list_find(&disasm->label_list,
+                                instr.addr - CHIP8_PROG_START) != -1;
 
             /*
              * If the instruction uses an address, we need to construct the
@@ -343,8 +350,15 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
                 ((uint16_t)disasm->mem[pc] << 8) + disasm->mem[pc + 1],
                 disasm->opts.shift_quirks);
 
-            /* Add to the label list if we need to */
-            if (chip8_instruction_uses_addr(inst)) {
+            /*
+             * Add to the label list if we need to.  Note that we need to check
+             * not only whether the instruction takes an address as an operand,
+             * but whether that address actually refers to a location in the
+             * current file; if it doesn't refer to such a location, it
+             * shouldn't be added to the label list since it's just an address.
+             */
+            if (chip8_instruction_uses_addr(inst) &&
+                inst.addr - CHIP8_PROG_START < disasm->proglen) {
                 if (jpret_list_add(&disasm->label_list,
                                    inst.addr - CHIP8_PROG_START)) {
                     log_error("Could not add item to internal label list");

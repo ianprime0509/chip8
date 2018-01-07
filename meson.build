@@ -23,3 +23,4 @@ sdl = dependency('SDL2')
 
 subdir('include')
 subdir('src')
+subdir('test')
