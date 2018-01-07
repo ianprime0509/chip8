@@ -18,7 +18,8 @@
  */
 /**
  * @file
- * Simple unit tests for the project.
+ * Simple tests for the project.
+ *
  * Tests are just functions with the signature `int test_func(void)`, which
  * return 0 on success or 1 on failure, and they should be registered in the
  * `main` function of this file.
@@ -83,6 +84,10 @@ int test_asm_if(void);
  */
 int test_comparison(void);
 /**
+ * Tests Chip-8 display instruction evaluation.
+ */
+int test_display(void);
+/**
  * Tests the evaluation of various jump instructions.
  */
 int test_jp(void);
@@ -104,6 +109,7 @@ int main(void)
     TEST_RUN(test_asm_eval);
     TEST_RUN(test_asm_if);
     TEST_RUN(test_comparison);
+    TEST_RUN(test_display);
     TEST_RUN(test_jp);
     TEST_RUN(test_ld);
     TEST_RUN(test_quirks);
@@ -397,6 +403,79 @@ int test_comparison(void)
 
     chip8_destroy(chip);
     return 0;
+}
+
+int test_display(void)
+{
+/* Compares the 8-byte-long row starting at (x, y) from the display */
+#define ASSERT_EQ_ROW(x, y, row)                                               \
+    for (int i = 0; i < 8; i++)                                                \
+        ASSERT_EQ_UINT(chip->display[(x) + i][(y)], (row)[i]);
+
+    struct chip8 *chip = chip8_new(chip8_options_testing());
+    /* The three rows of the sprite */
+    uint8_t row1[] = {1, 0, 1, 0, 0, 1, 0, 1};
+    uint8_t row2[] = {0, 1, 0, 1, 1, 0, 1, 0};
+    uint8_t row3[] = {1, 1, 1, 1, 0, 0, 0, 0};
+    /* A zero row */
+    uint8_t row_zero[] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+    ASSERT(chip != NULL);
+
+    /* Put a 3-byte sprite in memory at #A00 */
+    chip->mem[0xA00] = 0xA5; /* 10100101 */
+    chip->mem[0xA01] = 0x5A; /* 01011010 */
+    chip->mem[0xA02] = 0xF0; /* 11110000 */
+    /* The rest of the memory is empty */
+
+    /* LD V0, 5 */
+    chip8_execute_opcode(chip, 0x6005);
+    /* LD V1, 6 */
+    chip8_execute_opcode(chip, 0x6106);
+    /* LD I, #A00 */
+    chip8_execute_opcode(chip, 0xAA00);
+
+    /* DRW V0, V1, 3 */
+    chip8_execute_opcode(chip, 0xD013);
+    /* Make sure all three rows were drawn correctly */
+    ASSERT_EQ_ROW(5, 6, row1);
+    ASSERT_EQ_ROW(5, 7, row2);
+    ASSERT_EQ_ROW(5, 8, row3);
+    /* SCR */
+    chip8_execute_opcode(chip, 0x00FB);
+    ASSERT_EQ_ROW(9, 6, row1);
+    ASSERT_EQ_ROW(9, 7, row2);
+    ASSERT_EQ_ROW(9, 8, row3);
+    /* SCL */
+    chip8_execute_opcode(chip, 0x00FC);
+    ASSERT_EQ_ROW(5, 6, row1);
+    ASSERT_EQ_ROW(5, 7, row2);
+    ASSERT_EQ_ROW(5, 8, row3);
+    /* SCD 4 */
+    chip8_execute_opcode(chip, 0x00C4);
+    ASSERT_EQ_ROW(5, 2, row1);
+    ASSERT_EQ_ROW(5, 3, row2);
+    ASSERT_EQ_ROW(5, 4, row3);
+    /* CLS */
+    chip8_execute_opcode(chip, 0x00E0);
+    for (int i = 0; i < CHIP8_DISPLAY_WIDTH; i++)
+        for (int j = 0; j < CHIP8_DISPLAY_HEIGHT; j++)
+            ASSERT_EQ_UINT(chip->display[i][j], 0);
+    /* DRW V0, V1, 0 */
+    chip8_execute_opcode(chip, 0xD010);
+    /* Now we should have a 16x16 sprite */
+    ASSERT_EQ_ROW(5, 6, row1);
+    ASSERT_EQ_ROW(13, 6, row2);
+    ASSERT_EQ_ROW(5, 7, row3);
+    /* Drawing it again, we should get nothing */
+    /* DRW V0, V1, 0 */
+    chip8_execute_opcode(chip, 0xD010);
+    ASSERT_EQ_ROW(5, 6, row_zero);
+    ASSERT_EQ_ROW(13, 6, row_zero);
+    ASSERT_EQ_ROW(5, 7, row_zero);
+
+    return 0;
+#undef ASSERT_EQ_ROW
 }
 
 int test_jp(void)

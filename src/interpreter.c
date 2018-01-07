@@ -364,8 +364,8 @@ static int chip8_execute(struct chip8 *chip, struct chip8_instruction inst,
             new_pc = chip->pc;
             break;
         }
-        for (int x = 0; x < CHIP8_DISPLAY_WIDTH - 4; x++)
-            memcpy(&chip->display[x], &chip->display[x + 4],
+        for (int x = CHIP8_DISPLAY_WIDTH - 5; x > 0; x--)
+            memcpy(&chip->display[x + 4], &chip->display[x],
                    sizeof chip->display[x]);
         chip->needs_refresh = true;
         break;
@@ -374,8 +374,8 @@ static int chip8_execute(struct chip8 *chip, struct chip8_instruction inst,
             new_pc = chip->pc;
             break;
         }
-        for (int x = CHIP8_DISPLAY_WIDTH - 5; x > 0; x--)
-            memcpy(&chip->display[x + 4], &chip->display[x],
+        for (int x = 0; x < CHIP8_DISPLAY_WIDTH - 4; x++)
+            memcpy(&chip->display[x], &chip->display[x + 4],
                    sizeof chip->display[x]);
         chip->needs_refresh = true;
         break;
