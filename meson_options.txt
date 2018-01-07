@@ -1,9 +1,9 @@
-option('documentation',
+option('doxygen',
        type : 'boolean',
        value : false,
        description : 'Use Doxygen to generate code documentation')
 
-option('texinfo',
+option('manual',
        type : 'boolean',
        value : true,
        description : 'Build Texinfo project manual')

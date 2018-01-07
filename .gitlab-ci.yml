@@ -3,6 +3,7 @@ image: debian
 stages:
   - build
   - test
+  - deploy
 
 before_script:
   - apt-get update -y
@@ -24,5 +25,14 @@ test:
   script:
     - cd build
     - ninja test
+  dependencies:
+    - build
+
+pages:
+  stage: deploy
+  script:
+    - cd build
+    - ninja info/html
+    - mv info/html/ ../public/
   dependencies:
     - build

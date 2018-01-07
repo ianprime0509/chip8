@@ -11,7 +11,7 @@ config.set('PROJECT_VERSION', meson.project_version())
 
 incdir = include_directories('include')
 
-if get_option('documentation')
+if get_option('doxygen')
   subdir('docs')
 endif
 
@@ -19,7 +19,7 @@ texi2any = find_program('texi2any', required : false)
 if not texi2any.found()
   message('Texinfo not installed; you will not be able to build the manual')
 endif
-if get_option('texinfo') and texi2any.found()
+if get_option('manual') and texi2any.found()
   subdir('info')
 endif
 
