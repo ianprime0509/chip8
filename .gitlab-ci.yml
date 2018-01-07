@@ -1,4 +1,4 @@
-image: debian:latest
+image: debian
 
 stages:
   - build
@@ -14,6 +14,7 @@ build:
     - mkdir build && cd build
     - meson
     - ninja
+    - ninja info/chip8.info
 
 test:
   stage: test

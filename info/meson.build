@@ -1,5 +1,3 @@
-texi2any = find_program('texi2any')
-
 configure_file(input : 'version.texi.in',
                output : 'version.texi',
                configuration : config)
@@ -9,5 +7,4 @@ custom_target('info',
               input : 'chip8.texi',
               command : [texi2any, '--info', '@INPUT@',
                          '-I', meson.current_build_dir(),
-                         '-o', '@OUTPUT@'],
-              build_by_default : true)
+                         '-o', '@OUTPUT@'])

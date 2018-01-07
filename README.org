@@ -19,7 +19,8 @@ prompt):
   $ ninja
 #+END_SRC
 
-The executable binaries will be located in ~build/src~.
+The executable binaries will be located in ~build/src~.  Then, you can run
+~ninja info/chip8.info~ to build the manual in info format.
 
 If you get an error about ~texi2any~ not being available, that means you don't
 have GNU Texinfo installed and won't be able to build the manual.  You can

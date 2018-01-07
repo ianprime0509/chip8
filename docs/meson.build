@@ -6,5 +6,4 @@ doxyfile = configure_file(input : 'Doxyfile.in',
 custom_target('doxygen',
               output : 'html',
               input : doxyfile,
-              command : [doxygen, doxyfile],
-              build_by_default : true)
+              command : [doxygen, doxyfile])

@@ -15,7 +15,11 @@ if get_option('documentation')
   subdir('docs')
 endif
 
-if get_option('texinfo')
+texi2any = find_program('texi2any', required : false)
+if not texi2any.found()
+  message('Texinfo not installed; you will not be able to build the manual')
+endif
+if get_option('texinfo') and texi2any.found()
   subdir('info')
 endif
 
