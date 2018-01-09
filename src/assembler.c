@@ -264,6 +264,17 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
                                     const struct instruction *instr,
                                     uint16_t *opcode);
 /**
+ * Processes the assignment with the given operands.
+ *
+ * Yes, technically we only need the first operand, but it's more consistent
+ * this way.
+ *
+ * @return An error code.
+ */
+static int chip8asm_process_assignment(struct chip8asm *chipasm, char *label,
+                                       char *operands[MAX_OPERANDS],
+                                       int n_operands);
+/**
  * Processes the given operation with the given operands.
  *
  * This will take the instruction, which is given to us in split form (the
@@ -705,6 +716,8 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
             FAIL_MSG(chipasm->line, "too many operands");
             free(op);
             free(tmp);
+            for (int i = 0; i < n_op; i++)
+                free(operands[i]);
             return 1;
         } else {
             operands[n_op++] = tmp;
@@ -713,35 +726,7 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
     }
 
     if (is_assignment) {
-        uint16_t value;
-        int retval = 0;
-
-        /* Don't process this assignment if we're skipping things */
-        if (chip8asm_should_process(chipasm)) {
-            if (n_op != 1) {
-                FAIL_MSG(chipasm->line,
-                         "wrong number of operands given to '='");
-                free(op);
-                retval = 1;
-            } else if (chip8asm_eval(chipasm, operands[0], chipasm->line,
-                                     &value)) {
-                FAIL_MSG(chipasm->line, "failed to evaluate expression");
-                free(op);
-                retval = 1;
-            } else {
-                /*
-                 * Now, 'op' stores the name of the variable with value 'value'
-                 */
-                if (ltable_add(&chipasm->labels, op, value)) {
-                    FAIL_MSG(chipasm->line,
-                             "duplicate label or variable '%s' found", op);
-                    free(op);
-                }
-            }
-        }
-        for (int i = 0; i < n_op; i++)
-            free(operands[i]);
-        return retval;
+        return chip8asm_process_assignment(chipasm, op, operands, n_op);
     } else {
         return chip8asm_process_instruction(chipasm, op, operands, n_op);
     }
@@ -957,6 +942,35 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
         *opcode = chip8_instruction_to_opcode(ci, chipasm->opts.shift_quirks);
 
     return 0;
+}
+
+static int chip8asm_process_assignment(struct chip8asm *chipasm, char *label,
+                                       char *operands[MAX_OPERANDS],
+                                       int n_operands)
+{
+    uint16_t value;
+    int retval = 0;
+
+    /* Don't process this assignment if we're skipping things */
+    if (chip8asm_should_process(chipasm)) {
+        if (n_operands != 1) {
+            FAIL_MSG(chipasm->line, "wrong number of operands given to '='");
+            free(label);
+            retval = 1;
+        } else if (chip8asm_eval(chipasm, operands[0], chipasm->line, &value)) {
+            FAIL_MSG(chipasm->line, "failed to evaluate expression");
+            free(label);
+            retval = 1;
+        } else if (ltable_add(&chipasm->labels, label, value)) {
+            FAIL_MSG(chipasm->line, "duplicate label or variable '%s' found",
+                     label);
+            free(label);
+            retval = 1;
+        }
+    }
+    for (int i = 0; i < n_operands; i++)
+        free(operands[i]);
+    return retval;
 }
 
 static int chip8asm_process_instruction(struct chip8asm *chipasm, char *op,
