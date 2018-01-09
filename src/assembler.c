@@ -356,11 +356,15 @@ static int register_num(const char *name);
  * Parsing functions:
  *
  * These parsing functions follow a simple set of conventions.  The ones
- * beginning with 'parse' return a heap-allocated string upon a successful
- * parse, containing the thing that was parsed, or NULL if the parse was
- * unsuccessful.  All parsing functions advance the given input string past the
- * end of whatever was parsed, if successful; if unsuccessful, the input string
- * is unchanged.
+ * beginning with 'parse' which parse strings return a heap-allocated string
+ * upon a successful parse, containing the thing that was parsed, or NULL if
+ * the parse was unsuccessful.  The parsing functions which return things other
+ * than strings return an error code to indicate success or failure, with an
+ * output argument for the result.
+ *
+ * All parsing functions advance the given input string past the end of
+ * whatever was parsed, if successful; if unsuccessful, the input string is
+ * unchanged.
  */
 /**
  * Parses a label, returning the label name if one was found.
@@ -386,6 +390,24 @@ static char *parse_operand(const char **str);
  * @return The operation name, or NULL if none was found.
  */
 static char *parse_operation(const char **str);
+/**
+ * Parses a binary number.
+ *
+ * @return An error code.
+ */
+static int parse_num_bin(const char **str, uint16_t *num);
+/**
+ * Parses a decimal number.
+ *
+ * @return An error code.
+ */
+static int parse_num_dec(const char **str, uint16_t *num);
+/**
+ * Parses a hexadecimal number.
+ *
+ * @return An error code.
+ */
+static int parse_num_hex(const char **str, uint16_t *num);
 /**
  * Consumes whitespace until a non-whitespace character is reached.
  */
@@ -497,51 +519,33 @@ int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
             expr++;
         } else if (*expr == '#') {
             /* Parse hex number */
-            int n = 0;
+            uint16_t n;
 
-            if (!isxdigit(*++expr)) {
+            expr++;
+            if (parse_num_hex(&expr, &n)) {
                 FAIL_MSG(line, "expected hexadecimal number");
                 return 1;
-            }
-            while (*expr != '\0') {
-                if (isdigit(*expr))
-                    n = 16 * n + (*expr - '0');
-                else if ('A' <= *expr && *expr <= 'F')
-                    n = 16 * n + (*expr - 'A' + 10);
-                else if ('a' <= *expr && *expr <= 'f')
-                    n = 16 * n + (*expr - 'a' + 10);
-                else
-                    break;
-                expr++;
             }
             numstack[numpos++] = n;
             expecting_num = false;
         } else if (*expr == '$') {
             /* Parse binary number */
-            int n = 0;
+            uint16_t n;
 
-            if (*++expr != '0' && *expr != '1') {
+            expr++;
+            if (parse_num_bin(&expr, &n)) {
                 FAIL_MSG(line, "expected binary number");
                 return 1;
-            }
-            while (*expr != '\0') {
-                if (*expr == '0')
-                    n = 2 * n;
-                else if (*expr == '1')
-                    n = 2 * n + 1;
-                else
-                    break;
-                expr++;
             }
             numstack[numpos++] = n;
             expecting_num = false;
         } else if (isdigit(*expr)) {
             /* Parse decimal number */
-            int n = 0;
+            uint16_t n;
 
-            while (*expr != '\0' && isdigit(*expr)) {
-                n = 10 * n + (*expr - '0');
-                expr++;
+            while (parse_num_dec(&expr, &n)) {
+                FAIL_MSG(line, "expected decimal number");
+                return 1;
             }
             numstack[numpos++] = n;
             expecting_num = false;
@@ -818,7 +822,8 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     /* Nibble as first operand */
     case OP_SCD:
         if (chip8asm_eval(chipasm, instr->operands[0], instr->line, &value)) {
-            FAIL_MSG("could not evaluate operand '%s'", instr->operands[0]);
+            FAIL_MSG(instr->line, "could not evaluate operand '%s'",
+                     instr->operands[0]);
             return 1;
         }
         ci.nibble = value;
@@ -829,7 +834,8 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     case OP_LD_I:
     case OP_JP_V0:
         if (chip8asm_eval(chipasm, instr->operands[0], instr->line, &value)) {
-            FAIL_MSG("could not evaluate operand '%s'", instr->operands[0]);
+            FAIL_MSG(instr->line, "could not evaluate operand '%s'",
+                     instr->operands[0]);
             return 1;
         }
         ci.addr = value;
@@ -912,7 +918,8 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
         }
         ci.vy = regno;
         if (chip8asm_eval(chipasm, instr->operands[2], instr->line, &value)) {
-            FAIL_MSG("could not evaluate operand '%s'", instr->operands[0]);
+            FAIL_MSG(instr->line, "could not evaluate operand '%s'",
+                     instr->operands[2]);
             return 1;
         }
         ci.nibble = value;
@@ -1676,6 +1683,65 @@ static char *parse_operation(const char **str)
         *str = tmp;
 
         return ret;
+    }
+}
+
+static int parse_num_bin(const char **str, uint16_t *num)
+{
+    const char *tmp = *str;
+    uint16_t n = 0;
+
+    while (*tmp == '0' || *tmp == '1')
+        n = 2 * n + *tmp++ - '0';
+    if (tmp == *str) {
+        return 1;
+    } else {
+        if (num)
+            *num = n;
+        *str = tmp;
+        return 0;
+    }
+}
+
+static int parse_num_dec(const char **str, uint16_t *num)
+{
+    const char *tmp = *str;
+    uint16_t n = 0;
+
+    while (isdigit(*tmp))
+        n = 10 * n + *tmp++ - '0';
+    if (tmp == *str) {
+        return 1;
+    } else {
+        if (num)
+            *num = n;
+        *str = tmp;
+        return 0;
+    }
+}
+
+static int parse_num_hex(const char **str, uint16_t *num)
+{
+    const char *tmp = *str;
+    uint16_t n = 0;
+
+    for (;;) {
+        if (isdigit(*tmp))
+            n = 16 * n + *tmp++ - '0';
+        else if ('A' <= *tmp && *tmp <= 'F')
+            n = 16 * n + *tmp++ - 'A' + 10;
+        else if ('a' <= *tmp && *tmp <= 'f')
+            n = 16 * n + *tmp++ - 'a' + 10;
+        else
+            break;
+    }
+    if (tmp == *str) {
+        return 1;
+    } else {
+        if (num)
+            *num = n;
+        *str = tmp;
+        return 0;
     }
 }
 
