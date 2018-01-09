@@ -30,7 +30,13 @@ echo "chip8disasm is '$CHIP8DISASM'"
 
 for prog in $PROGS; do
     "$CHIP8DISASM" ${prog}.check.bin -o "$TMPFILE1"
+    if [ $? -ne 0]; then
+        echo "ERROR: $prog disassembly failed"
+    fi
     "$CHIP8ASM" "$TMPFILE1" -o "$TMPFILE2"
+    if [ $? -ne 0]; then
+        echo "ERROR: $prog assembly failed"
+    fi
     diff "$TMPFILE2" ${prog}.check.bin >/dev/null
     if [ $? -ne 0 ]; then
         echo "ERROR: $prog disassembly -> assembly failed expectations"
