@@ -318,12 +318,13 @@ static void instructions_clear(struct instructions *lst);
 static int instructions_grow(struct instructions *lst);
 /**
  * Adds the given label/address pair to the table.
- * The label name will be copied inside this function, so you don't need to do
- * it yourself. If the label is already associated, it will be overwritten.
+ *
+ * The label name will not be copied for you, since it should have already been
+ * heap-allocated by a parser function (see below).
  *
  * @return Whether the label was already present in the table.
  */
-static bool ltable_add(struct ltable *tab, const char *label, uint16_t addr);
+static bool ltable_add(struct ltable *tab, char *label, uint16_t addr);
 /**
  * Clears the given table.
  * This also frees the underlying data, so it should be used for cleanup too.
@@ -554,8 +555,13 @@ int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
             char *ident = parse_ident(&expr);
             uint16_t val;
 
+            if (!ident) {
+                log_error("Out of memory");
+                return 1;
+            }
             if (!ltable_get(&chipasm->labels, ident, &val)) {
                 FAIL_MSG(line, "unknown identifier '%s'", ident);
+                free(ident);
                 return 1;
             }
             free(ident);
@@ -592,7 +598,7 @@ int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
                 return 1;
             }
             /*
-             * Note the 'precedence(...) > p instead of >=; this is what makes
+             * Note the 'precedence(...) > p' instead of >=; this is what makes
              * the operator right-associative.
              */
             while (oppos > 0 && precedence(opstack[oppos - 1]) > p)
@@ -697,6 +703,7 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
     while ((tmp = parse_operand(&line))) {
         if (n_op >= MAX_OPERANDS) {
             FAIL_MSG(chipasm->line, "too many operands");
+            free(op);
             free(tmp);
             return 1;
         } else {
@@ -714,10 +721,12 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
             if (n_op != 1) {
                 FAIL_MSG(chipasm->line,
                          "wrong number of operands given to '='");
+                free(op);
                 retval = 1;
             } else if (chip8asm_eval(chipasm, operands[0], chipasm->line,
                                      &value)) {
                 FAIL_MSG(chipasm->line, "failed to evaluate expression");
+                free(op);
                 retval = 1;
             } else {
                 /*
@@ -771,7 +780,6 @@ static int chip8asm_add_instruction(struct chip8asm *chipasm,
                      chipasm->line_label);
             return 1;
         }
-        free(chipasm->line_label);
         chipasm->line_label = NULL;
     }
     if (instructions_add(&chipasm->instructions, instr)) {
@@ -1407,7 +1415,7 @@ static int instructions_grow(struct instructions *lst)
     return 0;
 }
 
-static bool ltable_add(struct ltable *tab, const char *label, uint16_t addr)
+static bool ltable_add(struct ltable *tab, char *label, uint16_t addr)
 {
     size_t n_bucket = hash_str(label) % LTABLE_SIZE;
     struct ltable_bucket *b;
@@ -1415,7 +1423,7 @@ static bool ltable_add(struct ltable *tab, const char *label, uint16_t addr)
     /* Create a new bucket list if necessary */
     if (!tab->buckets[n_bucket]) {
         b = malloc(sizeof *b);
-        b->label = strdup(label);
+        b->label = label;
         b->addr = addr;
         b->next = NULL;
         tab->buckets[n_bucket] = b;

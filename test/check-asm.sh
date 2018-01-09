@@ -30,7 +30,7 @@ echo "chip8disasm is '$CHIP8DISASM'"
 for prog in $PROGS; do
     "$CHIP8ASM" ${prog}.chip8asm -o "$TMPFILE"
     diff "$TMPFILE" ${prog}.check.bin >/dev/null
-    if [ $? = 1 ]; then
+    if [ $? -ne 0 ]; then
         echo "ERROR: $prog assembly failed expectations"
         RETVAL=1
     else

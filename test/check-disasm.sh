@@ -32,7 +32,7 @@ for prog in $PROGS; do
     "$CHIP8DISASM" ${prog}.check.bin -o "$TMPFILE1"
     "$CHIP8ASM" "$TMPFILE1" -o "$TMPFILE2"
     diff "$TMPFILE2" ${prog}.check.bin >/dev/null
-    if [ $? = 1 ]; then
+    if [ $? -ne 0 ]; then
         echo "ERROR: $prog disassembly -> assembly failed expectations"
         RETVAL=1
     else
