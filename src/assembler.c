@@ -31,10 +31,6 @@
 #define LTABLE_SIZE 256
 
 /**
- * The maximum size of an operand (or any other component of an instruction).
- */
-#define MAXOP 200
-/**
  * The maximum number of operands for any instruction.
  */
 #define MAX_OPERANDS 3
@@ -43,13 +39,12 @@
  */
 #define STACK_SIZE 100
 
-#define FAIL(errcode, line, ...)                                               \
+#define FAIL_MSG(line, ...)                                                    \
     do {                                                                       \
         log_message_begin(LOG_ERROR);                                          \
         log_message_part("On line %d: ", (line));                              \
         log_message_part(__VA_ARGS__);                                         \
         log_message_end();                                                     \
-        return (errcode);                                                      \
     } while (0)
 
 #define WARN(line, ...)                                                        \
@@ -277,9 +272,8 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
  *
  * @return An error code.
  */
-static int chip8asm_process_instruction(struct chip8asm *chipasm,
-                                        const char *op,
-                                        char (*operands)[MAXOP + 1],
+static int chip8asm_process_instruction(struct chip8asm *chipasm, char *op,
+                                        char *operands[MAX_OPERANDS],
                                         int n_operands);
 /**
  * Returns whether the assembler should process anything right now.
@@ -358,6 +352,45 @@ static int precedence(char op);
  */
 static int register_num(const char *name);
 
+/*
+ * Parsing functions:
+ *
+ * These parsing functions follow a simple set of conventions.  The ones
+ * beginning with 'parse' return a heap-allocated string upon a successful
+ * parse, containing the thing that was parsed, or NULL if the parse was
+ * unsuccessful.  All parsing functions advance the given input string past the
+ * end of whatever was parsed, if successful; if unsuccessful, the input string
+ * is unchanged.
+ */
+/**
+ * Parses a label, returning the label name if one was found.
+ *
+ * @return The label name, or NULL if none was found.
+ */
+static char *parse_label(const char **str);
+/**
+ * Parses an identifier, returning it if one was found.
+ *
+ * @return The identifier, or NULL if none was found.
+ */
+static char *parse_ident(const char **str);
+/**
+ * Parses an operand, returning it if one was found.
+ *
+ * @return The operand, or NULL if none was found.
+ */
+static char *parse_operand(const char **str);
+/**
+ * Parses an operation name, returning the name if one was found.
+ *
+ * @return The operation name, or NULL if none was found.
+ */
+static char *parse_operation(const char **str);
+/**
+ * Consumes whitespace until a non-whitespace character is reached.
+ */
+static void skip_spaces(const char **str);
+
 struct chip8asm *chip8asm_new(struct chip8asm_options opts)
 {
     struct chip8asm *chipasm = calloc(1, sizeof *chipasm);
@@ -393,8 +426,9 @@ int chip8asm_emit(struct chip8asm *chipasm, struct chip8asm_program *prog)
 
         switch (instr->type) {
         case IT_INVALID:
-            FAIL(1, instr->line,
-                 "invalid instruction (this should never happen)");
+            FAIL_MSG(instr->line,
+                     "invalid instruction (this should never happen)");
+            return 1;
         case IT_DB:
             if ((err = chip8asm_eval(chipasm, instr->operands[0], instr->line,
                                      &opcode)))
@@ -448,96 +482,99 @@ int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
     uint16_t numstack[STACK_SIZE];
     int numpos = 0;
     bool expecting_num = true;
-    int err;
-    int i = 0;
 
-    while (expr[i] != '\0') {
-        if (isspace(expr[i])) {
-            /* Skip space */
-            i++;
-        } else if (expecting_num && expr[i] == '-') {
+    while (*expr != '\0') {
+        skip_spaces(&expr);
+        if (expecting_num && *expr == '-') {
             int p = precedence('_');
             /* The unary - operator is right-associative */
             while (oppos > 0 && precedence(opstack[oppos - 1]) > p)
-                if ((err = operator_apply(opstack[--oppos], numstack, &numpos,
-                                          line)))
-                    FAIL(1, line, "could not evaluate expression");
+                if (operator_apply(opstack[--oppos], numstack, &numpos, line)) {
+                    FAIL_MSG(line, "could not evaluate expression");
+                    return 1;
+                }
             opstack[oppos++] = '_';
-            i++;
-        } else if (expr[i] == '#') {
+            expr++;
+        } else if (*expr == '#') {
             /* Parse hex number */
             int n = 0;
 
-            if (!isxdigit(expr[++i]))
-                FAIL(1, line, "expected hexadecimal number");
-            while (expr[i] != '\0') {
-                if (isdigit(expr[i]))
-                    n = 16 * n + (expr[i] - '0');
-                else if ('A' <= expr[i] && expr[i] <= 'F')
-                    n = 16 * n + (expr[i] - 'A' + 10);
-                else if ('a' <= expr[i] && expr[i] <= 'f')
-                    n = 16 * n + (expr[i] - 'a' + 10);
+            if (!isxdigit(*++expr)) {
+                FAIL_MSG(line, "expected hexadecimal number");
+                return 1;
+            }
+            while (*expr != '\0') {
+                if (isdigit(*expr))
+                    n = 16 * n + (*expr - '0');
+                else if ('A' <= *expr && *expr <= 'F')
+                    n = 16 * n + (*expr - 'A' + 10);
+                else if ('a' <= *expr && *expr <= 'f')
+                    n = 16 * n + (*expr - 'a' + 10);
                 else
                     break;
-                i++;
+                expr++;
             }
             numstack[numpos++] = n;
             expecting_num = false;
-        } else if (expr[i] == '$') {
+        } else if (*expr == '$') {
             /* Parse binary number */
             int n = 0;
 
-            if (expr[++i] != '0' && expr[i] != '1')
-                FAIL(1, line, "expected binary number");
-            while (expr[i] != '\0') {
-                if (expr[i] == '0')
+            if (*++expr != '0' && *expr != '1') {
+                FAIL_MSG(line, "expected binary number");
+                return 1;
+            }
+            while (*expr != '\0') {
+                if (*expr == '0')
                     n = 2 * n;
-                else if (expr[i] == '1')
+                else if (*expr == '1')
                     n = 2 * n + 1;
                 else
                     break;
-                i++;
+                expr++;
             }
             numstack[numpos++] = n;
             expecting_num = false;
-        } else if (isdigit(expr[i])) {
+        } else if (isdigit(*expr)) {
             /* Parse decimal number */
             int n = 0;
 
-            while (expr[i] != '\0' && isdigit(expr[i])) {
-                n = 10 * n + (expr[i] - '0');
-                i++;
+            while (*expr != '\0' && isdigit(*expr)) {
+                n = 10 * n + (*expr - '0');
+                expr++;
             }
             numstack[numpos++] = n;
             expecting_num = false;
-        } else if (isidentstart(expr[i])) {
+        } else if (isidentstart(*expr)) {
             /* Parse identifier */
-            char ident[MAXOP];
-            int identpos = 0;
+            char *ident = parse_ident(&expr);
             uint16_t val;
 
-            while (isidentbody(expr[i]))
-                ident[identpos++] = expr[i++];
-            ident[identpos] = '\0';
-            if (!ltable_get(&chipasm->labels, ident, &val))
-                FAIL(1, line, "unknown identifier '%s'", ident);
+            if (!ltable_get(&chipasm->labels, ident, &val)) {
+                FAIL_MSG(line, "unknown identifier '%s'", ident);
+                return 1;
+            }
+            free(ident);
             numstack[numpos++] = val;
             expecting_num = false;
-        } else if (expr[i] == '(') {
-            opstack[oppos++] = expr[i++];
+        } else if (*expr == '(') {
+            opstack[oppos++] = *expr++;
             expecting_num = true;
-        } else if (expr[i] == ')') {
+        } else if (*expr == ')') {
             while (oppos > 0 && opstack[oppos - 1] != '(')
-                if ((err = operator_apply(opstack[--oppos], numstack, &numpos,
-                                          line)))
-                    FAIL(1, line, "could not evaluate expression");
+                if (operator_apply(opstack[--oppos], numstack, &numpos, line)) {
+                    FAIL_MSG(line, "could not evaluate expression");
+                    return 1;
+                }
             /* Get rid of the '(' pseudo-operator on the stack */
-            if (oppos == 0)
-                FAIL(1, line, "found ')' with no matching '('");
+            if (oppos == 0) {
+                FAIL_MSG(line, "found ')' with no matching '('");
+                return 1;
+            }
             oppos--;
             expecting_num = false;
-            i++;
-        } else if (expr[i] == '~') {
+            expr++;
+        } else if (*expr == '~') {
             /*
              * We need to treat any unary operators a little differently, since
              * they should be right-associative instead of left-associative like
@@ -545,49 +582,65 @@ int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
              * 'expecting_num == true', since otherwise an expression like '1 ~'
              * would be parsed the same as '~ 1'.
              */
-            int p = precedence(expr[i]);
-            if (!expecting_num)
-                FAIL(1, line, "did not expect unary operator '~'");
+            int p = precedence(*expr);
+            if (!expecting_num) {
+                FAIL_MSG(line, "did not expect unary operator '~'");
+                return 1;
+            }
             /*
              * Note the 'precedence(...) > p instead of >=; this is what makes
              * the operator right-associative.
              */
             while (oppos > 0 && precedence(opstack[oppos - 1]) > p)
-                if ((err = operator_apply(opstack[--oppos], numstack, &numpos,
-                                          line)))
-                    FAIL(1, line, "could not evaluate expression");
-            opstack[oppos++] = expr[i++];
+                if (operator_apply(opstack[--oppos], numstack, &numpos, line)) {
+                    FAIL_MSG(line, "could not evaluate expression");
+                    return 1;
+                }
+            opstack[oppos++] = *expr++;
         } else {
             /* Must be a binary operator */
-            int p = precedence(expr[i]);
+            int p = precedence(*expr);
 
-            if (p < 0)
-                FAIL(1, line, "unknown operator '%c'", expr[i]);
+            if (p < 0) {
+                FAIL_MSG(line, "unknown operator '%c'", *expr);
+                return 1;
+            }
             while (oppos > 0 && precedence(opstack[oppos - 1]) >= p)
-                if ((err = operator_apply(opstack[--oppos], numstack, &numpos,
-                                          line)))
-                    FAIL(1, line, "could not evaluate expression");
-            opstack[oppos++] = expr[i++];
+                if (operator_apply(opstack[--oppos], numstack, &numpos, line)) {
+                    FAIL_MSG(line, "could not evaluate expression");
+                    return 1;
+                }
+            opstack[oppos++] = *expr++;
             expecting_num = true;
         }
 
-        if (oppos == STACK_SIZE)
-            FAIL(1, line, "operator stack overflowed (too many operators)");
-        if (numpos == STACK_SIZE)
-            FAIL(1, line,
-                 "number stack overflowed (too many numbers/identifiers)");
+        if (oppos == STACK_SIZE) {
+            FAIL_MSG(line, "operator stack overflowed (too many operators)");
+            return 1;
+        }
+        if (numpos == STACK_SIZE) {
+            FAIL_MSG(line,
+                     "number stack overflowed (too many numbers/identifiers)");
+            return 1;
+        }
     }
 
     /* Now that we're done here, we need to use the remaining operators */
     while (oppos > 0) {
-        if (opstack[--oppos] == '(')
-            FAIL(1, line, "found '(' with no matching ')'");
-        if ((err = operator_apply(opstack[oppos], numstack, &numpos, line)))
-            FAIL(1, line, "could not evaluate expression");
+        if (opstack[--oppos] == '(') {
+            FAIL_MSG(line, "found '(' with no matching ')'");
+            return 1;
+        }
+        if (operator_apply(opstack[oppos], numstack, &numpos, line)) {
+            FAIL_MSG(line, "could not evaluate expression");
+            return 1;
+        }
     }
 
-    if (numpos != 1)
-        FAIL(1, line, "expected operation");
+    if (numpos != 1) {
+        FAIL_MSG(line, "expected operation");
+        return 1;
+    }
     if (value)
         *value = numstack[0];
     return 0;
@@ -595,158 +648,89 @@ int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
 
 int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
 {
-    /* The current position in the line */
-    int linepos = 0;
-    /* The current position in the operand being processed */
-    int bufpos = 0;
-    char buf[MAXOP + 1];
+    char *tmp;
+    /* The name of the operation */
+    char *op;
     /* The operands to the instruction */
-    char operands[MAX_OPERANDS][MAXOP + 1];
+    char *operands[MAX_OPERANDS];
     /* The current operand being processed */
     int n_op;
-    /* The cursor position in the current operand */
-    int oppos;
     /* Whether we should process a constant assignment */
     bool is_assignment = false;
 
     chipasm->line++;
 
-    /* Skip leading whitespace */
-    while (isspace(line[linepos]))
-        linepos++;
+    skip_spaces(&line);
     /* Process any labels that might be present */
-    while (line[linepos]) {
-        if (line[linepos] == ';') {
-            /* Comment */
-            break;
-        } else if (line[linepos] == ':') {
-            /* Found a label */
-            buf[bufpos] = '\0';
-            /* Reset bufpos to set up processing of next label */
-            bufpos = 0;
-            /* Don't process the label if we're skipping stuff */
-            if (!chip8asm_should_process(chipasm))
-                continue;
-
-            if (buf[0] == '\0')
-                FAIL(1, chipasm->line, "found empty label");
-            if (chipasm->line_label)
-                FAIL(1, chipasm->line,
-                     "cannot associate more than one label "
-                     "with a statement; already found label "
-                     "'%s'",
+    while ((tmp = parse_label(&line))) {
+        if (chipasm->line_label) {
+            FAIL_MSG(chipasm->line,
+                     "cannot associate more than one label with a statement; "
+                     "already found label '%s'",
                      chipasm->line_label);
-            chipasm->line_label = strdup(buf);
-            /* Now skip whitespace before going on to find the next label */
-            while (isspace(line[++linepos]))
-                ;
-        } else if (isspace(line[linepos])) {
-            /* This isn't a label */
-            break;
+            free(tmp);
+            return 1;
         } else {
-            if (bufpos >= MAXOP)
-                FAIL(1, chipasm->line,
-                     "label, operation, or operand is too long");
-            buf[bufpos++] = line[linepos++];
+            chipasm->line_label = tmp;
         }
     }
-    buf[bufpos] = '\0';
 
-    /* Skip whitespace */
-    while (isspace(line[linepos]))
-        linepos++;
-    /*
-     * At this point, whatever is in 'buf' is the name of an operation, or of a
-     * variable to be assigned using '='; if 'buf' is empty, that means there's
-     * nothing left on the line to inspect
-     */
-    if (bufpos == 0)
-        return 0;
-    /*
-     * If we ended with a comment character or a NUL byte, then we have no
-     * operands.
-     */
-    if (line[linepos] == ';' || line[linepos] == '\0')
-        return chip8asm_process_instruction(chipasm, buf, operands, 0);
+    skip_spaces(&line);
+    /* Get the operation */
+    if (!(op = parse_operation(&line)))
+        return 0; /* No operation; nothing to do */
 
+    skip_spaces(&line);
     /* If we come across an '=', that means we have a variable assignment */
-    if (line[linepos] == '=') {
-        linepos++;
+    if (*line == '=') {
         is_assignment = true;
-        /* Skip whitespace */
-        while (isspace(line[linepos]))
-            linepos++;
+        line++;
+        skip_spaces(&line);
     }
 
-    /*
-     * It's not a variable assignment, so it must be something else. That means
-     * we have to parse the operands.
-     */
+    /* Get the operands */
     n_op = 0;
-    oppos = 0;
-    while (line[linepos]) {
-        /*
-         * Just shove characters into the operand until we hit a comma or the
-         * beginning of a comment
-         */
-        if (line[linepos] == ';') {
-            if (oppos == 0)
-                FAIL(1, chipasm->line, "found empty operand");
-            break;
-        } else if (line[linepos] == ',') {
-            if (oppos == 0)
-                FAIL(1, chipasm->line, "found empty operand");
-            /*
-             * Trim whitespace off the end by moving back to the last
-             * non-whitespace character
-             */
-            while (oppos > 0 && isspace(operands[n_op][--oppos]))
-                ;
-            /*
-             * Now we need to move one space forward again, because the
-             * character we just landed on is not whitespace (so it's part of
-             * our operand); we don't want to overwrite it with the null byte
-             */
-            operands[n_op++][oppos + 1] = '\0';
-            if (n_op >= MAX_OPERANDS)
-                FAIL(1, chipasm->line, "too many operands");
-            /* Advance input until next non-whitespace character */
-            while (isspace(line[++linepos]))
-                ;
-            if (line[linepos] == '\0')
-                FAIL(1, chipasm->line, "expected operand after ','");
-            oppos = 0;
+    while ((tmp = parse_operand(&line))) {
+        if (n_op >= MAX_OPERANDS) {
+            FAIL_MSG(chipasm->line, "too many operands");
+            free(tmp);
+            return 1;
         } else {
-            if (oppos >= MAXOP)
-                FAIL(1, chipasm->line, "operand is too long");
-            operands[n_op][oppos++] = line[linepos++];
+            operands[n_op++] = tmp;
+            skip_spaces(&line);
         }
     }
-
-    /* Trim whitespace off the end of the last operand */
-    while (oppos > 0 && isspace(operands[n_op][--oppos]))
-        ;
-    operands[n_op][oppos + 1] = '\0';
 
     if (is_assignment) {
         uint16_t value;
-        int err;
+        int retval = 0;
 
         /* Don't process this assignment if we're skipping things */
-        if (!chip8asm_should_process(chipasm))
-            return 0;
-
-        if (n_op != 0)
-            FAIL(1, chipasm->line, "too many operands given to '='");
-        if ((err = chip8asm_eval(chipasm, operands[0], chipasm->line, &value)))
-            FAIL(err, chipasm->line, "failed to evaluate expression");
-        /* Now, 'buf' stores the name of the variable with value 'value' */
-        if (ltable_add(&chipasm->labels, buf, value))
-            FAIL(1, chipasm->line, "duplicate label or variable '%s' found",
-                 buf);
-        return 0;
+        if (chip8asm_should_process(chipasm)) {
+            if (n_op != 1) {
+                FAIL_MSG(chipasm->line,
+                         "wrong number of operands given to '='");
+                retval = 1;
+            } else if (chip8asm_eval(chipasm, operands[0], chipasm->line,
+                                     &value)) {
+                FAIL_MSG(chipasm->line, "failed to evaluate expression");
+                retval = 1;
+            } else {
+                /*
+                 * Now, 'op' stores the name of the variable with value 'value'
+                 */
+                if (ltable_add(&chipasm->labels, op, value)) {
+                    FAIL_MSG(chipasm->line,
+                             "duplicate label or variable '%s' found", op);
+                    free(op);
+                }
+            }
+        }
+        for (int i = 0; i < n_op; i++)
+            free(operands[i]);
+        return retval;
     } else {
-        return chip8asm_process_instruction(chipasm, buf, operands, n_op + 1);
+        return chip8asm_process_instruction(chipasm, op, operands, n_op);
     }
 }
 
@@ -778,14 +762,18 @@ static int chip8asm_add_instruction(struct chip8asm *chipasm,
 {
     /* Add label to ltable, if any */
     if (chipasm->line_label) {
-        if (ltable_add(&chipasm->labels, chipasm->line_label, instr.pc))
-            FAIL(1, chipasm->line, "duplicate label or variable '%s' found",
-                 chipasm->line_label);
+        if (ltable_add(&chipasm->labels, chipasm->line_label, instr.pc)) {
+            FAIL_MSG(chipasm->line, "duplicate label or variable '%s' found",
+                     chipasm->line_label);
+            return 1;
+        }
         free(chipasm->line_label);
         chipasm->line_label = NULL;
     }
-    if (instructions_add(&chipasm->instructions, instr))
-        FAIL(1, chipasm->line, "Could not store instruction (out of memory)");
+    if (instructions_add(&chipasm->instructions, instr)) {
+        FAIL_MSG(chipasm->line, "Could not store instruction (out of memory)");
+        return 1;
+    }
 
     return 0;
 }
@@ -799,7 +787,6 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     uint16_t value;
     /* Temporary variable for storing register numbers */
     int regno;
-    int err;
 
     ci.op = instr->chipop;
     /* Initialize fields so 'scan-build' doesn't complain */
@@ -810,13 +797,15 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
      * to an opcode is outsourced to another function in 'instruction.h'.
      *
      * This switch statement is much simpler because we made the (smart)
-     * decision not to include pseudo-operands in the instruction operands array
-     * ('instr->operands'), so in 'LD K, Vx', 'Vx' is the first operand in the
-     * array, reducing the number of distinct cases to check below.
+     * decision not to include pseudo-operands in the instruction operands
+     * array
+     * ('instr->operands'), so in 'LD K, Vx', 'Vx' is the first operand in
+     * the array, reducing the number of distinct cases to check below.
      */
     switch (instr->chipop) {
     case OP_INVALID:
-        FAIL(1, instr->line, "invalid operation (this should never happen)");
+        FAIL_MSG(instr->line, "invalid operation (this should never happen)");
+        return 1;
     /* No operands */
     case OP_CLS:
     case OP_RET:
@@ -828,9 +817,10 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
         break;
     /* Nibble as first operand */
     case OP_SCD:
-        if ((err = chip8asm_eval(chipasm, instr->operands[0], instr->line,
-                                 &value)))
-            return err;
+        if (chip8asm_eval(chipasm, instr->operands[0], instr->line, &value)) {
+            FAIL_MSG("could not evaluate operand '%s'", instr->operands[0]);
+            return 1;
+        }
         ci.nibble = value;
         break;
     /* Address as first operand */
@@ -838,9 +828,10 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     case OP_CALL:
     case OP_LD_I:
     case OP_JP_V0:
-        if ((err = chip8asm_eval(chipasm, instr->operands[0], instr->line,
-                                 &value)))
-            return err;
+        if (chip8asm_eval(chipasm, instr->operands[0], instr->line, &value)) {
+            FAIL_MSG("could not evaluate operand '%s'", instr->operands[0]);
+            return 1;
+        }
         ci.addr = value;
         break;
     /* Register first, then byte */
@@ -849,12 +840,15 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     case OP_LD_BYTE:
     case OP_ADD_BYTE:
     case OP_RND:
-        if ((regno = register_num(instr->operands[0])) == -1)
-            FAIL(1, instr->line, "'%s' is not the name of a register",
-                 instr->operands[0]);
-        if ((err = chip8asm_eval(chipasm, instr->operands[1], instr->line,
-                                 &value)))
-            return err;
+        if ((regno = register_num(instr->operands[0])) == -1) {
+            FAIL_MSG(instr->line, "'%s' is not the name of a register",
+                     instr->operands[0]);
+        }
+        if (chip8asm_eval(chipasm, instr->operands[1], instr->line, &value)) {
+            FAIL_MSG(instr->line, "could not evaluate operand '%s'",
+                     instr->operands[1]);
+            return 1;
+        }
         ci.vx = regno;
         ci.byte = value;
         break;
@@ -868,13 +862,17 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     case OP_SUB:
     case OP_SUBN:
     case OP_SNE_REG:
-        if ((regno = register_num(instr->operands[0])) == -1)
-            FAIL(1, instr->line, "'%s' is not the name of a register",
-                 instr->operands[0]);
+        if ((regno = register_num(instr->operands[0])) == -1) {
+            FAIL_MSG(instr->line, "'%s' is not the name of a register",
+                     instr->operands[0]);
+            return 1;
+        }
         ci.vx = regno;
-        if ((regno = register_num(instr->operands[1])) == -1)
-            FAIL(1, instr->line, "'%s' is not the name of a register",
-                 instr->operands[1]);
+        if ((regno = register_num(instr->operands[1])) == -1) {
+            FAIL_MSG(instr->line, "'%s' is not the name of a register",
+                     instr->operands[1]);
+            return 1;
+        }
         ci.vy = regno;
         break;
     /* Single register operand */
@@ -892,37 +890,48 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     case OP_LD_REG_DEREF_I:
     case OP_LD_R_REG:
     case OP_LD_REG_R:
-        if ((regno = register_num(instr->operands[0])) == -1)
-            FAIL(1, instr->line, "'%s' is not the name of a register",
-                 instr->operands[0]);
+        if ((regno = register_num(instr->operands[0])) == -1) {
+            FAIL_MSG(instr->line, "'%s' is not the name of a register",
+                     instr->operands[0]);
+            return 1;
+        }
         ci.vx = regno;
         break;
     /* Two registers then a nibble */
     case OP_DRW:
-        if ((regno = register_num(instr->operands[0])) == -1)
-            FAIL(1, instr->line, "'%s' is not the name of a register",
-                 instr->operands[0]);
+        if ((regno = register_num(instr->operands[0])) == -1) {
+            FAIL_MSG(instr->line, "'%s' is not the name of a register",
+                     instr->operands[0]);
+            return 1;
+        }
         ci.vx = regno;
-        if ((regno = register_num(instr->operands[1])) == -1)
-            FAIL(1, instr->line, "'%s' is not the name of a register",
-                 instr->operands[1]);
+        if ((regno = register_num(instr->operands[1])) == -1) {
+            FAIL_MSG(instr->line, "'%s' is not the name of a register",
+                     instr->operands[1]);
+            return 1;
+        }
         ci.vy = regno;
-        if ((err = chip8asm_eval(chipasm, instr->operands[2], instr->line,
-                                 &value)))
-            return err;
+        if (chip8asm_eval(chipasm, instr->operands[2], instr->line, &value)) {
+            FAIL_MSG("could not evaluate operand '%s'", instr->operands[0]);
+            return 1;
+        }
         ci.nibble = value;
         break;
     /* Quirky instructions */
     case OP_SHR:
     case OP_SHL:
-        if ((regno = register_num(instr->operands[0])) == -1)
-            FAIL(1, instr->line, "'%s' is not the name of a register",
-                 instr->operands[0]);
+        if ((regno = register_num(instr->operands[0])) == -1) {
+            FAIL_MSG(instr->line, "'%s' is not the name of a register",
+                     instr->operands[0]);
+            return 1;
+        }
         ci.vx = regno;
         if (chipasm->opts.shift_quirks) {
-            if ((regno = register_num(instr->operands[0])) == -1)
-                FAIL(1, instr->line, "'%s' is not the name of a register",
-                     instr->operands[0]);
+            if ((regno = register_num(instr->operands[0])) == -1) {
+                FAIL_MSG(instr->line, "'%s' is not the name of a register",
+                         instr->operands[0]);
+                return 1;
+            }
             ci.vy = regno;
         }
         break;
@@ -935,9 +944,8 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     return 0;
 }
 
-static int chip8asm_process_instruction(struct chip8asm *chipasm,
-                                        const char *op,
-                                        char (*operands)[MAXOP + 1],
+static int chip8asm_process_instruction(struct chip8asm *chipasm, char *op,
+                                        char *operands[MAX_OPERANDS],
                                         int n_operands)
 {
 /* This is probably bordering on preprocessor abuse... */
@@ -949,44 +957,56 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         instr.n_operands = (nops);                                             \
         instr.chipop = (it);                                                   \
         for (int i = 0; i < (nops); i++)                                       \
-            instr.operands[i] = strdup(operands[i]);                           \
+            instr.operands[i] = operands[i];                                   \
+        operands_used = (nops);                                                \
     }
 
 #define EXPECT_OPERANDS(line, op, want, got)                                   \
     do {                                                                       \
         if ((want) > (got)) {                                                  \
-            FAIL(1, (line), "too few operands to %s", (op));                   \
+            FAIL_MSG((line), "too few operands to %s", (op));                  \
+            retval = 1;                                                        \
+            goto OUT_FREE_STRINGS;                                             \
         } else if ((got) > (want)) {                                           \
-            FAIL(1, (line), "too many operands to %s", (op));                  \
+            FAIL_MSG((line), "too many operands to %s", (op));                 \
+            retval = 1;                                                        \
+            goto OUT_FREE_STRINGS;                                             \
         }                                                                      \
     } while (0)
     /* End preprocessor abuse */
 
     struct instruction instr;
+    /*
+     * The number of operands which were used in an instruction, and thus
+     * should not be freed.
+     */
+    int operands_used = 0;
+    int retval = 0;
+
     instr.line = chipasm->line;
 
     /*
      * We need to try processing IF, ELSE, and ENDIF first, since they will
-     * determine if we should try to process anything else to come. You should
-     * see the documentation for the if_level field of struct chip8asm for a
-     * high-level explanation of what's going on here; relevant details will be
-     * reiterated in the comments below.
+     * determine if we should try to process anything else to come. You
+     * should see the documentation for the if_level field of struct
+     * chip8asm for a high-level explanation of what's going on here;
+     * relevant details will be reiterated in the comments below.
      */
     if (!strcasecmp(op, "IFDEF")) {
         EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
         /*
-         * It is important to keep track of the IF nesting level even if we're
-         * currently not processing instructions, because we need to know which
-         * nesting level any ELSE or ENDIF directives apply to. However, we
-         * should only process the IF directive (by setting if_skip_else) if
-         * we're currently processing instructions.
+         * It is important to keep track of the IF nesting level even if
+         * we're currently not processing instructions, because we need to
+         * know which nesting level any ELSE or ENDIF directives apply to.
+         * However, we should only process the IF directive (by setting
+         * if_skip_else) if we're currently processing instructions.
          */
         chipasm->if_level++;
         if (chip8asm_should_process(chipasm) &&
             !ltable_get(&chipasm->labels, operands[0], NULL)) {
             chipasm->if_skip_else = chipasm->if_level;
         }
-        return 0;
+        goto OUT_FREE_STRINGS;
     } else if (!strcasecmp(op, "IFNDEF")) {
         EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
         chipasm->if_level++;
@@ -994,75 +1014,85 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
             ltable_get(&chipasm->labels, operands[0], NULL)) {
             chipasm->if_skip_else = chipasm->if_level;
         }
+        goto OUT_FREE_STRINGS;
     } else if (!strcasecmp(op, "ELSE")) {
         EXPECT_OPERANDS(chipasm->line, op, 0, n_operands);
-        if (chipasm->if_level == 0)
-            FAIL(1, chipasm->line, "unexpected ELSE");
+        if (chipasm->if_level == 0) {
+            FAIL_MSG(chipasm->line, "unexpected ELSE");
+            retval = 1;
+            goto OUT_FREE_STRINGS;
+        }
         /*
-         * Here, we need to check if we've reached the ELSE corresponding to an
-         * IF whose test returned false (so we've skipped the IF block and now
-         * need to process the ELSE block). If the ELSE doesn't correspond to
-         * such an IF, we need to make sure we're currently processing
-         * instructions before assuming that we should set if_skip_endif; if
-         * this check is not made, then a nested ELSE within a skipped block
-         * will not behave correctly.
+         * Here, we need to check if we've reached the ELSE corresponding to
+         * an IF whose test returned false (so we've skipped the IF block
+         * and now need to process the ELSE block). If the ELSE doesn't
+         * correspond to such an IF, we need to make sure we're currently
+         * processing instructions before assuming that we should set
+         * if_skip_endif; if this check is not made, then a nested ELSE
+         * within a skipped block will not behave correctly.
          */
         if (chipasm->if_level == chipasm->if_skip_else)
             chipasm->if_skip_else = 0;
         else if (chip8asm_should_process(chipasm))
             chipasm->if_skip_endif = chipasm->if_level;
-        return 0;
+        goto OUT_FREE_STRINGS;
     } else if (!strcasecmp(op, "ENDIF")) {
         EXPECT_OPERANDS(chipasm->line, op, 0, n_operands);
-        if (chipasm->if_level == 0)
-            FAIL(1, chipasm->line, "unexpected ENDIF");
+        if (chipasm->if_level == 0) {
+            FAIL_MSG(chipasm->line, "unexpected ENDIF");
+            retval = 1;
+            goto OUT_FREE_STRINGS;
+        }
         /*
-         * Note that we also check if_skip_else here, since an IF block without
-         * an ELSE is ended by an ENDIF, and there is no way to tell in advance
-         * whether a particular IF block will have an ELSE without processing
-         * it.
+         * Note that we also check if_skip_else here, since an IF block
+         * without an ELSE is ended by an ENDIF, and there is no way to tell
+         * in advance whether a particular IF block will have an ELSE
+         * without processing it.
          */
         if (chipasm->if_level == chipasm->if_skip_else)
             chipasm->if_skip_else = 0;
         if (chipasm->if_level == chipasm->if_skip_endif)
             chipasm->if_skip_endif = 0;
         chipasm->if_level--;
-        return 0;
+        goto OUT_FREE_STRINGS;
     }
 
     /* Now we can determine whether we should skip the rest of this */
     if (!chip8asm_should_process(chipasm))
-        return 0;
+        goto OUT_FREE_STRINGS;
 
     /* Handle special assembler instructions */
     if (!strcasecmp(op, "DEFINE")) {
         EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
         ltable_add(&chipasm->labels, operands[0], 0);
-        return 0;
+        operands_used = 1;
+        goto OUT_FREE_STRINGS;
     } else if (!strcasecmp(op, "DB")) {
         EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
         instr.type = IT_DB;
         instr.n_operands = 1;
-        instr.operands[0] = strdup(operands[0]);
+        instr.operands[0] = operands[0];
+        operands_used = 1;
         /* We don't have to worry about aligning pc here */
         instr.pc = chipasm->pc;
         chip8asm_add_instruction(chipasm, instr);
         chipasm->pc++;
-        return 0;
+        goto OUT_FREE_STRINGS;
     } else if (!strcasecmp(op, "DW")) {
         EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
         instr.type = IT_DW;
         instr.n_operands = 1;
-        instr.operands[0] = strdup(operands[0]);
+        instr.operands[0] = operands[0];
+        operands_used = 1;
         /* We don't have to worry about aligning pc here */
         instr.pc = chipasm->pc;
         chip8asm_add_instruction(chipasm, instr);
         chipasm->pc += 2;
-        return 0;
+        goto OUT_FREE_STRINGS;
     } else if (!strcasecmp(op, "OPTION")) {
         EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
         WARN(chipasm->line, "ignoring unrecognized option '%s'", operands[0]);
-        return 0;
+        goto OUT_FREE_STRINGS;
     }
 
     /*
@@ -1073,8 +1103,8 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     instr.pc = chipasm->pc;
 
     /*
-     * We need the if (0) here because the CHIPOP macro expands to have an else
-     * at the beginning
+     * We need the if (0) here because the CHIPOP macro expands to have an
+     * else at the beginning
      */
     if (0) {
     }
@@ -1093,10 +1123,13 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         /* Figure out which 'JP' we're using */
         if (n_operands == 1) {
             instr.chipop = OP_JP;
-            instr.operands[0] = strdup(operands[0]);
+            instr.operands[0] = operands[0];
+            operands_used = 1;
         } else if (n_operands == 2 && !strcasecmp(operands[0], "V0")) {
             instr.chipop = OP_JP_V0;
-            instr.operands[0] = strdup(operands[1]);
+            free(operands[0]);
+            instr.operands[0] = operands[1];
+            operands_used = 2;
         }
     }
     CHIPOP("CALL", OP_CALL, 1)
@@ -1105,8 +1138,9 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
         instr.type = IT_CHIP8_OP;
         instr.n_operands = 2;
-        instr.operands[0] = strdup(operands[0]);
-        instr.operands[1] = strdup(operands[1]);
+        instr.operands[0] = operands[0];
+        instr.operands[1] = operands[1];
+        operands_used = 2;
         /* Figure out which 'SE' we're using */
         if (register_num(operands[1]) != -1)
             instr.chipop = OP_SE_REG;
@@ -1118,8 +1152,9 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
         instr.type = IT_CHIP8_OP;
         instr.n_operands = 2;
-        instr.operands[0] = strdup(operands[0]);
-        instr.operands[1] = strdup(operands[1]);
+        instr.operands[0] = operands[0];
+        instr.operands[1] = operands[1];
+        operands_used = 2;
         /* Figure out which 'SNE' we're using */
         if (register_num(operands[1]) != -1)
             instr.chipop = OP_SNE_REG;
@@ -1130,72 +1165,85 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     {
         EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
         instr.type = IT_CHIP8_OP;
+        operands_used = 2;
         /*
          * Figure out which 'LD' we're using.
-         * This is very ugly, owing to the large number of overloads for this
-         * operation name. First, we check for special values of the first
-         * operand; then, special values of the second operand, including a
-         * register name. If none of those cases match, it's an ordinary "load
-         * byte" instruction.
+         * This is very ugly, owing to the large number of overloads for
+         * this operation name. First, we check for special values of the
+         * first operand; then, special values of the second operand,
+         * including a register name. If none of those cases match, it's an
+         * ordinary "load byte" instruction.
          */
         if (!strcasecmp(operands[0], "I")) {
             instr.chipop = OP_LD_I;
             instr.n_operands = 1;
-            instr.operands[0] = strdup(operands[1]);
+            free(operands[0]);
+            instr.operands[0] = operands[1];
         } else if (!strcasecmp(operands[0], "DT")) {
             instr.chipop = OP_LD_DT_REG;
             instr.n_operands = 1;
-            instr.operands[0] = strdup(operands[1]);
+            free(operands[0]);
+            instr.operands[0] = operands[1];
         } else if (!strcasecmp(operands[0], "ST")) {
             instr.chipop = OP_LD_ST;
             instr.n_operands = 1;
-            instr.operands[0] = strdup(operands[1]);
+            free(operands[0]);
+            instr.operands[0] = operands[1];
         } else if (!strcasecmp(operands[0], "F")) {
             instr.chipop = OP_LD_F;
             instr.n_operands = 1;
-            instr.operands[0] = strdup(operands[1]);
+            free(operands[0]);
+            instr.operands[0] = operands[1];
         } else if (!strcasecmp(operands[0], "HF")) {
             instr.chipop = OP_LD_HF;
             instr.n_operands = 1;
-            instr.operands[0] = strdup(operands[1]);
+            free(operands[0]);
+            instr.operands[0] = operands[1];
         } else if (!strcasecmp(operands[0], "B")) {
             instr.chipop = OP_LD_B;
             instr.n_operands = 1;
-            instr.operands[0] = strdup(operands[1]);
+            free(operands[0]);
+            instr.operands[0] = operands[1];
         } else if (!strcasecmp(operands[0], "[I]")) {
             instr.chipop = OP_LD_DEREF_I_REG;
             instr.n_operands = 1;
-            instr.operands[0] = strdup(operands[1]);
+            free(operands[0]);
+            instr.operands[0] = operands[1];
         } else if (!strcasecmp(operands[0], "R")) {
             instr.chipop = OP_LD_R_REG;
             instr.n_operands = 1;
-            instr.operands[0] = strdup(operands[1]);
+            free(operands[0]);
+            instr.operands[0] = operands[1];
         } else if (register_num(operands[1]) != -1) {
             instr.chipop = OP_LD_REG;
             instr.n_operands = 2;
-            instr.operands[0] = strdup(operands[0]);
-            instr.operands[1] = strdup(operands[1]);
+            instr.operands[0] = operands[0];
+            instr.operands[1] = operands[1];
         } else if (!strcasecmp(operands[1], "DT")) {
             instr.chipop = OP_LD_REG_DT;
             instr.n_operands = 1;
-            instr.operands[0] = strdup(operands[0]);
+            instr.operands[0] = operands[0];
+            operands_used = 1;
         } else if (!strcasecmp(operands[1], "K")) {
             instr.chipop = OP_LD_KEY;
             instr.n_operands = 1;
-            instr.operands[0] = strdup(operands[0]);
+            instr.operands[0] = operands[0];
+            operands_used = 1;
         } else if (!strcasecmp(operands[1], "[I]")) {
             instr.chipop = OP_LD_REG_DEREF_I;
             instr.n_operands = 1;
-            instr.operands[0] = strdup(operands[0]);
+            instr.operands[0] = operands[0];
+            operands_used = 1;
         } else if (!strcasecmp(operands[1], "R")) {
             instr.chipop = OP_LD_REG_R;
             instr.n_operands = 1;
-            instr.operands[0] = strdup(operands[0]);
+            instr.operands[0] = operands[0];
+            operands_used = 1;
         } else {
             instr.chipop = OP_LD_BYTE;
             instr.n_operands = 2;
-            instr.operands[0] = strdup(operands[0]);
-            instr.operands[1] = strdup(operands[1]);
+            instr.operands[0] = operands[0];
+            instr.operands[1] = operands[1];
         }
     }
     else if (!strcasecmp(op, "ADD"))
@@ -1203,20 +1251,22 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
         instr.type = IT_CHIP8_OP;
         /* Figure out which 'ADD' we're using */
+        operands_used = 2;
         if (!strcasecmp(operands[0], "I")) {
             instr.chipop = OP_ADD_I;
             instr.n_operands = 1;
-            instr.operands[0] = strdup(operands[1]);
+            free(operands[0]);
+            instr.operands[0] = operands[1];
         } else if (register_num(operands[1]) != -1) {
             instr.chipop = OP_ADD_REG;
             instr.n_operands = 2;
-            instr.operands[0] = strdup(operands[0]);
-            instr.operands[1] = strdup(operands[1]);
+            instr.operands[0] = operands[0];
+            instr.operands[1] = operands[1];
         } else {
             instr.chipop = OP_ADD_BYTE;
             instr.n_operands = 2;
-            instr.operands[0] = strdup(operands[0]);
-            instr.operands[1] = strdup(operands[1]);
+            instr.operands[0] = operands[0];
+            instr.operands[1] = operands[1];
         }
     }
     CHIPOP("OR", OP_OR, 2)
@@ -1228,15 +1278,17 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         if (chipasm->opts.shift_quirks) {
             EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
             instr.n_operands = 2;
+            operands_used = 2;
         } else {
             EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
             instr.n_operands = 1;
+            operands_used = 2;
         }
         instr.type = IT_CHIP8_OP;
         instr.chipop = OP_SHR;
-        instr.operands[0] = strdup(operands[0]);
+        instr.operands[0] = operands[0];
         if (chipasm->opts.shift_quirks)
-            instr.operands[1] = strdup(operands[1]);
+            instr.operands[1] = operands[1];
     }
     CHIPOP("SUBN", OP_SUBN, 2)
     else if (!strcasecmp(op, "SHL"))
@@ -1244,15 +1296,17 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
         if (chipasm->opts.shift_quirks) {
             EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
             instr.n_operands = 2;
+            operands_used = 2;
         } else {
             EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
             instr.n_operands = 1;
+            operands_used = 1;
         }
         instr.type = IT_CHIP8_OP;
         instr.chipop = OP_SHL;
-        instr.operands[0] = strdup(operands[0]);
+        instr.operands[0] = operands[0];
         if (chipasm->opts.shift_quirks)
-            instr.operands[1] = strdup(operands[1]);
+            instr.operands[1] = operands[1];
     }
     CHIPOP("RND", OP_RND, 2)
     CHIPOP("DRW", OP_DRW, 3)
@@ -1260,13 +1314,19 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm,
     CHIPOP("SKNP", OP_SKNP, 1)
     else
     {
-        FAIL(1, chipasm->line, "invalid instruction (operation '%s')", op);
+        FAIL_MSG(chipasm->line, "invalid instruction (operation '%s')", op);
+        retval = 1;
+        goto OUT_FREE_STRINGS;
     }
 
     /* Every Chip-8 instruction is exactly 2 bytes long */
     chipasm->pc += 2;
     chip8asm_add_instruction(chipasm, instr);
-    return 0;
+OUT_FREE_STRINGS:
+    free(op);
+    for (int i = operands_used; i < n_operands; i++)
+        free(operands[i]);
+    return retval;
 
 /* Nobody has to know about this */
 #undef CHIPOP
@@ -1403,11 +1463,15 @@ static bool ltable_get(const struct ltable *tab, const char *key,
 static int operator_apply(char op, uint16_t *numstack, int *numpos, int line)
 {
     if (op == '~' || op == '_') {
-        if (*numpos == 0)
-            FAIL(1, line, "expected argument to operator");
+        if (*numpos == 0) {
+            FAIL_MSG(line, "expected argument to operator");
+            return 1;
+        }
     } else {
-        if (*numpos <= 1)
-            FAIL(1, line, "expected argument to operator");
+        if (*numpos <= 1) {
+            FAIL_MSG(line, "expected argument to operator");
+            return 1;
+        }
     }
 
     switch (op) {
@@ -1458,7 +1522,8 @@ static int operator_apply(char op, uint16_t *numstack, int *numpos, int line)
         numstack[*numpos - 1] = -numstack[*numpos - 1];
         break;
     default:
-        FAIL(1, line, "unknown operator '%c'", op);
+        FAIL_MSG(line, "unknown operator '%c'", op);
+        return 1;
     }
 
     return 0;
@@ -1505,4 +1570,117 @@ static int register_num(const char *name)
             return -1;
     }
     return -1;
+}
+
+static char *parse_label(const char **str)
+{
+    const char *tmp = *str;
+
+    if (!isidentstart(*tmp))
+        return NULL;
+    else
+        tmp++;
+    while (isidentbody(*tmp))
+        tmp++;
+    /* There should be a colon right after the label */
+    if (*tmp != ':') {
+        return NULL;
+    } else {
+        size_t len = tmp - *str;
+        char *ret = malloc(len + 1);
+
+        if (!ret) {
+            log_error("Out of memory");
+            return NULL;
+        }
+        memcpy(ret, *str, len);
+        ret[len] = '\0';
+        *str = ++tmp; /* Skip past colon */
+
+        return ret;
+    }
+}
+
+static char *parse_ident(const char **str)
+{
+    const char *tmp = *str;
+
+    if (!isidentstart(*tmp))
+        return NULL;
+    else
+        tmp++;
+    while (isidentbody(*tmp))
+        tmp++;
+    if (tmp == *str) {
+        return NULL;
+    } else {
+        size_t len = tmp - *str;
+        char *ret = malloc(len + 1);
+
+        if (!ret) {
+            log_error("Out of memory");
+            return NULL;
+        }
+        memcpy(ret, *str, len);
+        ret[len] = '\0';
+        *str = tmp;
+
+        return ret;
+    }
+}
+
+static char *parse_operand(const char **str)
+{
+    const char *tmp = *str;
+
+    while (*tmp != '\0' && *tmp != '\n' && *tmp != ';' && *tmp != ',')
+        tmp++;
+    if (tmp == *str) {
+        return NULL;
+    } else {
+        size_t len = tmp - *str;
+        char *ret = malloc(len + 1);
+
+        if (!ret) {
+            log_error("Out of memory");
+            return NULL;
+        }
+        memcpy(ret, *str, len);
+        ret[len] = '\0';
+        if (*tmp == ',')
+            tmp++;
+        *str = tmp;
+
+        return ret;
+    }
+}
+
+static char *parse_operation(const char **str)
+{
+    const char *tmp = *str;
+
+    while (*tmp != '\0' && !isspace(*tmp) && *tmp != ';')
+        tmp++;
+    if (tmp == *str) {
+        return NULL;
+    } else {
+        size_t len = tmp - *str;
+        char *ret = malloc(len + 1);
+
+        if (!ret) {
+            log_error("Out of memory");
+            return NULL;
+        }
+        memcpy(ret, *str, len);
+        ret[len] = '\0';
+        *str = tmp;
+
+        return ret;
+    }
+}
+
+static void skip_spaces(const char **str)
+{
+    while (isspace(**str))
+        (*str)++;
 }
