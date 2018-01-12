@@ -20,7 +20,7 @@
 
 TMPFILE1=$(mktemp)
 TMPFILE2=$(mktemp)
-PROGS="fonttest numtest spritetest"
+PROGS="fonttest spritetest"
 RETVAL=0
 
 cd "$TESTDIR"

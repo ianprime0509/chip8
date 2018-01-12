@@ -19,7 +19,7 @@
 # along with Chip-8.  If not, see <http://www.gnu.org/licenses/>.
 
 TMPFILE=$(mktemp)
-PROGS="fonttest numtest spritetest"
+PROGS="fonttest spritetest"
 RETVAL=0
 
 cd "$TESTDIR"
