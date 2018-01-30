@@ -1,13 +1,17 @@
 language: c
-sudo: enabled
 
-before_install:
-  - sudo apt-get -qq update
-  - sudo apt-get install -y meson libsdl2-dev texinfo
+addons:
+  apt:
+    packages:
+      - ninja-build
+      - python3-pip
+      - texinfo
+
+install:
+  - pip3 install meson
 
 script:
-  - mkdir build && cd build
-  - meson -Db_sanitize=address
-  - ninja
-  - ninja info/chip8.info
-  - ninja test
+  - meson -Db_sanitize=address build
+  - ninja -C build
+  - ninja -C build info/chip8.info
+  - ninja -C build test
