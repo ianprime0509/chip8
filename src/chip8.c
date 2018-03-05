@@ -116,8 +116,8 @@ static void audio_callback(void *userdata, uint8_t *stream, int len);
 /**
  * Redraws the Chip-8 display onto the given surface.
  */
-static void draw(SDL_Surface *surface, struct chip8 *chip, int scale,
-                 uint32_t oncolor, uint32_t offcolor);
+static void draw(SDL_Surface *surface, struct chip8 *chip, uint32_t oncolor,
+                 uint32_t offcolor);
 /**
  * Returns the default set of program options.
  */
@@ -216,23 +216,20 @@ static void audio_callback(void *userdata, uint8_t *stream, int len)
     audio_ring_buffer_fill(ring, (int16_t *)stream, len / 2);
 }
 
-static void draw(SDL_Surface *surface, struct chip8 *chip, int scale,
-                 uint32_t oncolor, uint32_t offcolor)
+static void draw(SDL_Surface *surface, struct chip8 *chip, uint32_t oncolor,
+                 uint32_t offcolor)
 {
-    int width, height;
+    int xscale = surface->w / CHIP8_DISPLAY_WIDTH;
+    int yscale = surface->h / CHIP8_DISPLAY_HEIGHT;
 
-    if (chip->highres) {
-        width = CHIP8_DISPLAY_WIDTH;
-        height = CHIP8_DISPLAY_HEIGHT;
-    } else {
-        width = CHIP8_DISPLAY_WIDTH / 2;
-        height = CHIP8_DISPLAY_HEIGHT / 2;
-        scale *= 2;
+    if (!chip->highres) {
+        xscale *= 2;
+        yscale *= 2;
     }
 
-    for (int i = 0; i < width; i++)
-        for (int j = 0; j < height; j++) {
-            SDL_Rect rect = {i * scale, j * scale, scale, scale};
+    for (int i = 0; i < CHIP8_DISPLAY_WIDTH; i++)
+        for (int j = 0; j < CHIP8_DISPLAY_HEIGHT; j++) {
+            SDL_Rect rect = {i * xscale, j * yscale, xscale, yscale};
             SDL_FillRect(surface, &rect,
                          chip->display[i][j] ? oncolor : offcolor);
         }
@@ -317,7 +314,7 @@ static int run(struct progopts opts)
     win_surface = SDL_GetWindowSurface(win);
     oncolor = SDL_MapRGB(win_surface->format, 255, 255, 255);
     offcolor = SDL_MapRGB(win_surface->format, 0, 0, 0);
-    draw(win_surface, chip, opts.scale, oncolor, offcolor);
+    draw(win_surface, chip, oncolor, offcolor);
     SDL_UpdateWindowSurface(win);
 
     if (!(input = fopen(opts.fname, "r"))) {
@@ -337,6 +334,19 @@ static int run(struct progopts opts)
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) {
                 should_exit = true;
+            } else if (e.type == SDL_WINDOWEVENT) {
+                log_debug("Window changed; getting new surface and refreshing");
+                /*
+                 * We need to force the window to refresh when something
+                 * happens to it (e.g. it gets moved or resized) even if the
+                 * interpreter hasn't gotten any new display information.
+                 */
+                chip->needs_refresh = true;
+                /*
+                 * We also need to get a new window surface, since the old one
+                 * is now invalid.
+                 */
+                win_surface = SDL_GetWindowSurface(win);
             } else if (e.type == SDL_KEYDOWN) {
                 SDL_Keycode key = e.key.keysym.sym;
 
@@ -360,8 +370,10 @@ static int run(struct progopts opts)
         SDL_PauseAudioDevice(audio_device, chip->reg_st == 0);
         /* Refresh display as needed */
         if (chip->needs_refresh) {
-            draw(win_surface, chip, opts.scale, oncolor, offcolor);
-            SDL_UpdateWindowSurface(win);
+            draw(win_surface, chip, oncolor, offcolor);
+            if (SDL_UpdateWindowSurface(win))
+                log_error("Could not update window surface: %s",
+                          SDL_GetError());
             chip->needs_refresh = false;
         }
         if (chip->halted) {
