@@ -18,7 +18,7 @@ echo "chip8asm is '$CHIP8ASM'"
 echo "chip8disasm is '$CHIP8DISASM'"
 
 for prog in $PROGS; do
-    "$CHIP8DISASM" ${prog}.check.bin -o "$TMPFILE1"
+    "$CHIP8DISASM" check-asm/${prog}.asm.bin -o "$TMPFILE1"
     if [ $? -ne 0]; then
         echo "ERROR: $prog disassembly failed"
     fi
@@ -26,7 +26,7 @@ for prog in $PROGS; do
     if [ $? -ne 0]; then
         echo "ERROR: $prog assembly failed"
     fi
-    diff "$TMPFILE2" ${prog}.check.bin >/dev/null
+    diff "$TMPFILE2" check-asm/${prog}.asm.bin >/dev/null
     if [ $? -ne 0 ]; then
         echo "ERROR: $prog disassembly -> assembly failed expectations"
         RETVAL=1
