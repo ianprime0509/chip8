@@ -95,8 +95,8 @@ struct progopts {
  * z x c v
  */
 SDL_Keycode keymap[16] = {
-    SDLK_x, SDLK_1, SDLK_2, SDLK_3, SDLK_q, SDLK_w, SDLK_e, SDLK_a,
-    SDLK_s, SDLK_d, SDLK_z, SDLK_c, SDLK_4, SDLK_r, SDLK_f, SDLK_v,
+    SDLK_x, SDLK_1, SDLK_2, SDLK_3, SDLK_q, SDLK_w, SDLK_e, SDLK_a, SDLK_s,
+    SDLK_d, SDLK_z, SDLK_c, SDLK_4, SDLK_r, SDLK_f, SDLK_v,
 };
 
 /**
@@ -107,7 +107,7 @@ static void audio_callback(void *userdata, uint8_t *stream, int len);
  * Redraws the Chip-8 display onto the given surface.
  */
 static void draw(SDL_Surface *surface, struct chip8 *chip, uint32_t oncolor,
-                 uint32_t offcolor);
+    uint32_t offcolor);
 /**
  * Returns the default set of program options.
  */
@@ -128,15 +128,14 @@ int main(int argc, char **argv)
         {"tone", required_argument, NULL, 't'},
         {"verbose", no_argument, NULL, 'v'},
         {"volume", required_argument, &got_volume, 1},
-        {"help", no_argument, NULL, 'h'},
-        {"version", no_argument, NULL, 'V'},
+        {"help", no_argument, NULL, 'h'}, {"version", no_argument, NULL, 'V'},
         {0, 0, 0, 0},
     };
 
     log_init(stderr, LOG_WARNING);
 
-    while ((option = getopt_long(argc, argv, "lqs:t:vhV", options, NULL)) !=
-           -1) {
+    while (
+        (option = getopt_long(argc, argv, "lqs:t:vhV", options, NULL)) != -1) {
         char *numend;
 
         switch (option) {
@@ -207,7 +206,7 @@ static void audio_callback(void *userdata, uint8_t *stream, int len)
 }
 
 static void draw(SDL_Surface *surface, struct chip8 *chip, uint32_t oncolor,
-                 uint32_t offcolor)
+    uint32_t offcolor)
 {
     int xscale = surface->w / CHIP8_DISPLAY_WIDTH;
     int yscale = surface->h / CHIP8_DISPLAY_HEIGHT;
@@ -220,8 +219,8 @@ static void draw(SDL_Surface *surface, struct chip8 *chip, uint32_t oncolor,
     for (int i = 0; i < CHIP8_DISPLAY_WIDTH; i++)
         for (int j = 0; j < CHIP8_DISPLAY_HEIGHT; j++) {
             SDL_Rect rect = {i * xscale, j * yscale, xscale, yscale};
-            SDL_FillRect(surface, &rect,
-                         chip->display[i][j] ? oncolor : offcolor);
+            SDL_FillRect(
+                surface, &rect, chip->display[i][j] ? oncolor : offcolor);
         }
 }
 
@@ -273,16 +272,16 @@ static int run(struct progopts opts)
         goto ERROR_NOTHING_INITIALIZED;
     }
     if (!(win = SDL_CreateWindow("Chip-8", SDL_WINDOWPOS_UNDEFINED,
-                                 SDL_WINDOWPOS_UNDEFINED, win_width, win_height,
-                                 SDL_WINDOW_SHOWN))) {
+              SDL_WINDOWPOS_UNDEFINED, win_width, win_height,
+              SDL_WINDOW_SHOWN))) {
         log_error("Could not create SDL window: %s", SDL_GetError());
         retval = 1;
         goto ERROR_SDL_INITIALIZED;
     }
 
     /* Set up audio */
-    if (!(audio_ring = audio_square_wave(48000, opts.tone_freq,
-                                         opts.tone_vol * INT16_MAX / 100))) {
+    if (!(audio_ring = audio_square_wave(
+              48000, opts.tone_freq, opts.tone_vol * INT16_MAX / 100))) {
         log_error("Could not create audio ring buffer");
         retval = 1;
         goto ERROR_WINDOW_CREATED;
@@ -362,8 +361,8 @@ static int run(struct progopts opts)
         if (chip->needs_refresh) {
             draw(win_surface, chip, oncolor, offcolor);
             if (SDL_UpdateWindowSurface(win))
-                log_error("Could not update window surface: %s",
-                          SDL_GetError());
+                log_error(
+                    "Could not update window surface: %s", SDL_GetError());
             chip->needs_refresh = false;
         }
         if (chip->halted) {
@@ -380,10 +379,8 @@ static int run(struct progopts opts)
          * speed.
          */
         nanosleep(&(const struct timespec){.tv_sec = 0,
-                                           .tv_nsec = 1000000000 /
-                                                      chipopts.timer_freq /
-                                                      1000},
-                  NULL);
+                      .tv_nsec = 1000000000 / chipopts.timer_freq / 1000},
+            NULL);
     }
 
 ERROR_CHIP8_CREATED:

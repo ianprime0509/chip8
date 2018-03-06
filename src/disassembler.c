@@ -153,8 +153,8 @@ static bool jpret_list_in_data(const struct jpret_list *lst, uint16_t addr);
  */
 static void jpret_list_remove(struct jpret_list *lst, size_t idx);
 
-struct chip8disasm *chip8disasm_from_file(struct chip8disasm_options opts,
-                                          const char *fname)
+struct chip8disasm *chip8disasm_from_file(
+    struct chip8disasm_options opts, const char *fname)
 {
     struct chip8disasm *disasm = calloc(1, sizeof *disasm);
     struct stat stats;
@@ -230,7 +230,7 @@ int chip8disasm_dump(const struct chip8disasm *disasm, FILE *out)
             fprintf(out, "      ");
         if (ferror(out)) {
             log_error("Could not dump disassembly to output file: %s",
-                      strerror(errno));
+                strerror(errno));
             return 1;
         }
 
@@ -243,10 +243,9 @@ int chip8disasm_dump(const struct chip8disasm *disasm, FILE *out)
              * Don't forget to check that the address actually corresponds to a
              * label!
              */
-            bool use_addr =
-                chip8_instruction_uses_addr(instr) &&
-                jpret_list_find(&disasm->label_list,
-                                instr.addr - CHIP8_PROG_START) != -1;
+            bool use_addr = chip8_instruction_uses_addr(instr) &&
+                jpret_list_find(
+                    &disasm->label_list, instr.addr - CHIP8_PROG_START) != -1;
 
             /*
              * If the instruction uses an address, we need to construct the
@@ -254,14 +253,14 @@ int chip8disasm_dump(const struct chip8disasm *disasm, FILE *out)
              */
             if (use_addr)
                 snprintf(label, sizeof label, "L%03X",
-                         instr.addr - CHIP8_PROG_START);
+                    instr.addr - CHIP8_PROG_START);
             chip8_instruction_format(instr, use_addr ? label : NULL, buf,
-                                     sizeof buf, disasm->opts.shift_quirks);
+                sizeof buf, disasm->opts.shift_quirks);
             fprintf(out, "%s\n", buf);
         }
         if (ferror(out)) {
             log_error("Could not dump disassembly to output file: %s",
-                      strerror(errno));
+                strerror(errno));
             return 1;
         }
     }
@@ -348,8 +347,8 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
              */
             if (chip8_instruction_uses_addr(inst) &&
                 inst.addr - CHIP8_PROG_START < disasm->proglen) {
-                if (jpret_list_add(&disasm->label_list,
-                                   inst.addr - CHIP8_PROG_START)) {
+                if (jpret_list_add(
+                        &disasm->label_list, inst.addr - CHIP8_PROG_START)) {
                     log_error("Could not add item to internal label list");
                     retval = 1;
                     goto EXIT;
@@ -543,7 +542,7 @@ static bool jpret_list_in_data(const struct jpret_list *lst, uint16_t addr)
         return false;
 
     return (lst->data[pos - 1] & 1) == 1 &&
-           (pos == lst->len || addr < lst->data[pos]);
+        (pos == lst->len || addr < lst->data[pos]);
 }
 
 static void jpret_list_remove(struct jpret_list *lst, size_t idx)

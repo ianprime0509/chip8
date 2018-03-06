@@ -31,8 +31,8 @@
 #define ASSERT_EQ(lhs, rhs, fmtstr)                                            \
     do {                                                                       \
         if ((lhs) != (rhs)) {                                                  \
-            log_error("Assertion failed on line %d: " #lhs " == " #rhs,        \
-                      __LINE__);                                               \
+            log_error(                                                         \
+                "Assertion failed on line %d: " #lhs " == " #rhs, __LINE__);   \
             log_info("LHS = " fmtstr "; RHS = " fmtstr, (lhs), (rhs));         \
             return 1;                                                          \
         }                                                                      \
@@ -297,8 +297,8 @@ int test_asm_eval(void)
     ASSERT_EQ_UINT(value, 5);
     chip8asm_eval(chipasm, "((4 + 4) * (#0a - $00000010))", 4, &value);
     ASSERT_EQ_UINT(value, 64);
-    chip8asm_eval(chipasm, "~$01010101 | $01010101 ^ $00001111 & $10101010", 5,
-                  &value);
+    chip8asm_eval(
+        chipasm, "~$01010101 | $01010101 ^ $00001111 & $10101010", 5, &value);
     ASSERT_EQ_UINT(value, 0xFFFF);
     chip8asm_eval(chipasm, "7 > 2 < 2", 6, &value);
     ASSERT_EQ_UINT(value, 4);
@@ -606,7 +606,7 @@ static void testing_setup(void)
 static int testing_teardown(void)
 {
     log_info("All tests finished with %d failure%s", n_failures,
-             n_failures == 1 ? "" : "s");
+        n_failures == 1 ? "" : "s");
     if (n_failures != 0)
         return 1;
     return 0;

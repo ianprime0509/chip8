@@ -235,8 +235,8 @@ struct chip8asm {
  * This will also process any label that might be associated with this
  * instruction.
  */
-static int chip8asm_add_instruction(struct chip8asm *chipasm,
-                                    struct instruction instr);
+static int chip8asm_add_instruction(
+    struct chip8asm *chipasm, struct instruction instr);
 /**
  * Attempts to compile the given Chip-8 instruction into an opcode.
  *
@@ -249,8 +249,7 @@ static int chip8asm_add_instruction(struct chip8asm *chipasm,
  * @return An error code.
  */
 static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
-                                    const struct instruction *instr,
-                                    uint16_t *opcode);
+    const struct instruction *instr, uint16_t *opcode);
 /**
  * Processes the assignment with the given operands.
  *
@@ -260,8 +259,7 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
  * @return An error code.
  */
 static int chip8asm_process_assignment(struct chip8asm *chipasm, char *label,
-                                       char *operands[MAX_OPERANDS],
-                                       int n_operands);
+    char *operands[MAX_OPERANDS], int n_operands);
 /**
  * Processes the given operation with the given operands.
  *
@@ -272,8 +270,7 @@ static int chip8asm_process_assignment(struct chip8asm *chipasm, char *label,
  * @return An error code.
  */
 static int chip8asm_process_instruction(struct chip8asm *chipasm, char *op,
-                                        char *operands[MAX_OPERANDS],
-                                        int n_operands);
+    char *operands[MAX_OPERANDS], int n_operands);
 /**
  * Returns whether the assembler should process anything right now.
  *
@@ -335,8 +332,8 @@ static void ltable_clear(struct ltable *tab);
  * @param[out] value The corresponding value.
  * @return Whether the label was present in the table.
  */
-static bool ltable_get(const struct ltable *tab, const char *key,
-                       uint16_t *value);
+static bool ltable_get(
+    const struct ltable *tab, const char *key, uint16_t *value);
 /**
  * Applies the given operator to the given stack of numbers.
  */
@@ -448,20 +445,20 @@ int chip8asm_emit(struct chip8asm *chipasm, struct chip8asm_program *prog)
 
         switch (instr->type) {
         case IT_INVALID:
-            FAIL_MSG(instr->line,
-                     "invalid instruction (this should never happen)");
+            FAIL_MSG(
+                instr->line, "invalid instruction (this should never happen)");
             return 1;
         case IT_DB:
-            if ((err = chip8asm_eval(chipasm, instr->operands[0], instr->line,
-                                     &opcode)))
+            if ((err = chip8asm_eval(
+                     chipasm, instr->operands[0], instr->line, &opcode)))
                 return err;
             prog->mem[mempos] = opcode & 0xFF;
             if (mempos + 1 > prog->len)
                 prog->len = mempos + 1;
             break;
         case IT_DW:
-            if ((err = chip8asm_eval(chipasm, instr->operands[0], instr->line,
-                                     &opcode)))
+            if ((err = chip8asm_eval(
+                     chipasm, instr->operands[0], instr->line, &opcode)))
                 return err;
             prog->mem[mempos] = (opcode >> 8) & 0xFF;
             prog->mem[mempos + 1] = opcode & 0xFF;
@@ -481,15 +478,15 @@ int chip8asm_emit(struct chip8asm *chipasm, struct chip8asm_program *prog)
 
     if (chipasm->if_level != 0)
         WARN(chipasm->line,
-             "completed processing without finding matching ENDIF");
+            "completed processing without finding matching ENDIF");
     /* All instructions emitted, so we can get rid of them */
     instructions_clear(&chipasm->instructions);
 
     return 0;
 }
 
-int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
-                  uint16_t *value)
+int chip8asm_eval(
+    const struct chip8asm *chipasm, const char *expr, int line, uint16_t *value)
 {
     /*
      * We use the shunting-yard algorithm
@@ -628,8 +625,8 @@ int chip8asm_eval(const struct chip8asm *chipasm, const char *expr, int line,
             return 1;
         }
         if (numpos == STACK_SIZE) {
-            FAIL_MSG(line,
-                     "number stack overflowed (too many numbers/identifiers)");
+            FAIL_MSG(
+                line, "number stack overflowed (too many numbers/identifiers)");
             return 1;
         }
     }
@@ -674,9 +671,9 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
     while ((tmp = parse_label(&line))) {
         if (chipasm->line_label) {
             FAIL_MSG(chipasm->line,
-                     "cannot associate more than one label with a statement; "
-                     "already found label '%s'",
-                     chipasm->line_label);
+                "cannot associate more than one label with a statement; "
+                "already found label '%s'",
+                chipasm->line_label);
             free(tmp);
             return 1;
         } else {
@@ -737,20 +734,20 @@ void chip8asm_program_destroy(struct chip8asm_program *prog)
     free(prog);
 }
 
-uint16_t chip8asm_program_opcode(const struct chip8asm_program *prog,
-                                 uint16_t addr)
+uint16_t chip8asm_program_opcode(
+    const struct chip8asm_program *prog, uint16_t addr)
 {
     return (uint16_t)prog->mem[addr] << 8 | prog->mem[addr + 1];
 }
 
-static int chip8asm_add_instruction(struct chip8asm *chipasm,
-                                    struct instruction instr)
+static int chip8asm_add_instruction(
+    struct chip8asm *chipasm, struct instruction instr)
 {
     /* Add label to ltable, if any */
     if (chipasm->line_label) {
         if (ltable_add(&chipasm->labels, chipasm->line_label, instr.pc)) {
             FAIL_MSG(chipasm->line, "duplicate label or variable '%s' found",
-                     chipasm->line_label);
+                chipasm->line_label);
             return 1;
         }
         chipasm->line_label = NULL;
@@ -764,8 +761,7 @@ static int chip8asm_add_instruction(struct chip8asm *chipasm,
 }
 
 static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
-                                    const struct instruction *instr,
-                                    uint16_t *opcode)
+    const struct instruction *instr, uint16_t *opcode)
 {
     struct chip8_instruction ci;
     /* Temporary variable for storing eval result */
@@ -804,7 +800,7 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     case OP_SCD:
         if (chip8asm_eval(chipasm, instr->operands[0], instr->line, &value)) {
             FAIL_MSG(instr->line, "could not evaluate operand '%s'",
-                     instr->operands[0]);
+                instr->operands[0]);
             return 1;
         }
         ci.nibble = value;
@@ -816,7 +812,7 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     case OP_JP_V0:
         if (chip8asm_eval(chipasm, instr->operands[0], instr->line, &value)) {
             FAIL_MSG(instr->line, "could not evaluate operand '%s'",
-                     instr->operands[0]);
+                instr->operands[0]);
             return 1;
         }
         ci.addr = value;
@@ -829,11 +825,11 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     case OP_RND:
         if ((regno = register_num(instr->operands[0])) == -1) {
             FAIL_MSG(instr->line, "'%s' is not the name of a register",
-                     instr->operands[0]);
+                instr->operands[0]);
         }
         if (chip8asm_eval(chipasm, instr->operands[1], instr->line, &value)) {
             FAIL_MSG(instr->line, "could not evaluate operand '%s'",
-                     instr->operands[1]);
+                instr->operands[1]);
             return 1;
         }
         ci.vx = regno;
@@ -851,13 +847,13 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     case OP_SNE_REG:
         if ((regno = register_num(instr->operands[0])) == -1) {
             FAIL_MSG(instr->line, "'%s' is not the name of a register",
-                     instr->operands[0]);
+                instr->operands[0]);
             return 1;
         }
         ci.vx = regno;
         if ((regno = register_num(instr->operands[1])) == -1) {
             FAIL_MSG(instr->line, "'%s' is not the name of a register",
-                     instr->operands[1]);
+                instr->operands[1]);
             return 1;
         }
         ci.vy = regno;
@@ -879,7 +875,7 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     case OP_LD_REG_R:
         if ((regno = register_num(instr->operands[0])) == -1) {
             FAIL_MSG(instr->line, "'%s' is not the name of a register",
-                     instr->operands[0]);
+                instr->operands[0]);
             return 1;
         }
         ci.vx = regno;
@@ -888,19 +884,19 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     case OP_DRW:
         if ((regno = register_num(instr->operands[0])) == -1) {
             FAIL_MSG(instr->line, "'%s' is not the name of a register",
-                     instr->operands[0]);
+                instr->operands[0]);
             return 1;
         }
         ci.vx = regno;
         if ((regno = register_num(instr->operands[1])) == -1) {
             FAIL_MSG(instr->line, "'%s' is not the name of a register",
-                     instr->operands[1]);
+                instr->operands[1]);
             return 1;
         }
         ci.vy = regno;
         if (chip8asm_eval(chipasm, instr->operands[2], instr->line, &value)) {
             FAIL_MSG(instr->line, "could not evaluate operand '%s'",
-                     instr->operands[2]);
+                instr->operands[2]);
             return 1;
         }
         ci.nibble = value;
@@ -910,14 +906,14 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     case OP_SHL:
         if ((regno = register_num(instr->operands[0])) == -1) {
             FAIL_MSG(instr->line, "'%s' is not the name of a register",
-                     instr->operands[0]);
+                instr->operands[0]);
             return 1;
         }
         ci.vx = regno;
         if (chipasm->opts.shift_quirks) {
             if ((regno = register_num(instr->operands[0])) == -1) {
                 FAIL_MSG(instr->line, "'%s' is not the name of a register",
-                         instr->operands[0]);
+                    instr->operands[0]);
                 return 1;
             }
             ci.vy = regno;
@@ -933,8 +929,7 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
 }
 
 static int chip8asm_process_assignment(struct chip8asm *chipasm, char *label,
-                                       char *operands[MAX_OPERANDS],
-                                       int n_operands)
+    char *operands[MAX_OPERANDS], int n_operands)
 {
     uint16_t value;
     int retval = 0;
@@ -950,8 +945,8 @@ static int chip8asm_process_assignment(struct chip8asm *chipasm, char *label,
             free(label);
             retval = 1;
         } else if (ltable_add(&chipasm->labels, label, value)) {
-            FAIL_MSG(chipasm->line, "duplicate label or variable '%s' found",
-                     label);
+            FAIL_MSG(
+                chipasm->line, "duplicate label or variable '%s' found", label);
             free(label);
             retval = 1;
         }
@@ -962,8 +957,7 @@ static int chip8asm_process_assignment(struct chip8asm *chipasm, char *label,
 }
 
 static int chip8asm_process_instruction(struct chip8asm *chipasm, char *op,
-                                        char *operands[MAX_OPERANDS],
-                                        int n_operands)
+    char *operands[MAX_OPERANDS], int n_operands)
 {
 /* This is probably bordering on preprocessor abuse... */
 #define CHIPOP(name, it, nops)                                                 \
@@ -1461,8 +1455,8 @@ static void ltable_clear(struct ltable *tab)
     }
 }
 
-static bool ltable_get(const struct ltable *tab, const char *key,
-                       uint16_t *value)
+static bool ltable_get(
+    const struct ltable *tab, const char *key, uint16_t *value)
 {
     size_t n_bucket = hash_str(key) % LTABLE_SIZE;
 

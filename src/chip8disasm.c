@@ -65,11 +65,9 @@ int main(int argc, char **argv)
     int option;
     struct progopts opts = progopts_default();
     const struct option options[] = {{"output", required_argument, NULL, 'o'},
-                                     {"shift-quirks", no_argument, NULL, 'q'},
-                                     {"verbose", no_argument, NULL, 'v'},
-                                     {"help", no_argument, NULL, 'h'},
-                                     {"version", no_argument, NULL, 'V'},
-                                     {0, 0, 0, 0}};
+        {"shift-quirks", no_argument, NULL, 'q'},
+        {"verbose", no_argument, NULL, 'v'}, {"help", no_argument, NULL, 'h'},
+        {"version", no_argument, NULL, 'V'}, {0, 0, 0, 0}};
     int retval = 0;
 
     while ((option = getopt_long(argc, argv, "o:qvhV", options, NULL)) != -1) {
@@ -149,7 +147,7 @@ static int run(struct progopts opts)
         output = stdout;
     } else if (!(output = fopen(opts.output, "w"))) {
         log_error("Could not open output file '%s': %s", opts.output,
-                  strerror(errno));
+            strerror(errno));
         retval = 1;
         goto EXIT_DISASM_CREATED;
     }

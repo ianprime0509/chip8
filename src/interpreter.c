@@ -91,14 +91,14 @@ struct chip8_call_node {
  * @return Whether there was a collision.
  */
 static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
-                              uint16_t sprite_start, uint16_t sprite_len);
+    uint16_t sprite_start, uint16_t sprite_len);
 /**
  * Draws a (high-resolution) sprite at the given position.
  *
  * @return Whether there was a collision.
  */
-static bool chip8_draw_sprite_high(struct chip8 *chip, int x, int y,
-                                   uint16_t sprite_start);
+static bool chip8_draw_sprite_high(
+    struct chip8 *chip, int x, int y, uint16_t sprite_start);
 /**
  * Logs the state of the registers (using level LOG_DEBUG).
  */
@@ -112,8 +112,8 @@ static void chip8_log_regs(const struct chip8 *chip);
  *
  * @return An error code.
  */
-static int chip8_execute(struct chip8 *chip, struct chip8_instruction inst,
-                         uint16_t *pc);
+static int chip8_execute(
+    struct chip8 *chip, struct chip8_instruction inst, uint16_t *pc);
 /**
  * Updates the internal timer value and other internal timers.
  */
@@ -164,8 +164,8 @@ struct chip8 *chip8_new(struct chip8_options opts)
     /* Load low-resolution hex sprites into memory */
     memcpy(chip->mem + CHIP8_HEX_LOW_ADDR, chip8_hex_low, sizeof chip8_hex_low);
     /* Load high-resolution hex sprites into memory */
-    memcpy(chip->mem + CHIP8_HEX_HIGH_ADDR, chip8_hex_high,
-           sizeof chip8_hex_high);
+    memcpy(
+        chip->mem + CHIP8_HEX_HIGH_ADDR, chip8_hex_high, sizeof chip8_hex_high);
 
     srand(time(NULL));
 
@@ -181,7 +181,7 @@ struct chip8_instruction chip8_current_instr(struct chip8 *chip)
 {
     /* The Chip-8 is big-endian */
     uint16_t opcode = ((uint16_t)chip->mem[chip->pc] << 8) |
-                      (uint16_t)chip->mem[chip->pc + 1];
+        (uint16_t)chip->mem[chip->pc + 1];
     return chip8_instruction_from_opcode(opcode, chip->opts.shift_quirks);
 }
 
@@ -246,7 +246,7 @@ int chip8_step(struct chip8 *chip)
 }
 
 static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
-                              uint16_t sprite_start, uint16_t sprite_len)
+    uint16_t sprite_start, uint16_t sprite_len)
 {
     bool collision = false;
 
@@ -268,8 +268,8 @@ static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
     return collision;
 }
 
-static bool chip8_draw_sprite_high(struct chip8 *chip, int x, int y,
-                                   uint16_t sprite_start)
+static bool chip8_draw_sprite_high(
+    struct chip8 *chip, int x, int y, uint16_t sprite_start)
 {
     bool collision = false;
 
@@ -300,12 +300,12 @@ static void chip8_log_regs(const struct chip8 *chip)
     for (int i = 0; i < 16; i++)
         log_message_part("V%X = %02X; ", i, chip->regs[i]);
     log_message_part("DT = %02X; ST = %02X; I = %04X; PC = %04X", chip->reg_dt,
-                     chip->reg_st, chip->reg_i, chip->pc);
+        chip->reg_st, chip->reg_i, chip->pc);
     log_message_end();
 }
 
-static int chip8_execute(struct chip8 *chip, struct chip8_instruction inst,
-                         uint16_t *pc)
+static int chip8_execute(
+    struct chip8 *chip, struct chip8_instruction inst, uint16_t *pc)
 {
     uint16_t new_pc;
 
@@ -355,7 +355,7 @@ static int chip8_execute(struct chip8 *chip, struct chip8_instruction inst,
         }
         for (int x = CHIP8_DISPLAY_WIDTH - 5; x > 0; x--)
             memcpy(&chip->display[x + 4], &chip->display[x],
-                   sizeof chip->display[x]);
+                sizeof chip->display[x]);
         chip->needs_refresh = true;
         break;
     case OP_SCL:
@@ -365,7 +365,7 @@ static int chip8_execute(struct chip8 *chip, struct chip8_instruction inst,
         }
         for (int x = 0; x < CHIP8_DISPLAY_WIDTH - 4; x++)
             memcpy(&chip->display[x], &chip->display[x + 4],
-                   sizeof chip->display[x]);
+                sizeof chip->display[x]);
         chip->needs_refresh = true;
         break;
     case OP_EXIT:
@@ -384,7 +384,7 @@ static int chip8_execute(struct chip8 *chip, struct chip8_instruction inst,
             new_pc = inst.addr;
         } else {
             log_error("Attempted to jump to misaligned memory address 0x%03X",
-                      inst.addr);
+                inst.addr);
             chip8_log_regs(chip);
             return 1;
         }
@@ -404,7 +404,7 @@ static int chip8_execute(struct chip8 *chip, struct chip8_instruction inst,
         } else {
             log_error("Attempted to call subroutine at misaligned memory "
                       "address 0x%hX",
-                      inst.addr);
+                inst.addr);
             chip8_log_regs(chip);
             return 1;
         }
@@ -489,14 +489,14 @@ static int chip8_execute(struct chip8 *chip, struct chip8_instruction inst,
             } else {
                 log_error("Attempted to jump to out of bounds memory "
                           "address 0x%X",
-                          jpto);
+                    jpto);
                 chip8_log_regs(chip);
                 return 1;
             }
         } else {
             log_error("Attempted to jump to misaligned memory address "
                       "0x%X",
-                      jpto);
+                jpto);
             chip8_log_regs(chip);
             return 1;
         }
@@ -514,8 +514,7 @@ static int chip8_execute(struct chip8 *chip, struct chip8_instruction inst,
                 chip, chip->regs[inst.vx], chip->regs[inst.vy], chip->reg_i);
         else
             chip->regs[REG_VF] = chip8_draw_sprite(chip, chip->regs[inst.vx],
-                                                   chip->regs[inst.vy],
-                                                   chip->reg_i, inst.nibble);
+                chip->regs[inst.vy], chip->reg_i, inst.nibble);
         break;
     case OP_SKP:
         if (chip->key_states & (1 << (chip->regs[inst.vx] & 0xF)))
@@ -554,11 +553,11 @@ static int chip8_execute(struct chip8 *chip, struct chip8_instruction inst,
         break;
     case OP_LD_F:
         chip->reg_i = CHIP8_HEX_LOW_ADDR +
-                      CHIP8_HEX_LOW_HEIGHT * (chip->regs[inst.vx] & 0xF);
+            CHIP8_HEX_LOW_HEIGHT * (chip->regs[inst.vx] & 0xF);
         break;
     case OP_LD_HF:
         chip->reg_i = CHIP8_HEX_HIGH_ADDR +
-                      CHIP8_HEX_HIGH_HEIGHT * (chip->regs[inst.vx] & 0xF);
+            CHIP8_HEX_HIGH_HEIGHT * (chip->regs[inst.vx] & 0xF);
         break;
     case OP_LD_B:
         /* Note that register Vx is only a byte, so it's 3 digits or fewer */

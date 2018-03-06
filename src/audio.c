@@ -29,8 +29,8 @@ void audio_ring_buffer_free(struct audio_ring_buffer *ring)
     free(ring);
 }
 
-void audio_ring_buffer_fill(struct audio_ring_buffer *ring, int16_t *buf,
-                            size_t len)
+void audio_ring_buffer_fill(
+    struct audio_ring_buffer *ring, int16_t *buf, size_t len)
 {
     while (len--) {
         *buf++ = ring->buf[ring->pos++];
@@ -39,8 +39,8 @@ void audio_ring_buffer_fill(struct audio_ring_buffer *ring, int16_t *buf,
     }
 }
 
-struct audio_ring_buffer *audio_square_wave(int sample_rate, int frequency,
-                                            int16_t volume)
+struct audio_ring_buffer *audio_square_wave(
+    int sample_rate, int frequency, int16_t volume)
 {
     struct audio_ring_buffer *ring;
     int period = sample_rate / frequency;

@@ -51,8 +51,8 @@
  */
 #define NIBBLE2OPCODE(nibble) ((nibble)&0xF)
 
-struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode,
-                                                       bool shift_quirks)
+struct chip8_instruction chip8_instruction_from_opcode(
+    uint16_t opcode, bool shift_quirks)
 {
     struct chip8_instruction ins;
 
@@ -286,8 +286,8 @@ struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode,
     return ins;
 }
 
-uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr,
-                                     bool shift_quirks)
+uint16_t chip8_instruction_to_opcode(
+    struct chip8_instruction instr, bool shift_quirks)
 {
     switch (instr.op) {
     case OP_INVALID:
@@ -356,7 +356,7 @@ uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr,
         return 0xC000 | VX2OPCODE(instr.vx) | BYTE2OPCODE(instr.byte);
     case OP_DRW:
         return 0xD000 | VX2OPCODE(instr.vx) | VY2OPCODE(instr.vy) |
-               NIBBLE2OPCODE(instr.nibble);
+            NIBBLE2OPCODE(instr.nibble);
     case OP_SKP:
         return 0xE09E | VX2OPCODE(instr.vx);
     case OP_SKNP:
@@ -391,7 +391,7 @@ uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr,
 }
 
 void chip8_instruction_format(struct chip8_instruction instr, const char *label,
-                              char *dest, size_t sz, bool shift_quirks)
+    char *dest, size_t sz, bool shift_quirks)
 {
     switch (instr.op) {
     case OP_INVALID:
@@ -500,8 +500,8 @@ void chip8_instruction_format(struct chip8_instruction instr, const char *label,
         snprintf(dest, sz, "RND V%X, #%02X", instr.vx, instr.byte);
         break;
     case OP_DRW:
-        snprintf(dest, sz, "DRW V%X, V%X, %u", instr.vx, instr.vy,
-                 instr.nibble);
+        snprintf(
+            dest, sz, "DRW V%X, V%X, %u", instr.vx, instr.vy, instr.nibble);
         break;
     case OP_SKP:
         snprintf(dest, sz, "SKP V%X", instr.vx);
