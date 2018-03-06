@@ -1,13 +1,16 @@
 language: c
 sudo: required
 
-before_install:
-  - sudo apt-get -qq update
-  - sudo apt-get install -y libsdl2-dev ninja-build python3-pip texinfo
-  - sudo pip3 install meson
+services:
+  - docker
+
+install:
+  - docker build -t ianprime0509/chip8-ci .
 
 script:
-  - meson -Db_sanitize=address build
-  - ninja -C build
-  - ninja -C build info/chip8.info
-  - ninja -C build test
+  - docker run --name ci -it -d ianprime0509/chip8-ci /bin/bash
+  - docker ps -a
+  - docker exec -it ci mkdir build && meson -Db_sanitize=address build
+  - docker exec -it ci ninja -C build
+  - docker exec -it ci ninja -C build info/chip8.info
+  - docker exec -it ci ninja -C build test
