@@ -10,7 +10,9 @@ install:
 script:
   - docker run --name ci -it -d ianprime0509/chip8-ci /bin/bash
   - docker ps -a
-  - docker exec -it ci mkdir build && meson -Db_sanitize=address build
+  - docker exec -it ci meson --version
+  - docker exec -it ci mkdir build
+  - docker exec -it ci meson -Db_sanitize=address build
   - docker exec -it ci ninja -C build
   - docker exec -it ci ninja -C build info/chip8.info
   - docker exec -it ci ninja -C build test
