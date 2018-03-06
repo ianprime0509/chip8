@@ -1,0 +1,90 @@
+.TH CHIP8 1 "March 2018" "version 0.1.0"
+.SH NAME
+chip8 \- emulate the Chip-8/Super-Chip platform
+.SH SYNOPSIS
+.B chip8
+[\fB\-\-frequency\fR \fIFREQ\fR]
+[\fB\-l\fR|\fB\-\-load\-quirks\fR]
+[\fB\-q\fR|\fB\-\-shift\-quirks\fR]
+[(\fB\-s\fR|\fB\-\-scale\fR) \fISCALE\fR]
+[(\fB\-t\fR|\fB\-\-tone\fR) \fIFREQ\fR]
+[\fB\-v\fR|\fB\-\-verbose\fR]
+[\fB\-\-volume\fR \fIVOL\fR]
+[\fB\-h\fR|\fB\-\-help\fR]
+[\fB\-V\fR|\fB\-\-version\fR]
+.I FILE
+.SH DESCRIPTION
+.B chip8
+emulates the Chip\-8 and Super\-Chip platforms, providing a complete environment
+for running games designed for those systems.
+.PP
+\fBchip8\fR intends to be fully compatible with all widely available
+Chip\-8/Super\-Chip games.
+.
+This goal has been achieved for the Chip\-8, while some more work is needed to
+ensure correct behavior of some Super\-Chip games.
+.
+Some issues in emulation arise due to the wide variety of emulators already
+available, some of which have conflicting implementations of some instructions.
+.
+To support games that rely on a particular behavior, \fBchip8\fR supports two
+"quirks" modes, "shift quirks" and "load quirks", each of which changes the
+behavior of certain instructions.
+.
+The reference manual (distributed as a Texinfo file) describes these special
+modes in more detail, including exact descriptions of the changes in behavior.
+.PP
+The reference manual also provides more information about the Chip\-8 and
+Super\-Chip themselves, with a description of their history and a description
+of the features available on each platform.
+.SH OPTIONS
+.TP
+.BR \-\-frequency =\fIFREQ\fR
+Set the game timer frequency (in Hz).
+.
+Default is 60.
+.TP
+.BR \-l ", " \-\-load\-quirks
+Enable load quirks mode.
+.TP
+.BR \-q ", " \-\-shift\-quirks
+Enable shift quirks mode.
+.TP
+.BR \-s ", " \-\-scale =\fISCALE\fR
+Set game display scale.
+.
+Default is 6.
+.
+In high-resolution (Super\-Chip) mode, the emulator will display each in-game
+pixel as \fISCALE\fR square pixels on the user's display.
+.
+In low-resolution (Chip\-8) mode, the \fISCALE\fR parameter is effectively
+doubled, so that the emulator window will be the same size as if it were
+displaying high-resolution content.
+.TP
+.BR \-t ", " \-\-tone =\fIFREQ\fR
+Set game buzzer tone (in Hz).
+.
+Default is 440.
+.
+The sound capabilities of the Chip\-8 are limited to a single, monotone pitch,
+which in this implementation is a sine wave.
+.TP
+.BR \-v ", " \-\-verbose
+Increase verbosity.
+.
+Each repetition of this flag will enable an additional level of logging output.
+.
+In order of decreasing severity, the log levels are ERROR, WARNING, INFO and
+DEBUG.
+.
+By default, only messages at the ERROR and WARNING levels are shown.
+.TP
+.BR \-h ", " \-\-help
+Show a brief help message and exit.
+.TP
+.BR \-V ", " \-\-version
+Show version information and exit.
+.SH SEE ALSO
+.BR chip8asm (1),
+.BR chip8disasm (1)

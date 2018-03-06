@@ -26,5 +26,6 @@ endif
 sdl = dependency('SDL2')
 
 subdir('include')
+subdir('man')
 subdir('src')
 subdir('test')
