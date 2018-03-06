@@ -5,4 +5,4 @@ FROM debian
 RUN apt-get update
 RUN apt-get install -y build-essential git libsdl2-dev meson texinfo
 WORKDIR /root/chip8
-COPY ./ ./ # Copy all files from the repo into the Docker working directory
+COPY ./ ./
