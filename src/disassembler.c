@@ -225,9 +225,9 @@ int chip8disasm_dump(const struct chip8disasm *disasm, FILE *out)
 
         /* Print label if necessary */
         if (jpret_list_find(&disasm->label_list, i) != -1)
-            fprintf(out, "L%03X: ", (unsigned)i);
+            fprintf(out, "L%03X:   ", (unsigned)i);
         else
-            fprintf(out, "      ");
+            fprintf(out, "        ");
         if (ferror(out)) {
             log_error("Could not dump disassembly to output file: %s",
                 strerror(errno));
@@ -294,14 +294,25 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
      * At the same time, we populate the label_list with all referenced
      * addresses.
      */
-    /* A list of addresses to start searching at */
+    /* A list of addresses to start searching at. */
     struct jpret_list starts;
-    /* Whether we have just passed a "skip" instruction */
-    bool after_skip = false;
+    /*
+     * A list of addresses that immediately follow a skip instruction.
+     *
+     * We should ignore all jump points that correspond to an address in this
+     * list, since a conditional jump does not constitute a jump point.
+     * Additionally, we can ignore all return points that correspond to an
+     * address in this list, since they do not add anything to the analysis.
+     */
+    struct jpret_list skipped;
     int retval = 0;
 
     if (jpret_list_init(&starts, 64)) {
         log_error("Could not create temporary address list");
+        return 1;
+    }
+    if (jpret_list_init(&skipped, 64)) {
+        log_error("Could not create temporary skipped address list");
         return 1;
     }
     /*
@@ -313,19 +324,19 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
     while (starts.len != 0) {
         uint16_t pc = starts.data[starts.len - 1];
 
-        after_skip = false;
         jpret_list_remove(&starts, starts.len - 1);
-        /* We can skip this path if we've already gone down it */
+        /* We can skip this path if we've already gone down it. */
         if (jpret_list_find(&disasm->jpret_list, pc) != -1)
             goto BREAK_FOR;
-        /* All the starting points of this loop are return points */
-        if (jpret_list_add(&disasm->jpret_list, pc)) {
-            log_error("Could not add item to internal address list");
-            retval = 1;
-            goto EXIT;
-        }
+        /* All the starting points of this loop are return points. */
+        if (jpret_list_find(&skipped, pc) == -1)
+            if (jpret_list_add(&disasm->jpret_list, pc)) {
+                log_error("Could not add item to internal address list");
+                retval = 1;
+                goto EXIT;
+            }
 
-        /* Traverse the code from the starting point */
+        /* Traverse the code from the starting point. */
         for (;; pc += 2) {
             struct chip8_instruction inst;
 
@@ -358,7 +369,7 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
             switch (inst.op) {
             case OP_RET:
             case OP_EXIT:
-                if (!after_skip) {
+                if (jpret_list_find(&skipped, pc) == -1) {
                     /*
                      * Remember that we shouldn't call something a "jump point"
                      * if it's only conditional.
@@ -371,7 +382,6 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
                     }
                     goto BREAK_FOR;
                 }
-                after_skip = false;
                 break;
             case OP_CALL:
                 if (inst.addr % 2 != 0) {
@@ -388,7 +398,6 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
                     retval = 1;
                     goto EXIT;
                 }
-                after_skip = false;
                 break;
             case OP_JP:
                 if (inst.addr % 2 != 0) {
@@ -401,7 +410,7 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
                     retval = 1;
                     goto EXIT;
                 }
-                if (!after_skip) {
+                if (jpret_list_find(&skipped, pc) == -1) {
                     if (jpret_list_add(&disasm->jpret_list, pc | 1)) {
                         log_error(
                             "Could not add item to internal address list");
@@ -410,7 +419,6 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
                     }
                     goto BREAK_FOR;
                 }
-                after_skip = false;
                 break;
             case OP_SE_BYTE:
             case OP_SNE_BYTE:
@@ -418,11 +426,15 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
             case OP_SNE_REG:
             case OP_SKP:
             case OP_SKNP:
-                after_skip = true;
+                if (jpret_list_add(&skipped, pc + 2)) {
+                    log_error("Could not add item to internal address list");
+                    retval = 1;
+                    goto EXIT;
+                }
                 break;
             case OP_JP_V0:
                 log_warning("The disassembler doesn't support JP V0 yet");
-                if (!after_skip) {
+                if (jpret_list_find(&skipped, pc) == -1) {
                     if (jpret_list_add(&disasm->jpret_list, pc | 1)) {
                         log_error(
                             "Could not add item to internal address list");
@@ -431,18 +443,29 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
                     }
                     goto BREAK_FOR;
                 }
-                after_skip = false;
                 break;
             default:
-                after_skip = false;
                 break;
             }
         }
     BREAK_FOR:;
     }
 
+    /*
+     * Make sure that we don't have any skipped jump/return points in our list.
+     */
+    for (int i = 0; i < skipped.len; i++) {
+        int idx = jpret_list_find(&disasm->jpret_list, skipped.data[i]);
+        if (idx != -1)
+            jpret_list_remove(&disasm->jpret_list, idx);
+        idx = jpret_list_find(&disasm->jpret_list, skipped.data[i] | 1);
+        if (idx != -1)
+            jpret_list_remove(&disasm->jpret_list, idx);
+    }
+
 EXIT:
     jpret_list_clear(&starts);
+    jpret_list_clear(&skipped);
     return retval;
 }
 

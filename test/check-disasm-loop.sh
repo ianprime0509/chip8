@@ -1,6 +1,5 @@
 #!/bin/sh
-# Test expected disassembly output (after assembling and then disassembling)
-# against actual.
+# Test that binary -> disassemble -> assemble is a no-op.
 
 # Copyright 2018 Ian Johnson
 
@@ -10,7 +9,7 @@
 
 TMPFILE1=$(mktemp)
 TMPFILE2=$(mktemp)
-PROGS="pathological"
+PROGS="fonttest spritetest"
 RETVAL=0
 
 cd "$TESTDIR"
@@ -19,19 +18,17 @@ echo "chip8asm is '$CHIP8ASM'"
 echo "chip8disasm is '$CHIP8DISASM'"
 
 for prog in $PROGS; do
-    "$CHIP8ASM" ${prog}.c8 -o "$TMPFILE1"
-    if [ $? -ne 0 ]; then
-        echo "ERROR: $prog assembly failed"
-    fi
-    "$CHIP8DISASM" "$TMPFILE1" -o "$TMPFILE2"
-    if [ $? -ne 0 ]; then
+    "$CHIP8DISASM" ${prog}.check.bin -o "$TMPFILE1"
+    if [ $? -ne 0]; then
         echo "ERROR: $prog disassembly failed"
     fi
-    diff "$TMPFILE2" ${prog}.disasm.c8 >/dev/null
+    "$CHIP8ASM" "$TMPFILE1" -o "$TMPFILE2"
+    if [ $? -ne 0]; then
+        echo "ERROR: $prog assembly failed"
+    fi
+    diff "$TMPFILE2" ${prog}.check.bin >/dev/null
     if [ $? -ne 0 ]; then
-        echo "ERROR: $prog assembly -> disassembly failed expectations"
-        echo "Got disassembly:"
-        cat "$TMPFILE2"
+        echo "ERROR: $prog disassembly -> assembly failed expectations"
         RETVAL=1
     else
         echo "$prog disassembly -> assembly succeeded"

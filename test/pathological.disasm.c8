@@ -1,0 +1,6 @@
+        JP L004
+L002:   SKNP V0
+L004:   JP L002
+L006:   JP L00A
+        DW #3023
+L00A:   JP L006

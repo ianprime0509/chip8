@@ -1,0 +1,8 @@
+;;; A particularly pathological example for the disassembler.
+
+JP next
+previous: SKNP V0
+next: JP previous
+twist: JP twist2
+SE V0, #23
+twist2: JP twist
