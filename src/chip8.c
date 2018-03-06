@@ -11,6 +11,7 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_audio.h>
@@ -369,6 +370,20 @@ static int run(struct progopts opts)
             log_info("Interpreter was halted");
             should_exit = true;
         }
+
+        /*
+         * In order to prevent using 100% of the CPU, we sleep here for a
+         * little bit so that the emulator isn't running at max speed all the
+         * time.  To be on the safe side and prevent lag, we sleep for 1/1000th
+         * of a frame.  I also tried `sched_yield()`, but doing it this way
+         * offers a little more predictability when it comes to execution
+         * speed.
+         */
+        nanosleep(&(const struct timespec){.tv_sec = 0,
+                                           .tv_nsec = 1000000000 /
+                                                      chipopts.timer_freq /
+                                                      1000},
+                  NULL);
     }
 
 ERROR_CHIP8_CREATED:
