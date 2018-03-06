@@ -28,3 +28,8 @@ be able to build the manual until you install it.  You can either install it or
 simply ignore it and continue the build.  Additionally, if you have Doxygen
 installed and you want some code documentation to be generated, you can run
 `meson configure -Ddoxygen=true` and then run `ninja docs/html`.
+
+## License
+
+This is free software, distributed under the [MIT
+license](https://opensource.org/licenses/MIT).
