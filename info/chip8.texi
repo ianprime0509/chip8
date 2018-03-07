@@ -8,7 +8,7 @@
 @copying
 This manual is for Chip-8, version @value{VERSION}.
 
-Copyright @copyright{} 2017 Ian Johnson
+Copyright @copyright{} 2017-2018 Ian Johnson
 
 @quotation
 This manual is distributed under the terms of the MIT license, which can
@@ -127,6 +127,7 @@ buzzer would be cool).
 @node Display
 @subsection Display
 @cindex display
+@cindex resolution
 
 The original Chip-8 had a single display mode, with only two colors and
 a resolution of 64x32.  The Super-Chip retained the monochrome display,
@@ -155,6 +156,7 @@ results.
 @node Buzzer
 @subsection Buzzer
 @cindex buzzer
+@cindex sound
 
 The sound capabilities of both the original Chip-8 and the Super-Chip
 are limited to a single monotone buzzer, which can be programmed using
@@ -166,6 +168,7 @@ of 60 Hz, the buzzer can be made to sound for specific lengths of time.
 @node Controller
 @subsection Controller
 @cindex controller
+@cindex keys
 
 The controller used with the Chip-8 has sixteen keys, each labeled with
 a hexadecimal digit in a 4x4 arrangement.  The arrangement is as
@@ -282,7 +285,8 @@ have restrictions.
 @subsection Memory and program storage
 @cindex memory
 @cindex program
-@cindex storage, of programs
+@cindex instruction
+@cindex opcode
 
 The Chip-8 and Super-Chip both provide 4096 bytes of addressable memory,
 512 bytes of which are reserved for the interpreter.  Although modern
@@ -306,7 +310,10 @@ address, to prevent reading bogus instructions.
 
 @node Graphics storage
 @subsection Graphics storage
-@cindex storage, of graphics
+@cindex graphics
+@cindex sprite
+@cindex drawing
+@cindex font
 
 The original Chip-8 supported drawing simple images (or @dfn{sprites})
 of exactly eight pixels in width and between one and fifteen (inclusive)
@@ -358,6 +365,7 @@ games I've tried.
 @node The emulator
 @chapter The emulator
 @cindex emulator
+@cindex interpreter
 
 This package comes with a Chip-8/Super-Chip emulator, invoked as
 @command{chip8}, which aims to correctly emulate as many Chip-8 and
@@ -366,9 +374,9 @@ applicable.  Currently, all the Chip-8 games I have tested work without
 issue, while some Super-Chip games need more work.
 
 Since both the original Chip-8 and Super-Chip were interpreters running
-on other machines rather than deedicated hardware, the terms
-``emulator'' and ``interpreter'' will be used interchangeably when
-referring to @command{chip8}.
+on other machines rather than dedicated hardware, the terms ``emulator''
+and ``interpreter'' will be used interchangeably when referring to
+@command{chip8}.
 
 @menu
 * Invoking chip8::      Using the emulator.
@@ -376,7 +384,9 @@ referring to @command{chip8}.
 
 @node Invoking chip8
 @section Invoking @command{chip8}
-@cindex @command{chip8} (command)
+@cindex chip8 (command)
+@cindex emulator, invocation of
+@cindex interpreter, invocation of
 
 The command @command{chip8} must be invoked with the name of a program
 file to run, unless either the @option{--help} or @option{--version}
@@ -438,8 +448,8 @@ Show program version information, and exit.
 
 @node Invoking chip8asm
 @section Invoking @command{chip8asm}
-@cindex invoking assembler
-@cindex assembler, invocation
+@cindex chip8asm (command)
+@cindex assembler, invocation of
 
 The command @command{chip8asm} must be invoked with the name of a source
 file to assemble, unless either the @option{--help} or
@@ -476,20 +486,25 @@ Show program version information, and exit.
 
 @node Syntax
 @section Syntax
-@cindex syntax
-@cindex assembler syntax
+@cindex assembler, syntax of
+@cindex CHIPPER
+
+The syntax used in the assembler is similar to that used in the popular
+CHIPPER assembler, and the names of all the operations have been kept
+the same.  There are some notable differences, however: the precedence
+levels of some operators have been changed to make them more C-like, and
+label names are case-sensitive.  There are also several directives
+(designated by the pseudo-operation @code{OPTION}) that had meaning in
+CHIPPER (e.g. assembling for HP calculators) that are not supported.
 
 @node Line format
 @subsection Line format
-@cindex line format
-@cindex assembler line format
+@cindex assembler, line format of
 
-The syntax used in the assembler is similar to that used in the popular
-CHIPPER assembler.  The assembly input is processed one line at a time,
-where each line may consist of a label and/or an instruction.  Blank
-lines are also allowed, for readability.  A semicolon, @samp{;}, may be
-used to begin a comment; the rest of the line following the semicolon
-will be ignored.
+The assembly input is processed one line at a time, where each line may
+consist of a label and/or an instruction.  Blank lines are also allowed,
+for readability.  A semicolon, @samp{;}, may be used to begin a comment;
+the rest of the line following the semicolon will be ignored.
 
 A label consists of an identifier followed by a colon, @samp{:}, and
 must be the first element on its line (optionally preceded by
@@ -497,7 +512,7 @@ whitespace).  An identifier may start with an underscore or alphabetic
 character, and may additionally contain the digits 0--9 after the
 initial character.  It is not possible to define two different labels to
 refer to the same instruction, or to define two labels with the same
-identifer.  Label names are case-sensitive, so @code{label1} will be
+identifier.  Label names are case-sensitive, so @code{label1} will be
 treated as a separate label from @code{LABEL1}.
 
 An instruction consists of an operation and, depending on the operation,
@@ -516,14 +531,13 @@ name.
 
 @node Expressions
 @subsection Expressions
-@cindex expression
-@cindex assembler expression
+@cindex assembler, expression syntax of
 
 The treatment of expressions in the assembler is similar to that used in
 most programming languages, such as C: they are written in infix
 notation, and label names may be used as identifiers to represent their
-values.  The meanings and precedences of the operators should also be
-mostly familiar to those experienced in other programming languages,
+values.  The meanings and precedence levels of the operators should also
+be mostly familiar to those experienced in other programming languages,
 particularly C.
 
 Since the Chip-8 is fundamentally a 16-bit machine, all quantities in
@@ -572,7 +586,6 @@ operators, since numeric quantities are always treated as unsigned.
 @node Operations
 @section Operations
 @cindex operation
-@cindex assembler operation
 
 When speaking of operations in the assembler, we distinguish between
 true operations and ``pseudo-operations''.  A true operation is one that
@@ -602,8 +615,7 @@ Chip-8 or Super-Chip is represented by a two-byte opcode,
 
 @node Operation notation
 @subsubsection Operation notation
-@cindex operation notation
-@cindex notation, operation
+@cindex operation, notation of
 
 For consistency and readability, we will use certain conventions to
 denote the operands taken by each operation.  For operands which must be
@@ -645,7 +657,7 @@ concrete instruction @code{DRW V1, VA, 5} has opcode @samp{D1A5}.
 
 @node List of operations
 @subsubsection List of operations
-@cindex operation reference
+@cindex operation, description of
 
 The descriptions of the operations given here reflect the behavior of
 the included emulator, @command{chip8}, and are intended to reflect as
@@ -712,34 +724,34 @@ error to call a subroutine which is not aligned on a 2-byte boundary.
 Its opcode is @samp{2nnn}.
 @end deffn
 
-@deffn Operation SE vx, byte
+@deffn Operation {SE vx, byte}
 This operation skips the next instruction if the value of @var{vx} is
 equal to @var{byte}.  Its opcode is @samp{3xkk}.
 @end deffn
 
-@deffn Operation SNE vx, byte
+@deffn Operation {SNE vx, byte}
 This operation skips the next instruction if the value of @var{vx} is
 not equal to @var{byte}.  Its opcode is @samp{4xkk}.
 @end deffn
 
-@deffn Operation SE vx, vy
+@deffn Operation {SE vx, vy}
 This operation skips the next instruction if the values of @var{vx} and
 @var{vy} are equal.  Its opcode is @samp{5xy0}.
 @end deffn
 
-@deffn Operation LD vx, byte
+@deffn Operation {LD vx, byte}
 This operation loads @var{byte} into register @var{vx}.  Its opcode is
 @samp{6xkk}.
 @end deffn
 
-@deffn Operation ADD vx, byte
+@deffn Operation {ADD vx, byte}
 This operation adds @var{byte} to the value of register @var{vx},
-storing the result (modulo 256) in @var{vx}.  Register @code{VF} is set
-to 1 if a carry occurred (that is, if the true sum was greater than or
-equal to 256), or 0 otherwise.  Its opcode is @samp{7xkk}.
+storing the result (modulo 256) in @var{vx}.  Register VF is set to 1 if
+a carry occurred (that is, if the true sum was greater than or equal to
+256), or 0 otherwise.  Its opcode is @samp{7xkk}.
 @end deffn
 
-@deffn Operation LD vx, vy
+@deffn Operation {LD vx, vy}
 This operation loads the value of @var{vy} into @var{vx}.  Its opcode is
 @samp{8xy0}.
 @end deffn
@@ -759,36 +771,36 @@ This operation computes the bitwise XOR of @var{vx} and @var{vy},
 storing the result in @var{vx}.  Its opcode is @samp{8xy3}.
 @end deffn
 
-@deffn Operation ADD vx, vy
+@deffn Operation {ADD vx, vy}
 This operation adds the value of @var{vy} to that of @var{vx}, storing
-the result (modulo 256) in @var{vx}.  Register @code{VF} is set to 1 if
-a carry occurred, or 0 otherwise.  Its opcode is @samp{8xy4}.
+the result (modulo 256) in @var{vx}.  Register VF is set to 1 if a carry
+occurred, or 0 otherwise.  Its opcode is @samp{8xy4}.
 @end deffn
 
 @deffn Operation SUB vx, vy
 This operation subtracts the value of @var{vy} from that of @var{vx},
-storing the result (modulo 256) in @var{vx}.  Register @code{VF} is set
-to 0 if a borrow occurred (that is, if the true value of the difference
-would be negative under signed arithmetic), or to 1 otherwise.  Its
-opcode is @samp{8xy5}.
+storing the result (modulo 256) in @var{vx}.  Register VF is set to 0 if
+a borrow occurred (that is, if the true value of the difference would be
+negative under signed arithmetic), or to 1 otherwise.  Its opcode is
+@samp{8xy5}.
 @end deffn
 
 @deffn Operation SHR vx
 This operation performs a logical right shift on the value of @var{vx},
 storing the result in @var{vx}.  The original least significant bit of
-@var{vx} is stored in register @code{VF}.  Its opcode is @samp{8x06}.
+@var{vx} is stored in register VF.  Its opcode is @samp{8x06}.
 @end deffn
 
 @deffn Operation SUBN vx, vy
 This operation subtracts the value of @var{vx} from that of @var{vx},
-storing the result in @var{vx}.  Register @code{VF} is set to 0 if a
-borrow occurred, or to 1 otherwise.  Its opcode is @samp{8xy7}.
+storing the result in @var{vx}.  Register VF is set to 0 if a borrow
+occurred, or to 1 otherwise.  Its opcode is @samp{8xy7}.
 @end deffn
 
 @deffn Operation SHL vx
 This operation performs a left shift on the value of @var{vx}, storing
 the result in @var{vx}.  The original most significant bit of @var{vx}
-is stored in register @code{VF}.  Its opcode is @samp{8x0E}.
+is stored in register VF.  Its opcode is @samp{8x0E}.
 @end deffn
 
 @deffn Operation SNE vx, vy
@@ -796,15 +808,15 @@ This operation skips the next instruction if the values of @var{vx} and
 @var{vy} are not equal.  Its opcode is @samp{9xy0}.
 @end deffn
 
-@deffn Operation LD I, addr
-This operation loads @var{addr} into register @code{I}.  Its opcode is
+@deffn Operation {LD I, addr}
+This operation loads @var{addr} into register I.  Its opcode is
 @samp{Annn}.
 @end deffn
 
-@deffn Operation JP V0, addr
-This operation computes the sum @var{addr} and the value of @code{V0},
-and jumps to the resulting address.  It is an error if the computed
-address is not aligned on a 2-byte boundary.  Its opcode is @samp{Bnnn}.
+@deffn Operation {JP V0, addr}
+This operation computes the sum @var{addr} and the value of V0, and
+jumps to the resulting address.  It is an error if the computed address
+is not aligned on a 2-byte boundary.  Its opcode is @samp{Bnnn}.
 @end deffn
 
 @deffn Operation RND vx, byte
@@ -815,9 +827,9 @@ This operation generates a random byte and performs a logical AND with
 
 @deffn Operation DRW vx, vy, nibble
 This operation loads a sprite @var{nibble} bytes long starting at the
-memory location indicated by the value of register @code{I}.  The sprite
-is drawn at position (@var{vx}, @var{vy}); register @code{VF} is set to
-1 if a collision occurs, or to 0 otherwise.  On the Super-Chip only,
+memory location indicated by the value of register I.  The sprite is
+drawn at position (@var{vx}, @var{vy}); register VF is set to 1 if a
+collision occurs, or to 0 otherwise.  On the Super-Chip only,
 @var{nibble} may be 0, in which case a 16x16-pixel sprite will be read.
 For more information about how sprites are loaded and drawn,
 @pxref{Graphics storage}.
@@ -838,12 +850,12 @@ value of @var{vx}, and skips the next instruction if that key is not
 currently being pressed.  Its opcode is @samp{ExA1}.
 @end deffn
 
-@deffn Operation LD vx, DT
-This operation loads the value of the delay timer (register @code{DT})
-into @var{vx}.  Its opcode is @samp{Fx07}.
+@deffn Operation {LD vx, DT}
+This operation loads the value of the delay timer (register DT) into
+@var{vx}.  Its opcode is @samp{Fx07}.
 @end deffn
 
-@deffn Operation LD vx, K
+@deffn Operation {LD vx, K}
 This operation waits for a key press, and then stores the number of the
 key in @var{vx}.  If several keys are pressed at once, priority goes to
 the one with the lower number.  After a key press is detected and
@@ -853,77 +865,77 @@ unless it is released and pressed again.
 Its opcode is @samp{Fx0A}.
 @end deffn
 
-@deffn Operation LD DT, vx
+@deffn Operation {LD DT, vx}
 This operation loads the value of @var{vx} into the delay timer
-(register @code{DT}).  Its opcode is @samp{Fx15}.
+(register DT).  Its opcode is @samp{Fx15}.
 @end deffn
 
-@deffn Operation LD ST, vx
+@deffn Operation {LD ST, vx}
 This operation loads the value of @var{vx} into the sound timer
-(register @code{ST}).  Its opcode is @samp{Fx18}.
+(register ST).  Its opcode is @samp{Fx18}.
 @end deffn
 
-@deffn Operation ADD I, vx
-This operation adds the value of @var{vx} to register @code{I}, storing
-the result in @code{I}.  If the result is too large to fit in the 16-bit
-register @code{I}, the behavior is undefined.  Its opcode is
+@deffn Operation {ADD I, vx}
+This operation adds the value of @var{vx} to register I, storing the
+result in I.  If the result is too large to fit in the 16-bit
+register I, the behavior is undefined.  Its opcode is
 @samp{Fx1E}.
 @end deffn
 
-@deffn Operation LD F, vx
+@deffn Operation {LD F, vx}
 This operation treats the lower four bits of @var{vx} as a hexadecimal
-digit, and stores in register @code{I} the location in memory of the
+digit, and stores in register I the location in memory of the
 low-resolution font sprite for that digit.  For more information about
 these pre-defined sprites, @pxref{Graphics storage}.  Its opcode is
 @samp{Fx29}.
 @end deffn
 
-@deffn Operation LD HF, vx
+@deffn Operation {LD HF, vx}
 This operation is similar to @code{LD F, @var{vx}}, but the address
-stored in register @code{I} is the location of a high-definition font
-sprite for the desired digit.  It is only available on the Super-Chip,
-and its opcode is @samp{Fx30}.
+stored in register I is the location of a high-definition font sprite
+for the desired digit.  It is only available on the Super-Chip, and its
+opcode is @samp{Fx30}.
 @end deffn
 
-@deffn Operation LD B, vx
+@deffn Operation {LD B, vx}
 This operation stores the three-digit binary-coded decimal
 representation of the value of @var{vx} in the three bytes starting at
-the value of register @code{I} (with the most significant digit first).
-For example, if the value of @var{vx} is @samp{123} in decimal, then the
+the value of register I (with the most significant digit first).  For
+example, if the value of @var{vx} is @samp{123} in decimal, then the
 three bytes stored will be @samp{1}, @samp{2} and @samp{3}, in that
 order.
 
 Its opcode is @samp{Fx33}.
 @end deffn
 
-@deffn Operation LD [I], vx
-This operation takes the values of registers @code{V0} through @var{vx}
+@deffn Operation {LD [I], vx}
+This operation takes the values of registers V0 through @var{vx}
 (inclusive) and stores them sequentially in memory starting at the
-address stored in register @code{I}.  Its opcode is @samp{Fx55}.
+address stored in register I.  Its opcode is @samp{Fx55}.
 @end deffn
 
-@deffn Operation LD vx, [I]
-This operation copies bytes sequentially into the registers @code{V0}
-through @var{vx} (inclusive) starting at the address stored in register
-@code{I}.  Thus, it is the inverse operation to @code{LD [I], @var{vx}}.
-Its opcode is @samp{Fx65}.
+@deffn Operation {LD vx, [I]}
+This operation copies bytes sequentially into the registers V0 through
+@var{vx} (inclusive) starting at the address stored in register I.
+Thus, it is the inverse operation to @code{LD [I], @var{vx}}.  Its
+opcode is @samp{Fx65}.
 @end deffn
 
-@deffn Operation LD R, vx
+@deffn Operation {LD R, vx}
 This operation has something to do with the registers on an HP-48
 calculator, but I don't really know and it seems nobody else does
 either.  It is only available on the Super-Chip, and its opcode is
 @samp{Fx75}.
 @end deffn
 
-@deffn Operation LD vx, R
+@deffn Operation {LD vx, R}
 This operation should be the inverse to @code{LD R, @var{vx}}.  It is
 only available on the Super-Chip, and its opcode is @samp{Fx85}.
 @end deffn
 
 @node Alternative behavior
 @subsubsection Alternative behavior
-@cindex alternative behavior (of operations)
+@cindex operation, alternative behavior of
 
 Some interpreters do not behave exactly as described in the operation
 reference, and some games are developed which rely on these alternative
@@ -939,13 +951,13 @@ forms.
 @deffn {Alternate operation} SHR vx, vy
 This operation performs a logical right shift on the value of @var{vy},
 storing the result in @var{vx}.  The original least significant bit of
-@var{vy} is stored in register @code{VF}.  Its opcode is @samp{8xy6}.
+@var{vy} is stored in register VF.  Its opcode is @samp{8xy6}.
 @end deffn
 
 @deffn {Alternate operation} SHL vx, vy
 This operation performs a logical left shift on the value of @var{vy},
 storing the result in @var{vx}.  The original most significant bit of
-@var{vy} is stored in register @code{VF}.  Its opcode is @samp{8xyE}.
+@var{vy} is stored in register VF.  Its opcode is @samp{8xyE}.
 @end deffn
 
 There are also alternative behaviors for operations which copy register
@@ -953,15 +965,15 @@ data to and from memory (that is, the operations involving @code{[I]}).
 The interpreter accepts a flag instructing it to use these alternative
 behaviors (they make no difference to the assembler).
 
-@deffn {Alternate operation} LD [I], vx
+@deffn {Alternate operation} {LD [I], vx}
 This operation is the same as @code{LD [I], @var{vx}}, but after
-execution the value of register @code{I} is set to the memory address
-directly after that of the stored values.
+execution the value of register I is set to the memory address directly
+after that of the stored values.
 @end deffn
 
-@deffn {Alternate operation} LD vx, [I]
+@deffn {Alternate operation} {LD vx, [I]}
 This operation is the same as @code{LD @var{vx}, [I]}, but after
-execution the value of register @code{I} is set to the memory address
+execution the value of register I is set to the memory address
 directly after that of the loaded values.
 @end deffn
 
@@ -1049,6 +1061,7 @@ used to enable shift quirks, removing the need for the @samp{-q} flag,
 
 @node The disassembler
 @chapter The disassembler
+@cindex disassembler
 
 Since this project includes an assembler, it's not too much of a stretch
 to expect it to have a disassembler as well.  The disassembler included
@@ -1062,6 +1075,8 @@ use with the vast majority of Chip-8 programs.
 
 @node Invoking chip8disasm
 @section Invoking @command{chip8disasm}
+@cindex chip8disasm (command)
+@cindex disassembler, invocation of
 
 The command @command{chip8disasm} must be invoked with the name of a
 program file to disassemble, unless either the @option{--help} or
@@ -1098,6 +1113,7 @@ Show program version information, and exit.
 
 @node Output format
 @section Output format
+@cindex disassembler, output of
 
 The disassembler output format is compatible with the input format used
 in the assembler.  That is, if you disassemble a Chip-8 program with
@@ -1115,13 +1131,14 @@ flag (@pxref{Invoking chip8disasm}).
 
 @node Detecting code versus data
 @subsection Detecting code versus data
+@cindex control-flow analysis
 
 One complication which the disassembler addresses is the lack of
 distinction between code and data in Chip-8 assembly.  Thus, a naïve
 disassembler that attempts to decode each 2-byte word as an instruction
 will run into problems and report many invalid instructions (which
 aren't really instructions at all, but data).  @command{chip8disasm}
-solves this problem using a simple form of ``control flow analysis'',
+solves this problem using a simple form of ``control-flow analysis'',
 which analyzes the program structure to detect which sections are
 reachable (code) and which are not (data).
 
@@ -1147,7 +1164,6 @@ for the interpreter; @pxref{Memory and program storage}).
 
 @node Further reading
 @chapter Further reading
-@cindex further reading
 
 There are several good resources on the Web for Chip-8 information. For
 a Chip-8 instruction/opcode reference, see
@@ -1163,7 +1179,6 @@ implementations.  There is also some information here:
 
 @node Index
 @unnumbered Index
-@cindex index
 
 @printindex cp
 
