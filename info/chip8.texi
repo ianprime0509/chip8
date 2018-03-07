@@ -3,7 +3,13 @@
 @setfilename chip8.info
 @settitle Chip-8 @value{VERSION}
 @documentencoding UTF-8
-@syncodeindex fn cp
+
+@c We need a new index for operations, since it's much better to have
+@c descriptive index names for "overloaded" operations like `LD' than
+@c fifteen different index entries that are all `LD'.  The built-in
+@c `@deffn' will do the latter by default in the function index..
+@defindex op
+@syncodeindex op cp
 
 @copying
 This manual is for Chip-8, version @value{VERSION}.
@@ -689,54 +695,64 @@ It is also possible that I've made a mistake somewhere, especially with
 some of the less conventional operations; if you find such a mistake,
 please let me know so that I can fix it.
 
+@opindex SCD
 @deffn Operation SCD nibble
 This operation scrolls the screen down by @var{nibble} pixels.  It is
 only available on the Super-Chip, and its opcode is @samp{00Cn}.
 @end deffn
 
+@opindex CLS
 @deffn Operation CLS
 This operation clears the entire display.  Its opcode is @samp{00E0}.
 @end deffn
 
+@opindex RET
 @deffn Operation RET
 This operation returns from a subroutine; it is an error to use
 @code{RET} without a corresponding preceding @code{CALL}.  Its opcode is
 @samp{00EE}.
 @end deffn
 
+@opindex SCR
 @deffn Operation SCR
 This operation scrolls the screen right by 4 pixels.  It is only
 available on the Super-Chip, and its opcode is @samp{00FB}.
 @end deffn
 
+@opindex SCL
 @deffn Operation SCL
 This operation scrolls the screen left by 4 pixels.  It is only
 available on the Super-Chip, and its opcode is @samp{00FC}.
 @end deffn
 
+@opindex EXIT
 @deffn Operation EXIT
 This operation signals to the interpreter to exit immediately.  It is
 only available on the Super-Chip, and its opcode is @samp{00FD}.
 @end deffn
 
+@opindex LOW
 @deffn Operation LOW
 This operation switches the display to low-resolution mode
 (@pxref{External hardware}).  It is only available on the Super-Chip,
 and its opcode is @samp{00FE}.
 @end deffn
 
+@opindex HIGH
 @deffn Operation HIGH
 This operation switches the display to high-resolution mode
 (@pxref{External hardware}).  It is only available on the Super-Chip,
 and its opcode is @samp{00FF}.
 @end deffn
 
+@opindex JP
 @deffn Operation JP addr
 This operation sets the program counter to @var{addr}.  It is an error
 to jump to an address which is not aligned on a 2-byte boundary.  Its
 opcode is @samp{1nnn}.
 @end deffn
 
+@opindex CALL
 @deffn Operation CALL addr
 This operation calls the subroutine at @var{addr}; that is, it sets the
 program counter to @var{addr} and pushes the original program counter to
@@ -745,59 +761,70 @@ error to call a subroutine which is not aligned on a 2-byte boundary.
 Its opcode is @samp{2nnn}.
 @end deffn
 
-@deffn Operation {SE vx, byte}
+@opindex SE vx, byte
+@deffn Operation SE vx, byte
 This operation skips the next instruction if the value of @var{vx} is
 equal to @var{byte}.  Its opcode is @samp{3xkk}.
 @end deffn
 
-@deffn Operation {SNE vx, byte}
+@opindex SNE vx, byte
+@deffn Operation SNE vx, byte
 This operation skips the next instruction if the value of @var{vx} is
 not equal to @var{byte}.  Its opcode is @samp{4xkk}.
 @end deffn
 
-@deffn Operation {SE vx, vy}
+@opindex SE vx, vy
+@deffn Operation SE vx, vy
 This operation skips the next instruction if the values of @var{vx} and
 @var{vy} are equal.  Its opcode is @samp{5xy0}.
 @end deffn
 
-@deffn Operation {LD vx, byte}
+@opindex LD vx, byte
+@deffn Operation LD vx, byte
 This operation loads @var{byte} into register @var{vx}.  Its opcode is
 @samp{6xkk}.
 @end deffn
 
-@deffn Operation {ADD vx, byte}
+@opindex ADD vx, byte
+@deffn Operation ADD vx, byte
 This operation adds @var{byte} to the value of register @var{vx},
 storing the result (modulo 256) in @var{vx}.  Register VF is set to 1 if
 a carry occurred (that is, if the true sum was greater than or equal to
 256), or 0 otherwise.  Its opcode is @samp{7xkk}.
 @end deffn
 
-@deffn Operation {LD vx, vy}
+@opindex LD vx, vy
+@deffn Operation LD vx, vy
 This operation loads the value of @var{vy} into @var{vx}.  Its opcode is
 @samp{8xy0}.
 @end deffn
 
+@opindex OR
 @deffn Operation OR vx, vy
 This operation computes the bitwise OR of @var{vx} and @var{vy}, storing
 the result in @var{vx}.  Its opcode is @samp{8xy1}.
 @end deffn
 
+@opindex AND
 @deffn Operation AND vx, vy
 This operation computes the bitwise AND of @var{vx} and @var{vy},
 storing the result in @var{vx}.  Its opcode is @samp{8xy2}.
 @end deffn
 
+@opindex XOR
 @deffn Operation XOR vx, vy
 This operation computes the bitwise XOR of @var{vx} and @var{vy},
 storing the result in @var{vx}.  Its opcode is @samp{8xy3}.
 @end deffn
 
-@deffn Operation {ADD vx, vy}
+@opindex ADD vx, vy
+@deffn Operation ADD vx, vy
 This operation adds the value of @var{vy} to that of @var{vx}, storing
 the result (modulo 256) in @var{vx}.  Register VF is set to 1 if a carry
 occurred, or 0 otherwise.  Its opcode is @samp{8xy4}.
 @end deffn
 
+@opindex SUB
 @deffn Operation SUB vx, vy
 This operation subtracts the value of @var{vy} from that of @var{vx},
 storing the result (modulo 256) in @var{vx}.  Register VF is set to 0 if
@@ -806,46 +833,54 @@ negative under signed arithmetic), or to 1 otherwise.  Its opcode is
 @samp{8xy5}.
 @end deffn
 
+@opindex SHR
 @deffn Operation SHR vx
 This operation performs a logical right shift on the value of @var{vx},
 storing the result in @var{vx}.  The original least significant bit of
 @var{vx} is stored in register VF.  Its opcode is @samp{8x06}.
 @end deffn
 
+@opindex SUBN
 @deffn Operation SUBN vx, vy
 This operation subtracts the value of @var{vx} from that of @var{vx},
 storing the result in @var{vx}.  Register VF is set to 0 if a borrow
 occurred, or to 1 otherwise.  Its opcode is @samp{8xy7}.
 @end deffn
 
+@opindex SHL
 @deffn Operation SHL vx
 This operation performs a left shift on the value of @var{vx}, storing
 the result in @var{vx}.  The original most significant bit of @var{vx}
 is stored in register VF.  Its opcode is @samp{8x0E}.
 @end deffn
 
+@opindex SNE
 @deffn Operation SNE vx, vy
 This operation skips the next instruction if the values of @var{vx} and
 @var{vy} are not equal.  Its opcode is @samp{9xy0}.
 @end deffn
 
-@deffn Operation {LD I, addr}
+@opindex LD I
+@deffn Operation LD I, addr
 This operation loads @var{addr} into register I.  Its opcode is
 @samp{Annn}.
 @end deffn
 
-@deffn Operation {JP V0, addr}
+@opindex JP V0
+@deffn Operation JP V0, addr
 This operation computes the sum @var{addr} and the value of V0, and
 jumps to the resulting address.  It is an error if the computed address
 is not aligned on a 2-byte boundary.  Its opcode is @samp{Bnnn}.
 @end deffn
 
+@opindex RND
 @deffn Operation RND vx, byte
 This operation generates a random byte and performs a logical AND with
 @var{byte}, storing the resulting value in @var{vx}.  Its opcode is
 @samp{Cxkk}.
 @end deffn
 
+@opindex DRW
 @deffn Operation DRW vx, vy, nibble
 This operation loads a sprite @var{nibble} bytes long starting at the
 memory location indicated by the value of register I.  The sprite is
@@ -858,6 +893,7 @@ For more information about how sprites are loaded and drawn,
 Its opcode is @samp{Dxyn}.
 @end deffn
 
+@opindex SKP
 @deffn Operation SKP vx
 This operation takes the name of a key from the lower four bits of the
 value of @var{vx}, and skips the next instruction if that key is
@@ -865,18 +901,21 @@ currently being pressed.  For more information about keys,
 @pxref{Controller}.  Its opcode is @samp{Ex9E}.
 @end deffn
 
+@opindex SKNP
 @deffn Operation SKNP vx
 This operation takes the number of a key from the lower four bits of the
 value of @var{vx}, and skips the next instruction if that key is not
 currently being pressed.  Its opcode is @samp{ExA1}.
 @end deffn
 
-@deffn Operation {LD vx, DT}
+@opindex LD vx, DT
+@deffn Operation LD vx, DT
 This operation loads the value of the delay timer (register DT) into
 @var{vx}.  Its opcode is @samp{Fx07}.
 @end deffn
 
-@deffn Operation {LD vx, K}
+@opindex LD vx, K
+@deffn Operation LD vx, K
 This operation waits for a key press, and then stores the number of the
 key in @var{vx}.  If several keys are pressed at once, priority goes to
 the one with the lower number.  After a key press is detected and
@@ -886,24 +925,28 @@ unless it is released and pressed again.
 Its opcode is @samp{Fx0A}.
 @end deffn
 
-@deffn Operation {LD DT, vx}
+@opindex LD DT, vx
+@deffn Operation LD DT, vx
 This operation loads the value of @var{vx} into the delay timer
 (register DT).  Its opcode is @samp{Fx15}.
 @end deffn
 
-@deffn Operation {LD ST, vx}
+@opindex LD ST
+@deffn Operation LD ST, vx
 This operation loads the value of @var{vx} into the sound timer
 (register ST).  Its opcode is @samp{Fx18}.
 @end deffn
 
-@deffn Operation {ADD I, vx}
+@opindex ADD I
+@deffn Operation ADD I, vx
 This operation adds the value of @var{vx} to register I, storing the
 result in I.  If the result is too large to fit in the 16-bit
 register I, the behavior is undefined.  Its opcode is
 @samp{Fx1E}.
 @end deffn
 
-@deffn Operation {LD F, vx}
+@opindex LD F
+@deffn Operation LD F, vx
 This operation treats the lower four bits of @var{vx} as a hexadecimal
 digit, and stores in register I the location in memory of the
 low-resolution font sprite for that digit.  For more information about
@@ -911,14 +954,16 @@ these pre-defined sprites, @pxref{Graphics storage}.  Its opcode is
 @samp{Fx29}.
 @end deffn
 
-@deffn Operation {LD HF, vx}
+@opindex LD HF
+@deffn Operation LD HF, vx
 This operation is similar to @code{LD F, @var{vx}}, but the address
 stored in register I is the location of a high-definition font sprite
 for the desired digit.  It is only available on the Super-Chip, and its
 opcode is @samp{Fx30}.
 @end deffn
 
-@deffn Operation {LD B, vx}
+@opindex LD B
+@deffn Operation LD B, vx
 This operation stores the three-digit binary-coded decimal
 representation of the value of @var{vx} in the three bytes starting at
 the value of register I (with the most significant digit first).  For
@@ -929,27 +974,31 @@ order.
 Its opcode is @samp{Fx33}.
 @end deffn
 
-@deffn Operation {LD [I], vx}
+@opindex LD [I], vx
+@deffn Operation LD [I], vx
 This operation takes the values of registers V0 through @var{vx}
 (inclusive) and stores them sequentially in memory starting at the
 address stored in register I.  Its opcode is @samp{Fx55}.
 @end deffn
 
-@deffn Operation {LD vx, [I]}
+@opindex LD vx, [I]
+@deffn Operation LD vx, [I]
 This operation copies bytes sequentially into the registers V0 through
 @var{vx} (inclusive) starting at the address stored in register I.
 Thus, it is the inverse operation to @code{LD [I], @var{vx}}.  Its
 opcode is @samp{Fx65}.
 @end deffn
 
-@deffn Operation {LD R, vx}
+@opindex LD R, vx
+@deffn Operation LD R, vx
 This operation has something to do with the registers on an HP-48
 calculator, but I don't really know and it seems nobody else does
 either.  It is only available on the Super-Chip, and its opcode is
 @samp{Fx75}.
 @end deffn
 
-@deffn Operation {LD vx, R}
+@opindex LD vx, R
+@deffn Operation LD vx, R
 This operation should be the inverse to @code{LD R, @var{vx}}.  It is
 only available on the Super-Chip, and its opcode is @samp{Fx85}.
 @end deffn
@@ -969,12 +1018,14 @@ interpreter (@pxref{Invoking chip8}) and assembler (@pxref{Invoking
 chip8asm}) both accept a flag instructing them to use these variant
 forms.
 
+@opindex SHR (alternate two-operand form)
 @deffn {Alternate operation} SHR vx, vy
 This operation performs a logical right shift on the value of @var{vy},
 storing the result in @var{vx}.  The original least significant bit of
 @var{vy} is stored in register VF.  Its opcode is @samp{8xy6}.
 @end deffn
 
+@opindex SHL (alternate two-operand form)
 @deffn {Alternate operation} SHL vx, vy
 This operation performs a logical left shift on the value of @var{vy},
 storing the result in @var{vx}.  The original most significant bit of
@@ -986,13 +1037,15 @@ data to and from memory (that is, the operations involving @code{[I]}).
 The interpreter accepts a flag instructing it to use these alternative
 behaviors (they make no difference to the assembler).
 
-@deffn {Alternate operation} {LD [I], vx}
+@opindex LD [I], vx (alternate behavior)
+@deffn {Alternate operation} LD [I], vx
 This operation is the same as @code{LD [I], @var{vx}}, but after
 execution the value of register I is set to the memory address directly
 after that of the stored values.
 @end deffn
 
-@deffn {Alternate operation} {LD vx, [I]}
+@opindex LD vx, [I] (alternate behavior)
+@deffn {Alternate operation} LD vx, [I]
 This operation is the same as @code{LD @var{vx}, [I]}, but after
 execution the value of register I is set to the memory address
 directly after that of the loaded values.
@@ -1007,6 +1060,7 @@ The first important class of pseudo-operations are those which provide
 support for conditional assembly, that is, emitting different assembly
 instructions based on a assemble-time condition.
 
+@opindex IFDEF
 @deffn Pseudo-operation IFDEF label
 This pseudo-operation begins a conditional assembly block.  If
 @var{label} is defined when @code{IFDEF} is processed, then all
@@ -1018,6 +1072,7 @@ matching @code{ELSE} or @code{ENDIF}, instead processing those which
 follow @code{ELSE} (if present).
 @end deffn
 
+@opindex IFNDEF
 @deffn Pseudo-operation IFNDEF label
 This pseudo-operation is the opposite of @code{IFDEF}: if @var{label} is
 undefined, the conditional assembly is processed until @code{ELSE} and
@@ -1025,6 +1080,7 @@ then ignored until @code{ENDIF}, and vice versa if @var{label} is
 defined.
 @end deffn
 
+@opindex ELSE
 @deffn Pseudo-operation ELSE
 This pseudo-operation marks the beginning of the assembly instructions
 to be processed if the corresponding conditional was false, or to be
@@ -1032,6 +1088,7 @@ ignored if the corresponding conditional was true.  It may be used at
 most once within a block of conditional assembly.
 @end deffn
 
+@opindex ENDIF
 @deffn Pseudo-operation ENDIF
 This pseudo-operation marks the end of a block of conditional assembly.
 @end deffn
@@ -1042,6 +1099,7 @@ pseudo-operation, which is used with the syntax @code{@var{label} =
 @var{expression}}, setting the value of @var{label} to the result of
 @var{expression}.
 
+@opindex DEFINE
 @deffn Pseudo-operation DEFINE label
 This is equivalent to @code{@var{label} = 0}, and indicates that
 @var{label} will be used not for its value, but as a flag for
@@ -1051,6 +1109,7 @@ conditional compilation using @code{IFDEF} or @code{IFNDEF}.
 The third important class of pseudo-operations are those which insert
 literal bytes into the assembled output.
 
+@opindex DW
 @deffn Pseudo-operation DW expression
 This pseudo-operation evaluates @var{expression} and inserts the result
 (treated as a big-endian 16-bit unsigned integer) into the assembled
@@ -1058,6 +1117,7 @@ output.  For example, @code{DW #1234} will insert the bytes @code{#12}
 and @code{#34} (in that order) into the assembled output.
 @end deffn
 
+@opindex DB
 @deffn Pseudo-operation DB expression
 This pseudo-operation evaluates @var{expression} and inserts the result
 (treated as an 8-bit unsigned integer) into the assembled output (only
@@ -1072,6 +1132,7 @@ Finally, the last class of pseudo-operations (which currently has only
 one rather useless member) are those which give a directive to the
 assembler to affect the way it processes further instructions.
 
+@opindex OPTION
 @deffn Pseudo-operation OPTION name
 This pseudo-operation (currently) does nothing.  Eventually, different
 values of @var{name} may be used to enable or disable certain assembly

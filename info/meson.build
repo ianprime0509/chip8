@@ -13,5 +13,6 @@ custom_target('manual-html',
               output : 'html',
               input : 'chip8.texi',
               command : [texi2any, '--html', '@INPUT@',
+                         '--css-include', 'style.css',
                          '-I', meson.current_build_dir(),
                          '-o', '@OUTPUT@'])
