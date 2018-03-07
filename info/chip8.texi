@@ -118,6 +118,13 @@ buzzer would be cool).
 @cindex external hardware
 @cindex hardware, external
 
+The Chip-8 provides very basic facilities for graphics, sound and input
+through its user-facing components.  While limited, they provide
+functionality comparable to early (black and white) arcade games, and
+are sufficient for basic games.  The Super-Chip expands on the display
+by providing an additional ``high-resolution'' mode, but does not change
+the sound or input methods.
+
 @menu
 * Display::     The displays of the Chip-8 and Super-Chip.
 * Buzzer::      Making noise.
@@ -242,6 +249,14 @@ is as follows:
 @section Internal hardware
 @cindex internal hardware
 @cindex hardware, internal
+
+Like the external hardware, the internals of the Chip-8 (and Super-Chip)
+are rather simple and limited in comparison to other platforms.  There
+are sixteen 8-bit registers, 4096 bytes of addressable memory (512 bytes
+of which are reserved for the interpreter) and no concept of a stack or
+a distinction between code and data.  Since instructions and sprites are
+stored compactly in memory, however, the memory limitations are not
+quite as severe as might be expected.
 
 @menu
 * Registers::                  The Chip-8 registers.
@@ -439,6 +454,12 @@ Show program version information, and exit.
 @node The assembler
 @chapter The assembler
 @cindex assembler
+
+Since writing binary opcodes directly would be an extremely tedious (and
+error-prone) method of development, an assembler is an essential part of
+a complete Chip-8 environment.  This project includes a basic assembler,
+supporting common features such as labels and conditional assembly.
+More advanced features, such as macros, are not currently implemented.
 
 @menu
 * Invoking chip8asm::   Using the assembler.
