@@ -15,4 +15,15 @@ script:
   - docker exec -it ci meson -Db_sanitize=address build
   - docker exec -it ci ninja -C build
   - docker exec -it ci ninja -C build info/chip8.info
+  - docker exec -it ci ninja -C build info/html
   - docker exec -it ci ninja -C build test
+  - docker cp ci:build/info/html ./docs
+
+deploy:
+  provider: pages
+  local-dir: docs
+  skip-cleanup: true
+  github-token: $GITHUB_TOKEN
+  keep-history: true
+  on:
+    branch: master
