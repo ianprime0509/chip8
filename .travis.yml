@@ -17,11 +17,11 @@ script:
   - docker exec -it ci ninja -C build info/chip8.info
   - docker exec -it ci ninja -C build info/html
   - docker exec -it ci ninja -C build test
-  - docker cp ci:build/info/html ./docs
+  - docker cp ci:/root/chip8/build/info/html ./html-info
 
 deploy:
   provider: pages
-  local-dir: docs
+  local-dir: html-info
   skip-cleanup: true
   github-token: $GITHUB_TOKEN
   keep-history: true
