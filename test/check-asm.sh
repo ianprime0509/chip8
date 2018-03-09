@@ -18,7 +18,7 @@ echo "chip8disasm is '$CHIP8DISASM'"
 
 for prog in $PROGS; do
     "$CHIP8ASM" check-asm/${prog}.c8 -o "$TMPFILE"
-    if [ $? -ne 0]; then
+    if [ $? -ne 0 ]; then
         echo "ERROR: $prog assembly failed"
     fi
     diff "$TMPFILE" check-asm/${prog}.asm.bin >/dev/null
