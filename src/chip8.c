@@ -24,15 +24,15 @@ static const char *HELP =
     "A Chip-8/Super-Chip interpreter.\n"
     "\n"
     "Options:\n"
-    "      --frequency=FREQ        set game timer frequency (in Hz)\n"
+    "  -f, --frequency=FREQ        set game timer frequency (in Hz)\n"
+    "  -h, --help                  show this help message and exit\n"
     "  -l, --load-quirks           enable load quirks mode\n"
     "  -q, --shift-quirks          enable shift quirks mode\n"
     "  -s, --scale=SCALE           set game display scale\n"
     "  -t, --tone=FREQ             set game buzzer tone (in Hz)\n"
-    "  -v, --verbose               increase verbosity\n"
-    "      --volume=VOL            set game buzzer volume (0-100)\n"
-    "  -h, --help                  show this help message and exit\n"
-    "  -V, --version               show version information and exit\n";
+    "  -u, --volume=VOL            set game buzzer volume (0-100)\n"
+    "  -V, --version               show version information and exit\n"
+    "  -v, --verbose               increase verbosity\n";
 static const char *USAGE = "Usage: chip8 [OPTION...] FILE\n";
 static const char *VERSION_STRING = "chip8 " PROJECT_VERSION "\n";
 
@@ -118,27 +118,31 @@ int main(int argc, char **argv)
 {
     struct progopts opts = progopts_default();
     int option;
-    int got_frequency = 0;
-    int got_volume = 0;
     const struct option options[] = {
-        {"frequency", required_argument, &got_frequency, 1},
+        {"frequency", required_argument, NULL, 'f'},
+        {"help", no_argument, NULL, 'h'},
         {"load-quirks", no_argument, NULL, 'l'},
         {"shift-quirks", no_argument, NULL, 'q'},
         {"scale", required_argument, NULL, 's'},
         {"tone", required_argument, NULL, 't'},
-        {"verbose", no_argument, NULL, 'v'},
-        {"volume", required_argument, &got_volume, 1},
-        {"help", no_argument, NULL, 'h'}, {"version", no_argument, NULL, 'V'},
-        {0, 0, 0, 0},
+        {"volume", required_argument, NULL, 'u'},
+        {"version", no_argument, NULL, 'V'},
+        {"verbose", no_argument, NULL, 'v'}, {0, 0, 0, 0},
     };
 
     log_init(stderr, LOG_WARNING);
 
-    while (
-        (option = getopt_long(argc, argv, "lqs:t:vhV", options, NULL)) != -1) {
+    while ((option = getopt_long(argc, argv, "f:hlqs:t:u:Vv", options, NULL)) !=
+        -1) {
         char *numend;
 
         switch (option) {
+        case 'f':
+            opts.game_freq = atol(optarg);
+            break;
+        case 'h':
+            printf("%s%s", USAGE, HELP);
+            return 0;
         case 'l':
             opts.load_quirks = true;
             break;
@@ -167,19 +171,12 @@ int main(int argc, char **argv)
                 return 1;
             }
             break;
+        case 'u':
+            opts.tone_vol = atoi(optarg);
+            break;
         case 'v':
             opts.verbosity++;
             break;
-        case 0:
-            /* Long option found */
-            if (got_frequency)
-                opts.game_freq = atol(optarg);
-            else if (got_volume)
-                opts.tone_vol = atoi(optarg);
-            break;
-        case 'h':
-            printf("%s%s", USAGE, HELP);
-            return 0;
         case 'V':
             printf("%s", VERSION_STRING);
             return 0;
