@@ -10,7 +10,7 @@
 
 TMPFILE1=$(mktemp)
 TMPFILE2=$(mktemp)
-PROGS="pathological"
+PROGS="db pathological"
 RETVAL=0
 
 cd "$TESTDIR"

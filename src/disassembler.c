@@ -235,7 +235,19 @@ int chip8disasm_dump(const struct chip8disasm *disasm, FILE *out)
         }
 
         if (jpret_list_in_data(&disasm->jpret_list, i)) {
-            fprintf(out, "DW #%04X\n", opcode);
+            /*
+             * We need to be careful here: if a label is associated with the
+             * second byte of this two-byte chunk, that indicates that we
+             * should print both bytes separately with `DB` instead of `DW`.
+             * Otherwise, we would end up with a label referenced in the
+             * disassembly that doesn't exist.
+             */
+            if (jpret_list_find(&disasm->label_list, i + 1) != -1) {
+                fprintf(out, "DB #%02X\nL%03X:   DB #%02X\n", disasm->mem[i],
+                    (unsigned)(i + 1), disasm->mem[i + 1]);
+            } else {
+                fprintf(out, "DW #%04X\n", opcode);
+            }
         } else {
             struct chip8_instruction instr = chip8_instruction_from_opcode(
                 opcode, disasm->opts.shift_quirks);

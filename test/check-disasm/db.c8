@@ -1,0 +1,7 @@
+;;; An example where the disassembler must detect the `DB` pseudo-operation.
+
+        LD I, b1
+        LD I, b2
+loop:   JP loop
+b1:     DB #12
+b2:     DB #34
