@@ -1,59 +1,39 @@
-.TH CHIP8DISASM 1 "March 2018" "version 0.1.0"
-.SH NAME
-chip8disasm \- disassemble Chip\-8 binaries
-.SH SYNOPSIS
-.B chip8disasm
-[(\fB\-o\fR|\fB\-\-output\fR) \fIOUTPUT\fR]
-[\fB\-q\fR|\fB\-\-shift\-quirks\fR]
-[\fB\-v\fR|\fB\-\-verbose\fR]
-[\fB\-h\fR|\fB\-\-help\fR]
-[\fB\-V\fR|\fB\-\-version\fR]
-.I FILE
-.SH DESCRIPTION
-.B chip8disasm
+.Dd March 9, 2018
+.Dt CHIP8DISASM 1
+.Os
+.Sh NAME
+.Nm chip8disasm
+.Nd disassemble Chip\-8 binaries
+.Sh SYNOPSIS
+.Nm
+.Op Fl hqVv
+.Op Fl o Ar output
+.Ar file
+.Sh DESCRIPTION
+.Nm
 is a disassembler for Chip\-8 binaries which produces output in the syntax used
 by
-.BR chip8asm (1).
-.PP
-\fBchip8disasm\fR uses a primitive form of control-flow analysis to determine
-which sections of the input are data and which are code.
-.
-The method used should be sufficient for all "normal" input; it is possible,
-however, to intentionally obfuscate binaries using self-modifying code so that
-they cannot be properly disassembled.
-.
-The reference manual provided with the Chip\-8 project contains a more detailed
-description of the process used.
-.PP
-Games which use the two-argument forms of the SHL and SHR instructions will
-need to be processed in "shift quirks" mode, or the disassembled output will
-contain invalid instructions.
-.SH OPTIONS
-.TP
-.BR \-o ", " \-\-output =\fIOUTPUT\fR
+.Xr chip8asm 1 .
+It accepts one operand, the binary game file to disassemble.
+The arguments are as follows:
+.Bl -tag -width Ds
+.It Fl h Ns , Fl \-help
+Show a brief help message and exit.
+.It Fl o Ar output Ns , Fl \-output Ns = Ns Ar output
 Set the output file name.
-.
-If no output file name is specified or is \fI-\fR, then the disassembled output
-will be printed to the standard output.
-.TP
-.BR \-q ", " \-\-shift\-quirks
+If no output file name is specified or is \-, then the disassembled output will
+be printed to the standard output.
+.It Fl q Ns , Fl \-shift\-quirks
 Enable shift quirks mode.
-.TP
-.BR \-v ", " \-\-verbose
+.It Fl V Ns , Fl \-version
+Show version information and exit.
+.It Fl v Ns , Fl \-verbose
 Increase verbosity.
-.
 Each repetition of this flag will enable an additional level of logging output.
-.
 In order of decreasing severity, the log levels are ERROR, WARNING, INFO and
 DEBUG.
-.
 By default, only messages at the ERROR and WARNING levels are shown.
-.TP
-.BR \-h ", " \-\-help
-Show a brief help message and exit.
-.TP
-.BR \-V ", " \-\-version
-Show version information and exit.
-.SH SEE ALSO
-.BR chip8 (1),
-.BR chip8asm (1)
+.El
+.Sh SEE ALSO
+.Xr chip8 1 ,
+.Xr chip8asm 1

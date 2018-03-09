@@ -1,56 +1,39 @@
-.TH CHIP8ASM 1 "March 2018" "version 0.1.0"
-.SH NAME
-chip8asm \- assemble Chip\-8 source files
-.SH SYNOPSIS
-.B chip8asm
-[(\fB\-o\fR|\fB\-\-output\fR) \fIOUTPUT\fR]
-[\fB\-q\fR|\fB\-\-shift\-quirks\fR]
-[\fB\-v\fR|\fB\-\-verbose\fR]
-[\fB\-h\fR|\fB\-\-help\fR]
-[\fB\-V\fR|\fB\-\-version\fR]
-[\fIFILE\fR]
-.SH DESCRIPTION
-.B chip8asm
+.Dd March 9, 2018
+.Dt CHIP8ASM 1
+.Os
+.Sh NAME
+.Nm chip8asm
+.Nd assemble Chip\-8 source files
+.Sh SYNOPSIS
+.Nm
+.Op Fl hqVv
+.Op Fl o Ar output
+.Op Ar file
+.Sh DESCRIPTION
+.Nm
 is an assembler for the Chip\-8 and Super\-Chip, with a syntax close to that
 used by the popular CHIPPER assembler.
-.PP
-The precise syntax is described in the reference manual for the Chip\-8
-project.
-.
-In particular, both the one-argument and two-argument forms of the shift
-instructions (SHR and SHL) are supported; the one-argument form is the default,
-and the two-argument form can be enabled using "shift quirks" mode.
-.PP
-The input file may be omitted or specified as \fI-\fR to use standard input.
-.SH OPTIONS
-.TP
-.BR \-o ", " \-\-output =\fIOUTPUT\fR
+The arguments are as follows:
+.Bl -tag -width Ds
+.It Fl h Ns , Fl \-help
+Show a brief help message and exit.
+.It Fl o Ar output Ns , Fl \-output Ns = Ns Ar output
 Set the output file name.
-.
 If no output file name is specified, one will be deduced from the input file
-name by replacing the file extension with \fI.bin\fR.
-.
-When the input file is \fI-\fR (standard input), the output will be printed to
-the standard output.
-.TP
-.BR \-q ", " \-\-shift\-quirks
+name by replacing the file extension with .bin.
+When the input file is \- (standard input), the output will be printed to the
+standard output.
+.It Fl q Ns , Fl \-shift\-quirks
 Enable shift quirks mode.
-.TP
-.BR \-v ", " \-\-verbose
+.It Fl V Ns , Fl \-version
+Show version information and exit.
+.It Fl v Ns , Fl \-verbose
 Increase verbosity.
-.
 Each repetition of this flag will enable an additional level of logging output.
-.
 In order of decreasing severity, the log levels are ERROR, WARNING, INFO and
 DEBUG.
-.
 By default, only messages at the ERROR and WARNING levels are shown.
-.TP
-.BR \-h ", " \-\-help
-Show a brief help message and exit.
-.TP
-.BR \-V ", " \-\-version
-Show version information and exit.
-.SH SEE ALSO
-.BR chip8 (1),
-.BR chip8disasm (1)
+.El
+.Sh SEE ALSO
+.Xr chip8 1 ,
+.Xr chip8disasm 1
