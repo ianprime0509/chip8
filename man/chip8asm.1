@@ -34,6 +34,221 @@ In order of decreasing severity, the log levels are ERROR, WARNING, INFO and
 DEBUG.
 By default, only messages at the ERROR and WARNING levels are shown.
 .El
+.Pp
+The syntax used by the assembler is described in detail below, and should be
+largely familiar to programmers with prior experience in some assembly
+language.
+The most notable changes from the CHIPPER assembly syntax are the more C-like
+operator precedence levels and the case-sensitivity of label names (operation
+and register names remain case-insensitive).
+.Ss LINE FORMAT
+The assembly input is processed one line at a time, where each line may consist
+of a label and/or an instruction.
+Blank lines are also allowed, for readability.
+A semicolon may be used to begin a comment; the rest of the line following the
+semicolon will be ignored.
+.Pp
+A label consists of an identifier followed by a colon and must be the first
+element on its line (optionally preceded by whitespace).
+An identifier may start with an underscore or alphabetic character, and may
+additionally contain the digits 0\(en9 after the initial character.
+It is not possible to define two different labels to refer to the same
+instruction, or to define two labels with the same identifier.
+Label names are case-sensitive, so
+.Va label1
+will be treated as a separate label from
+.Va LABEL1 .
+.Pp
+An instruction consists of an operation and, depending on the operation, a
+comma-separated list of operands (see
+.Xr chip8 7
+for a list of operations).
+
+The name of the operation is not case-sensitive, so
+.Ic DRAW
+is processed the same as
+.Ic draw
+and
+.Ic dRaW .
+Depending on the operation, each operand of an instruction may be either the
+name of a register or an expression (see
+.Sx EXPRESSIONS ) .
+If a particular operand could be interpreted either as a register name which
+would be valid in its position or as an expression, the register interpretation
+will be chosen.
+Thus, the instruction
+.Ql ADD V1, V2
+will always be interpreted as
+.Do
+add register
+.Dv V2
+to register
+.Dv V1
+.Dc ,
+and not
+.Do
+add the value of the label
+.Va V2
+to register
+.Dv V1
+.Dc ,
+even if
+.Va V2
+happens to have been defined as a label name.
+.Ss EXPRESSIONS
+The treatment of expressions in the assembler is similar to that used in most
+programming languages, such as C: they are written in infix notation, and label
+names may be used as identifiers to represent their values.
+The meanings and precedence levels of the operators should also be mostly
+familiar to those experienced in other programming languages, particularly C.
+.Pp
+Since the Chip\-8 is fundamentally a 16-bit machine, all quantities in
+expressions are treated as 16-bit unsigned numbers.
+If an expression results in a value which is outside the range of a 16-bit
+unsigned quantity, it will be converted to one by taking its residue modulo
+2^16.
+This is equivalent to assuming a two's-complement representation of signed
+numbers.
+In cases where an expression is used in an operand which is narrower than 16
+bits (for example, the
+.Ic JP
+operation takes a single 12-bit operand), the result of the expression is
+truncated to fit (in the example, the lowest 12 bits are kept and the highest 4
+discarded).
+.Pp
+There are two unary operators, both of which are applied to the left of their
+operand: these are the unary negation operator
+.Sy \-
+and the bitwise NOT operator
+.Sy ~ .
+They have a higher precedence than any binary operator.
+.Pp
+The binary operators, in decreasing order of precedence, are given below;
+operators at the same level of precedence will be evaluated left-to-right
+(e.g. they are left-associative).
+.Bl -enum
+.It
+.Sy *
+for multiplication,
+.Sy /
+for division and
+.Sy %
+for modulus.
+.It
+.Sy +
+for addition and
+.Sy \-
+for subtraction.
+.It
+.Sy >
+and
+.Sy < ,
+which are the logical right and left shifts, respectively.
+The assembler does not provide arithmetic shift operators, since numeric
+quantities are always treated as unsigned.
+.It
+.Sy &
+for the bitwise AND operation.
+.It
+.Sy ^
+for the bitwise XOR operation.
+.It
+.Sy |
+for the bitwise OR operation.
+.El
+.Ss OPERATIONS
+There are two classes of operations in the assembler:
+.Dq operations
+.Em per se ,
+which correspond directly to the instructions interpreted by the Chip\-8 and
+Super\-Chip, and
+.Dq pseudo-operations ,
+which are interpreted by the assembler to produce particular side-effects.
+For a complete list of operations (not pseudo-operations), see
+.Xr chip8 7 .
+The following is a list of all the pseudo-operations understood by
+.Nm :
+.Bl -tag -width Ds
+.It Ic IFDEF Fa label
+Begin a conditional assembly block.
+If
+.Va label
+is defined when
+.Ic IFDEF
+is processed, then all instructions up to the matching
+.Ic ELSE
+or
+.Ic ENDIF
+are processed, and any instructions following the
+.Ic ELSE
+(if present) until the matching
+.Ic ENDIF
+are ignored.
+If
+.Va label
+is undefined, the opposite occurs.
+.It Ic IFNDEF Fa label
+The opposite of
+.Ic IFDEF :
+if
+.Va label
+is undefined, the conditional assembly is processed until
+.Ic ELSE
+and then ignored until
+.Ic ENDIF ,
+and vice versa if
+.Va label
+is defined.
+.It Ic ELSE
+Mark the beginning of the assembly instructions to be processed if the
+corresponding conditional was false, or to be ignored if the corresponding
+conditional was true.
+It may be used at most once within a block of conditional assembly.
+.It Ic ENDIF
+Mark the end of a block of conditional assembly.
+.It Sy =
+Written as
+.Va label Sy = Fa expression ,
+define
+.Va label
+to be the value of
+.Fa expression .
+.It Ic DEFINE Fa label
+Equivalent to
+.Ql label = 0 .
+.It Ic DW Fa expression
+Evaluate
+.Fa expression
+and insert the result (treated as a big-endian 16-bit unsigned integer) into
+the assembled output.
+For example,
+.Ql DW #1234
+will insert the bytes
+.Sy #12
+and
+.Sy #34
+(in that order) into the assembled output.
+.It Ic DB Fa expression
+Evaluate
+.Fa expression
+and insert the result (treated as an 8-bit unsigned integer) into the assembled
+output (only the least significant 8 bits of @var{expression} are kept).
+An operation following
+.Ic DB
+will be aligned to the next 2-byte boundary to ensure that no misaligned
+operations are produced; however, this alignement will not occur for
+pseudo-operations such as
+.Ic DW
+and
+.Ic DB .
+.It Ic OPTION Fa name
+Do nothing.
+This pseudo-operation exists as a placeholder for future behavior, which may
+use
+.Fa name
+to pass additional options to the assembler.
+.El
 .Sh SEE ALSO
 .Xr chip8 1 ,
-.Xr chip8disasm 1
+.Xr chip8disasm 1 ,
+.Xr chip8 7

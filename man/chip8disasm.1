@@ -34,6 +34,48 @@ In order of decreasing severity, the log levels are ERROR, WARNING, INFO and
 DEBUG.
 By default, only messages at the ERROR and WARNING levels are shown.
 .El
+.Pp
+The disassembler output format is compatible with the input format used in the
+assembler.
+That is, if you disassemble a Chip-8 program with
+.Nm
+and then re-assemble it with
+.Xr chip8asm 1 ,
+you should get a file identical to the original.
+There are some exceptions to this: for example, programs that use the
+two-operand forms of
+.Ic SHR
+and
+.Ic SHL
+will need to be both disassembled and assembled in shift quirks mode.
+.Ss CONTROL-FLOW ANALYSIS
+One complication which the disassembler addresses is the lack of distinction
+between code and data in Chip-8 assembly.
+Thus, a naive disassembler that attempts to decode each 2-byte word as an
+instruction will run into problems and report many invalid instructions (which
+aren't really instructions at all, but data).
+.Nm
+solves this problem using a simple form of
+.Dq control-flow analysis ,
+which analyzes the program structure to detect which sections are reachable
+(code) and which are not (data).
+.Pp
+The current implementation should work for the vast majority of programs in
+existence, but isn't perfect.
+The most notable omission is that the
+.Ql JP V0, addr
+instruction is not fully supported, so that the locations it jumps to will not
+be marked as reachable.
+.Ss OUTPUT LABELS
+.Nm
+will detect instructions in the code which reference addresses and replace the
+hard-coded address values with labels to improve readability.
+The labels correspond directly to the referenced addresses, disregarding the
+512-byte region of memory reserved for the interpreter.
+For example, the address
+.Ad #4A0
+corresponds to the label
+.Va L2A0 .
 .Sh SEE ALSO
 .Xr chip8 1 ,
 .Xr chip8asm 1
