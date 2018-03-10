@@ -1,0 +1,597 @@
+.Dd March 9, 2018
+.Dt CHIP8 7
+.Os
+.Sh NAME
+.Nm chip8
+.Nd information about the Chip\-8 and Super\-Chip platforms
+.Sh DESCRIPTION
+The history of the Chip\-8 and the Super\-Chip is described in some detail in
+.Lk https://en.wikipedia.org/wiki/CHIP-8 "its Wikipedia page"
+To summarize, the Chip\-8 was developed as an interpreted programming language
+for a pair of microcomputers in the mid-1970s, and accordingly its capabilities
+are rather primitive in comparison to other popular emulation targets, such as
+the NES.
+This lack of features, however, makes it a popular target for developing
+emulators (like this one), since there are not as many details to consider and
+the instruction set is of a manageable size.
+.Pp
+When a Chip\-8 emulator was developed for the HP\-48 series of graphing
+calculators, it came with some extensions to the core Chip\-8 features, such as
+an option for a higher-resolution display mode and several new operations.
+The resulting platform, including these extensions, became known as the
+Super\-Chip.
+The Super\-Chip extensions are usually implemented in modern Chip\-8 emulators,
+since they don't require much extra work for the developer.
+.Sh EXTERNAL HARDWARE
+The Chip\-8 provides very basic facilities for graphics, sound and input
+through its user-facing components.
+While limited, they provide functionality comparable to early (black and white)
+arcade games, and are sufficient for basic games.
+The Super\-Chip expands on the display by providing an additional
+.Dq high-resolution
+mode, but does not change the sound or input methods.
+.Ss DISPLAY
+The original Chip\-8 had a single display mode, with a resolution of 64x32
+pixels.
+The Super\-Chip retained this mode, but added a 128x64
+.Dq high\-resolution
+display mode that coexists with the original Chip\-8
+.Dq low\-resolution
+mode, and programs can either opt-in or explicitly opt-out using the
+.Ic LOW
+and
+.Ic HIGH
+instructions.
+.Ss BUZZER
+The sound capabilities of both the original Chip\-8 and the Super\-Chip are
+limited to a single monotone buzzer, which can be programmed using the
+.Dv ST
+(sound timer) register; see
+.Sx REGISTERS .
+As long as
+.Dv ST
+is nonzero, the buzzer will sound; since all Chip\-8 timers decrease at a
+frequency of 60\ Hz, the buzzer can be made to sound for specific lengths of
+time.
+.Ss CONTROLLER
+The controller used with the Chip\-8 has sixteen keys, each labeled with a
+hexadecimal digit in a 4x4 arrangement.
+The arrangement is as follows:
+.Bl -column
+.It 1 Ta 2 Ta 3 Ta C
+.It 4 Ta 5 Ta 6 Ta D
+.It 7 Ta 8 Ta 9 Ta E
+.It A Ta 0 Ta B Ta F
+.El
+The corresponding arrangement of keys on an HP\-48 calculator, which would have
+been the typical input method for the Super\-Chip, is as follows:
+.Bl -column
+.It 7 Ta 8 Ta 9 Ta \(di
+.It 4 Ta 5 Ta 6 Ta \(mu
+.It 1 Ta 2 Ta 3 Ta \(mi
+.It 0 Ta . Ta SPC Ta \(pl
+.El
+.Sh INTERNAL HARDWARE
+Like the external hardware, the internals of the Chip\-8 (and Super\-Chip) are
+rather simple and limited in comparison to other platforms.
+There are sixteen 8-bit registers, 4096 bytes of addressable memory (512 bytes
+of which are reserved for the interpreter) and no concept of a stack or a
+distinction between code and data.
+Since instructions and sprites are stored compactly in memory, however, the
+memory limitations are not quite as severe as might be expected.
+.Ss REGISTERS
+The Chip\-8 has sixteen general-purpose registers, labeled
+.Dv V0
+through
+.Dv VF ,
+each of which stores a single unsigned 8-bit value.
+Register
+.Dv VF
+is used by many operations to signal certain conditions (such as collisions
+when drawing sprites).
+There is no stack, and reading values from particular memory locations is
+cumbersome, so registers are really the only reliable means of passing data
+between subroutines.
+.Pp
+There is a special register, labeled
+.Dv I ,
+which holds an unsigned 16-bit value and is used by many operations as storage
+for an address in memory.
+For example, the
+.Dv DRW
+operation uses the value of
+.Dv I
+as the address of the sprite to draw at the given coordinates.
+.Pp
+There are two timer registers,
+.Dv DT
+and
+.Dv ST ,
+each of which holds an unsigned 8-bit value and decreases to 0 at a rate of 60
+Hz once it is set.
+Register
+.Dv DT
+is known as the
+.Dq delay timer ;
+it has no predefined function, and can be used anywhere a timer is needed.
+Register
+.Dv ST
+is the
+.Dq sound timer ,
+and will cause the buzzer to sound for as long as it holds a nonzero value (see
+.Sx BUZZER ) .
+.Pp
+The final register is the program counter, which stores the address of the
+currently executing instruction.
+It is not accessible to programs except through the
+.Ic JP ,
+.Ic CALL
+and
+.Ic RET
+instructions.
+For use with the
+.Ic CALL
+and
+.Ic RET
+instructions, a stack of program counter values (the
+.Em call stack )
+is maintained internally;
+.Xr chip8 1
+has an unbounded call stack, but other emulators may have restrictions.
+.Ss MEMORY AND PROGRAM STORAGE
+The Chip\-8 and Super\-Chip both provide 4096 bytes of addressable memory, 512
+bytes of which are reserved for the interpreter.
+Although modern emulators no longer store the interpreter itself in these lower
+512 bytes, it is still used as a reliable location to store the built-in sprite
+font characters, since programs know not to use it; see
+.Sx GRAPHICS STORAGE .
+When the emulator is directed to run a program, it loads the entire program
+into memory starting at address
+.Ad 0x200
+(just past the 512 bytes of reserved memory) and sets the program counter to
+this value.
+Every Chip\-8 instruction is two bytes wide and appears in the program MSB
+(most significant byte) first; that is, the Chip\-8 is big-endian.
+The two bytes of each instruction are also known as the instruction's
+.Em opcode .
+For a list of all valid opcodes, see
+.Sx LIST OF OPERATIONS .
+It should be noted that all instructions must be aligned on two-byte
+boundaries.
+It is an error to attempt to jump to a misaligned memory address, to prevent
+reading bogus instructions.
+.Ss GRAPHICS STORAGE
+The original Chip\-8 supported drawing simple images (or
+.Em sprites )
+of exactly eight pixels in width and between one and fifteen (inclusive)
+pixels in height using the
+.Ic DRW
+operation.
+Each row of a sprite would be represented by a single byte, with the bits in
+the byte indicating whether the corresponding pixel should be set or cleared
+(the most significant bit being the left-most pixel in the row).
+Thus, the third operand to
+.Ic DRW ,
+which specifies the number of bytes that the sprite occupies in memory, is also
+the sprite's height in pixels.
+The sprite is drawn from top to bottom, so that the first byte read represents
+the top-most row of the sprite on screen.
+.Pp
+The Super\-Chip, supporting a higher display resolution, extended the
+.Ic DRW
+with support for 16x16 pixel sprites.
+By specifying 0 as the third operand to
+.Ic DRW ,
+the Super\-Chip reads sixteen pairs of bytes from the indicated memory location
+(namely, the value of register
+.Dv I ) ,
+drawing the sprite from left to right, top to bottom.
+That is, the first byte read gives the left-most eight pixels of the sprite's
+top row, the second byte gives the right-most eight pixels of the same row, and
+so on, continuing downwards.
+.Pp
+Sprites are drawn to screen using the bit wise XOR operation.
+This means that drawing the same sprite at the same location twice will have no
+net effect on the display.
+It will, however, have an effect on the code: if any collision is encountered
+when drawing a sprite (that is, if any pixels are turned off during the
+operation), the
+.Dv VF
+register is set to 1.
+If there is no collision, the
+.Dv VF
+register is set to 0.
+.Pp
+The Chip\-8 also comes with a simple bitmap font for the hexadecimal digits 0
+through F.
+Each font sprite is 4x5 pixels, and is stored in memory below the 512-byte
+program boundary.
+The memory location of the sprite (for drawing) can be loaded into the
+.Dv I
+register using the
+.Ql LD H, VX
+instruction, where the lower four bits of
+.Va VX
+are taken as the desired hexadecimal digit.
+The Super\-Chip adds a higher-resolution font with the same character set,
+which coexists alongside the original Chip\-8 font; each higher-resolution font
+character is 8x10 pixels, and can be accessed using the
+.Ql LD HF, VX
+instruction.
+A note about timing: every
+.Ic DRW
+operation is delayed until the start of the next clock cycle.
+The clock runs at the same frequency as the
+.Dv DT
+and
+.Dv ST
+timer
+registers (see
+.Sx REGISTERS ) .
+Some emulators appear to behave differently, such as delaying every instruction
+by a constant time.
+.Sh LIST OF OPERATIONS
+The list of instructions and opcodes below uses certain conventions to denote
+arguments.
+For register arguments, the placeholders
+.Fa vx
+and
+.Fa vy
+are used, with
+.Sy x
+and
+.Sy y
+being the corresponding nibbles in the opcode.
+Addresses, which are always 12 bits long, are represented in argument form as
+.Fa addr
+and in opcode form as
+.Sy nnn .
+Bytes and nibbles are represented in argument form as
+.Fa byte
+and
+.Fa nibble ,
+respectively, and in opcode form as
+.Sy kk
+and
+.Sy n .
+Uppercase hexadecimal digits indicate verbatim parts of the opcode.
+.Pp
+For example, the instruction
+.Ql DRW vx, vy, nibble
+has opcode
+.Sy Dxyn
+according to this convention, indicating that the concrete instruction
+.Ql DRW V1, VA, 5
+has opcode
+.Sy D1A5 .
+.Pp
+The descriptions of the operations given here reflect the behavior of
+.Xr chip8 1 .
+Other emulators may behave differently, and such variant behaviors are
+described in
+.Sx ALTERNATIVE BEHAVIOR .
+The operations are as follow:
+.Bl -tag -width Ds
+.It Ic SCD Fa nibble ( Sy 00Cn )
+Scroll the screen down by
+.Fa nibble
+pixels.
+Only available on the Super\-Chip.
+.It Ic CLS ( Sy 00E0 )
+Clear the display.
+.It Ic RET ( Sy 00EE )
+Return from a subroutine.
+It is an error to use
+.Ic RET
+without a corresponding preceding
+.Ic CALL .
+.It Ic SCR ( Sy 00FB )
+Scroll the screen right by 4 pixels.
+Only available on the Super\-Chip.
+.It Ic SCL ( Sy 00FC )
+Scroll the screen left by 4 pixels.
+Only available on the Super\-Chip.
+.It Ic EXIT ( Sy 00FD )
+Exits the interpreter immediately.
+Only available on the Super\-Chip.
+.It Ic LOW ( Sy 00FE )
+Switch the display to low-resolution mode (see
+.Sx EXTERNAL HARDWARE ) .
+Only available on the Super\-Chip.
+.It Ic HIGH ( Sy 00FF )
+Switch the display to high-resolution mode (see
+.Sx EXTERNAL HARDWARE ) .
+Only available on the Super\-Chip.
+.It Ic JP Fa addr ( Sy 1nnn )
+Set the program counter to
+.Fa addr .
+It is an error to jump to an address which is not aligned on a 2-byte boundary.
+.It Ic CALL Fa addr ( Sy 2nnn )
+Call the subroutine at
+.Fa addr ,
+setting the program counter to
+.Fa addr
+and pushing the original program counter to the call stack so that it can be
+returned to using
+.Ic RET .
+It is an error to call a subroutine which is not aligned on a 2-byte boundary.
+.It Ic SE Fa vx , byte ( Sy 3xkk )
+Skip the next instruction if the value of
+.Fa vx
+is equal to
+.Fa byte .
+.It Ic SNE Fa vx , byte ( Sy 4xkk )
+Skip the next instruction if the value of
+.Fa vx
+is not equal to
+.Fa byte .
+.It Ic SE Fa vx , vy ( Sy 5xy0 )
+Skip the next instruction if the values of
+.Fa vx
+and
+.Fa vy are equal.
+.It Ic LD Fa vx , byte ( Sy 6xkk )
+Load
+.Fa byte
+into register
+.Fa vx .
+.It Ic ADD Fa vx , byte ( Sy 7xkk )
+Add
+.Fa byte
+to the value of register
+.Fa vx ,
+storing the result (modulo 256) in
+.Fa vx .
+Register
+.Dv VF
+is set to 1 if a carry occurred (that is, if the true sum was greater than or
+equal to 256), or 0 otherwise.
+.It Ic LD Fa vx , vy ( Sy 8xy0 )
+Load the value of
+.Fa vy
+into
+.Fa vx .
+.It Ic OR Fa vx , vy ( Sy 8xy1 )
+Compute the bitwise OR of
+.Fa vx
+and
+.Fa vy ,
+storing
+the result in
+.Fa vx .
+.It Ic AND Fa vx , vy ( Sy 8xy2 )
+Compute the bitwise AND of
+.Fa vx
+and
+.Fa vy ,
+storing
+the result in
+.Fa vx .
+.It Ic XOR Fa vx , vy ( Sy 8xy3 )
+Compute the bitwise XOR of
+.Fa vx
+and
+.Fa vy ,
+storing
+the result in
+.Fa vx .
+.It Ic ADD Fa vx , vy ( Sy 8xy4 )
+Add the value of
+.Fa vy
+to that of
+.Fa vx ,
+storing the result (modulo 256) in
+.Fa vx .
+Register
+.Dv VF
+is set to 1 if a carry occurred, or 0 otherwise.
+.It Ic SUB Fa vx , vy ( Sy 8xy5 )
+Subtract the value of
+.Fa vy
+from that of
+.Fa vx ,
+storing the result (modulo 256) in
+.Fa vx .
+Register
+.Dv VF
+is set to 0 if a borrow occurred (that is, if the true value of the difference
+would be negative under signed arithmetic), or to 1 otherwise.
+.It Ic SHR Fa vx ( Sy 8x06 )
+Perform a logical right shift on the value of
+.Fa vx ,
+storing the result in
+.Fa vx .
+The original least significant bit of
+.Fa vx is stored in register
+.Dv VF .
+.It Ic SUBN Fa vx , vy ( Sy 8xy7 )
+Subtract the value of
+.Fa vx
+from that of
+.Fa vx ,
+storing the result in
+.Fa vx .
+Register
+.Dv VF
+is set to 0 if a borrow occurred, or to 1 otherwise.
+.It Ic SHL Fa vx ( Sy 8x0E )
+Perform a left shift on the value of
+.Fa vx ,
+storing the result in
+.Fa vx .
+The original most significant bit of
+.Fa vx
+is stored in register
+.Dv VF .
+.It Ic SNE Fa vx , vy ( Sy 9xy0 )
+Skip the next instruction if the values of
+.Fa vx
+and
+.Fa vy
+are not equal.
+.It Ic LD Sy I , Fa addr ( Sy Annn )
+Load
+.Fa addr
+into register
+.Dv I .
+.It Ic JP Sy V0 , Fa addr ( Sy Bnnn )
+Compute the sum
+.Fa addr
+and the value of
+.Dv V0 ,
+and jump to the resulting address.
+It is an error if the computed address is not aligned on a 2-byte boundary.
+.It Ic RND Fa vx , byte ( Sy Cxkk )
+Generate a random byte and perform a logical AND with
+.Fa byte ,
+storing the resulting value in
+.Fa vx .
+.It Ic DRW Fa vx , vy , nibble ( Sy Dxyn )
+Load a sprite
+.Fa nibble
+bytes long starting at the memory location indicated by the value of register
+.Dv I ,
+and draw it at position
+.Fa ( vx ,
+.Fa vy ) .
+Register
+.Dv VF
+is set to 1 if a collision occurs, or to 0 otherwise.
+On the Super\-Chip only,
+.Fa nibble
+may be 0, in which case a 16x16-pixel sprite will be read.
+For more information about how sprites are loaded and drawn, see
+.Sx GRAPHICS STORAGE .
+.It Ic SKP Fa vx ( Sy Ex9E )
+Read the name of a key from the lower four bits of the value of
+.Fa vx ,
+and skip the next instruction if that key is currently being pressed.
+For more information about keys,
+.Sx CONTROLLER .
+.It Ic SKNP Fa vx ( Sy ExA1 )
+Read the name of a key from the lower four bits of the value of
+.Fa vx ,
+and skip the next instruction if that key is not currently being pressed.
+.It Ic LD Fa vx , Sy DT ( Sy Fx07 )
+Load the value of the delay timer (register
+.Dv DT )
+into
+.Fa vx .
+.It Ic LD Fa vx , Sy K ( Sy Fx0A )
+Wait for a key press, and then stores the name of the key in
+.Fa vx .
+If several keys are pressed at once, priority goes to the one with the lower
+number.
+After a key press is detected and processed, the same key will not be detected
+by further operations unless it is released and pressed again.
+.It Ic LD Sy DT , Fa vx ( Sy Fx15 )
+Load the value of
+.Fa vx
+into the delay timer (register
+.Dv DT ) .
+.It Ic LD Sy ST , Fa vx ( Sy Fx18 )
+Load the value of
+.Fa vx
+into the sound timer (register
+.Dv ST ) .
+.It Ic ADD Sy I , Fa vx ( Sy Fx1E )
+Add the value of
+.Fa vx
+to register
+.Dv I ,
+storing the result in
+.Dv I .
+If the result is too large to fit in the 16-bit register
+.Dv I ,
+the behavior is undefined.
+.It Ic LD Sy F , Fa vx ( Sy Fx29 )
+Treating the lower four bits of
+.Fa vx
+as a hexadecimal digit, store in register
+.Dv I
+the location in memory of the low-resolution font sprite for that digit.
+For more information about these pre-defined sprites, see
+.Sx GRAPHICS STORAGE
+.It Ic LD Sy HF , Fa vx ( Sy Fx30 )
+Similar to
+.Ql LD F, vx ,
+but the address stored in register
+.Dv I
+is the location of a high-definition font sprite for the desired digit.
+Only available on the Super\-Chip.
+.It Ic LD Sy B , Fa vx ( Sy Fx33 )
+Store the three-digit binary-coded decimal representation of the value of
+.Fa vx
+in the three bytes starting at the value of register
+.Dv I
+(with the most significant digit first).
+For example, if the value of
+.Fa vx
+is 123 in decimal, then the three bytes stored will be 1, 2 and 3, in that
+order.
+.It Ic LD Sy [I] , Fa vx ( Sy Fx55 )
+Store the values of registers
+.Dv V0
+through
+.Fa vx
+(inclusive) and sequentially in memory starting at the address stored in
+register
+.Dv I .
+.It Ic LD Fa vx , Sy [I] ( Sy Fx65 )
+Copy bytes sequentially into registers
+.Dv V0
+through
+.Fa vx
+(inclusive) starting at the address stored in register
+.Dv I .
+.It Ic LD Sy R , Fa vx ( Sy Fx75 )
+Do something with the registers on an HP-48 calculator; I don't really know
+exactly what, and it seems nobody else does either.
+Only available on the Super\-Chip.
+.It Ic LD Fa vx , Sy R ( Sy Fx85 )
+Should be the inverse to
+.Ql LD R, vx .
+Only available on the Super\-Chip.
+.El
+.Ss ALTERNATIVE BEHAVIOR
+Some emulators exhibit alternate behaviors for the operations listed above.
+These behaviors can be grouped into two categories.
+.Pp
+The first class of alternate behavior, referred to as
+.Dq shift quirks ,
+consists of two-argument forms of the
+.Ic SHR
+and
+.Ic SHL
+operations.
+For
+.Ic SHR ,
+the instruction is written as
+.Ql SHR vx, vy
+and has opcode
+.Sy 8xy6 .
+The value stored in register
+.Fa vy
+is shifted one bit to the right, with the shifted value being stored in
+register
+.Fa vx
+and the original least-significant bit being stored in register
+.Dv VF .
+The alternate instruction
+.Ql SHL vx, vy
+has opcode
+.Sy 8xyE ,
+and behaves analogously.
+.Pp
+The second class, referred to as
+.Dq load quirks ,
+changes the behavior (but not the instructions themselves or their opcodes) of
+.Ql LD [I], vx
+and
+.Ql LD vx, [I] .
+In each case, the alternate behavior is to add to register
+.Dv I
+the number of bytes loaded or stored by the instruction.
+.Sh SEE ALSO
+.Xr chip8 1 ,
+.Xr chip8asm 1
