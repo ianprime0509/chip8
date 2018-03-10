@@ -55,6 +55,32 @@ In order of decreasing severity, the log levels are ERROR, WARNING, INFO and
 DEBUG.
 By default, only messages at the ERROR and WARNING levels are shown.
 .El
+.Pp
+This manual page only covers the behavior of the
+.Nm
+emulator.
+For general information about the Chip\-8 and Super\-Chip, such as a
+description of each platform and a list of operations for programming, see
+.Xr chip8 7 .
+.Ss KEY MAPPING
+The Chip\-8 controller has the following 4x4 layout:
+.Bl -column -offset indent Ds Ds Ds Ds
+.It 1 Ta 2 Ta 3 Ta C
+.It 4 Ta 5 Ta 6 Ta D
+.It 7 Ta 8 Ta 9 Ta E
+.It A Ta 0 Ta B Ta F
+.El
+.Pp
+.Nm
+maps these keys to the following keyboard keys:
+.Bl -column -offset indent Ds Ds Ds Ds
+.It 1 Ta 2 Ta 3 Ta 4
+.It q Ta w Ta e Ta r
+.It a Ta s Ta d Ta f
+.It z Ta x Ta c Ta v
+.El
+.Pp
 .Sh SEE ALSO
 .Xr chip8asm 1 ,
-.Xr chip8disasm 1
+.Xr chip8disasm 1 ,
+.Xr chip8 7
