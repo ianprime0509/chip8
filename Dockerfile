@@ -3,6 +3,6 @@
 FROM debian
 
 RUN apt-get update
-RUN apt-get install -y build-essential git libsdl2-dev meson texinfo
+RUN apt-get install -y build-essential git libsdl2-dev meson
 WORKDIR /root/chip8
 COPY ./ ./

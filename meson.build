@@ -15,14 +15,6 @@ if get_option('doxygen')
   subdir('docs')
 endif
 
-texi2any = find_program('texi2any', required : false)
-if not texi2any.found()
-  message('Texinfo not installed; you will not be able to build the manual')
-endif
-if get_option('manual') and texi2any.found()
-  subdir('info')
-endif
-
 sdl = dependency('SDL2')
 
 subdir('include')
