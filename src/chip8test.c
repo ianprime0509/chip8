@@ -416,34 +416,46 @@ int test_display(void)
     chip->mem[0xA02] = 0xF0; /* 11110000 */
     /* The rest of the memory is empty */
 
-    /* LD V0, 5 */
-    chip8_execute_opcode(chip, 0x6005);
-    /* LD V1, 6 */
-    chip8_execute_opcode(chip, 0x6106);
+    /* LD V0, 1 */
+    chip8_execute_opcode(chip, 0x6001);
+    /* LD V1, 2 */
+    chip8_execute_opcode(chip, 0x6102);
     /* LD I, #A00 */
     chip8_execute_opcode(chip, 0xAA00);
 
     /* DRW V0, V1, 3 */
     chip8_execute_opcode(chip, 0xD013);
     /* Make sure all three rows were drawn correctly */
-    ASSERT_EQ_ROW(5, 6, row1);
-    ASSERT_EQ_ROW(5, 7, row2);
-    ASSERT_EQ_ROW(5, 8, row3);
+    ASSERT_EQ_ROW(1, 2, row1);
+    ASSERT_EQ_ROW(1, 3, row2);
+    ASSERT_EQ_ROW(1, 4, row3);
     /* SCR */
     chip8_execute_opcode(chip, 0x00FB);
-    ASSERT_EQ_ROW(9, 6, row1);
-    ASSERT_EQ_ROW(9, 7, row2);
-    ASSERT_EQ_ROW(9, 8, row3);
-    /* SCL */
-    chip8_execute_opcode(chip, 0x00FC);
-    ASSERT_EQ_ROW(5, 6, row1);
-    ASSERT_EQ_ROW(5, 7, row2);
-    ASSERT_EQ_ROW(5, 8, row3);
-    /* SCD 4 */
-    chip8_execute_opcode(chip, 0x00C4);
+    /* There should be nothing left in the area we shifted from. */
+    for (int x = 1; x < 5; x++)
+        for (int y = 2; y <= 4; y++)
+            ASSERT_EQ_UINT(chip->display[x][y], 0);
     ASSERT_EQ_ROW(5, 2, row1);
     ASSERT_EQ_ROW(5, 3, row2);
     ASSERT_EQ_ROW(5, 4, row3);
+    /* SCL */
+    chip8_execute_opcode(chip, 0x00FC);
+    /* There should be nothing left in the area we shifted from. */
+    ASSERT_EQ_ROW(9, 2, row_zero);
+    ASSERT_EQ_ROW(9, 3, row_zero);
+    ASSERT_EQ_ROW(9, 4, row_zero);
+    ASSERT_EQ_ROW(1, 2, row1);
+    ASSERT_EQ_ROW(1, 3, row2);
+    ASSERT_EQ_ROW(1, 4, row3);
+    /* SCD 8 */
+    chip8_execute_opcode(chip, 0x00C8);
+    /* There should be nothing left in the area we shifted from. */
+    ASSERT_EQ_ROW(1, 2, row_zero);
+    ASSERT_EQ_ROW(1, 3, row_zero);
+    ASSERT_EQ_ROW(1, 4, row_zero);
+    ASSERT_EQ_ROW(1, 10, row1);
+    ASSERT_EQ_ROW(1, 11, row2);
+    ASSERT_EQ_ROW(1, 12, row3);
     /* CLS */
     chip8_execute_opcode(chip, 0x00E0);
     for (int i = 0; i < CHIP8_DISPLAY_WIDTH; i++)
@@ -452,15 +464,15 @@ int test_display(void)
     /* DRW V0, V1, 0 */
     chip8_execute_opcode(chip, 0xD010);
     /* Now we should have a 16x16 sprite */
-    ASSERT_EQ_ROW(5, 6, row1);
-    ASSERT_EQ_ROW(13, 6, row2);
-    ASSERT_EQ_ROW(5, 7, row3);
+    ASSERT_EQ_ROW(1, 2, row1);
+    ASSERT_EQ_ROW(9, 2, row2);
+    ASSERT_EQ_ROW(1, 3, row3);
     /* Drawing it again, we should get nothing */
     /* DRW V0, V1, 0 */
     chip8_execute_opcode(chip, 0xD010);
-    ASSERT_EQ_ROW(5, 6, row_zero);
-    ASSERT_EQ_ROW(13, 6, row_zero);
-    ASSERT_EQ_ROW(5, 7, row_zero);
+    ASSERT_EQ_ROW(1, 2, row_zero);
+    ASSERT_EQ_ROW(9, 2, row_zero);
+    ASSERT_EQ_ROW(1, 3, row_zero);
 
     chip8_destroy(chip);
     return 0;

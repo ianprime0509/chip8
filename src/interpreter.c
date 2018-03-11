@@ -324,9 +324,11 @@ static int chip8_execute(
             new_pc = chip->pc;
             break;
         }
-        for (int y = 0; y < CHIP8_DISPLAY_HEIGHT - inst.nibble; y++)
+        for (int y = CHIP8_DISPLAY_HEIGHT - 1; y >= inst.nibble; y--)
             for (int x = 0; x < CHIP8_DISPLAY_WIDTH; x++)
-                chip->display[x][y] = chip->display[x][y + inst.nibble];
+                chip->display[x][y] = chip->display[x][y - inst.nibble];
+        for (int x = 0; x < CHIP8_DISPLAY_WIDTH; x++)
+            memset(chip->display[x], 0, inst.nibble);
         chip->needs_refresh = true;
         break;
     case OP_CLS:
@@ -353,9 +355,11 @@ static int chip8_execute(
             new_pc = chip->pc;
             break;
         }
-        for (int x = CHIP8_DISPLAY_WIDTH - 5; x > 0; x--)
-            memcpy(&chip->display[x + 4], &chip->display[x],
+        for (int x = CHIP8_DISPLAY_WIDTH - 1; x >= 4; x--)
+            memcpy(&chip->display[x], &chip->display[x - 4],
                 sizeof chip->display[x]);
+        for (int x = 0; x < 4; x++)
+            memset(chip->display[x], 0, sizeof chip->display[x]);
         chip->needs_refresh = true;
         break;
     case OP_SCL:
@@ -366,6 +370,8 @@ static int chip8_execute(
         for (int x = 0; x < CHIP8_DISPLAY_WIDTH - 4; x++)
             memcpy(&chip->display[x], &chip->display[x + 4],
                 sizeof chip->display[x]);
+        for (int x = CHIP8_DISPLAY_WIDTH - 4; x < CHIP8_DISPLAY_WIDTH; x++)
+            memset(chip->display[x], 0, sizeof chip->display[x]);
         chip->needs_refresh = true;
         break;
     case OP_EXIT:

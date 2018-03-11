@@ -151,11 +151,12 @@ static char *replace_extension(const char *fname)
 {
     const char *ext = strrchr(fname, '.');
     size_t extpos = ext ? ext - fname : strlen(fname);
-    size_t buflen = extpos + strlen(OUTPUTEXT) + 1;
+    size_t extlen = strlen(OUTPUTEXT);
+    size_t buflen = extpos + extlen + 1;
     char *buf = malloc(buflen);
 
     memcpy(buf, fname, extpos);
-    strcpy(buf + extpos, OUTPUTEXT);
+    memcpy(buf + extpos, OUTPUTEXT, extlen);
     buf[buflen - 1] = '\0';
 
     return buf;
