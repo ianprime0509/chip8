@@ -458,13 +458,12 @@ static int chip8_execute(
         chip->regs[inst.vx] -= chip->regs[inst.vy];
         break;
     case OP_SHR:
-        if (chip->opts.shift_quirks) {
-            chip->regs[REG_VF] = chip->regs[inst.vy] & 0x1;
-            chip->regs[inst.vx] = chip->regs[inst.vy] >> 1;
-        } else {
-            chip->regs[REG_VF] = chip->regs[inst.vx] & 0x1;
-            chip->regs[inst.vx] >>= 1;
-        }
+        chip->regs[REG_VF] = chip->regs[inst.vx] & 0x1;
+        chip->regs[inst.vx] >>= 1;
+        break;
+    case OP_SHR_QUIRK:
+        chip->regs[REG_VF] = chip->regs[inst.vy] & 0x1;
+        chip->regs[inst.vx] = chip->regs[inst.vy] >> 1;
         break;
     case OP_SUBN:
         /* Check for borrow */
@@ -472,13 +471,12 @@ static int chip8_execute(
         chip->regs[inst.vx] = chip->regs[inst.vy] - chip->regs[inst.vx];
         break;
     case OP_SHL:
-        if (chip->opts.shift_quirks) {
-            chip->regs[REG_VF] = (chip->regs[inst.vy] & 0x80) >> 7;
-            chip->regs[inst.vx] = chip->regs[inst.vy] << 1;
-        } else {
-            chip->regs[REG_VF] = (chip->regs[inst.vx] & 0x80) >> 7;
-            chip->regs[inst.vx] <<= 1;
-        }
+        chip->regs[REG_VF] = (chip->regs[inst.vx] & 0x80) >> 7;
+        chip->regs[inst.vx] <<= 1;
+        break;
+    case OP_SHL_QUIRK:
+        chip->regs[REG_VF] = (chip->regs[inst.vy] & 0x80) >> 7;
+        chip->regs[inst.vx] = chip->regs[inst.vy] << 1;
         break;
     case OP_SNE_REG:
         if (chip->regs[inst.vx] != chip->regs[inst.vy])

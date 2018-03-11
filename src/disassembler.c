@@ -266,8 +266,8 @@ int chip8disasm_dump(const struct chip8disasm *disasm, FILE *out)
             if (use_addr)
                 snprintf(label, sizeof label, "L%03X",
                     instr.addr - CHIP8_PROG_START);
-            chip8_instruction_format(instr, use_addr ? label : NULL, buf,
-                sizeof buf, disasm->opts.shift_quirks);
+            chip8_instruction_format(
+                instr, use_addr ? label : NULL, buf, sizeof buf);
             fprintf(out, "%s\n", buf);
         }
         if (ferror(out)) {

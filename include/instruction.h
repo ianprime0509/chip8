@@ -216,10 +216,19 @@ enum chip8_operation {
      */
     OP_SUB,
     /**
-     * Bitwise right shift (SHR Vx). Sets VF to low bit of Vx.
+     * Bitwise right shift (SHR Vx).
+     *
+     * Sets VF to low bit of Vx.
+     *
      * Opcode 8x06.
      */
     OP_SHR,
+    /**
+     * Quirky bitwise right shift (SHR Vx, Vy).
+     *
+     * Opcode 8xy6.
+     */
+    OP_SHR_QUIRK,
     /**
      * Store Vy - Vx in Vx (SUBN Vx, Vy).
      *
@@ -229,11 +238,19 @@ enum chip8_operation {
      */
     OP_SUBN,
     /**
-     * Bitwise left shift (SHL Vx). Sets VF to high bit of Vx.
+     * Bitwise left shift (SHL Vx).
+     *
+     * Sets VF to high bit of Vx.
      *
      * Opcode 8x0E.
      */
     OP_SHL,
+    /**
+     * Quirky bitwise left shift (SHL Vx, Vy).
+     *
+     * Opcode 8xyE.
+     */
+    OP_SHL_QUIRK,
     /**
      * Skip next instruction if register inequality test (SNE Vx, Vy).
      *
@@ -404,26 +421,23 @@ struct chip8_instruction {
  * in the instruction.  If NULL, the raw address is used in the output.
  * @param dest The buffer to store the formatted string.
  * @param sz The size of the 'dest' buffer.
- * @param shift_quirks Whether to use shift quirks mode.
  */
-void chip8_instruction_format(struct chip8_instruction instr, const char *label,
-                              char *dest, size_t sz, bool shift_quirks);
+void chip8_instruction_format(
+    struct chip8_instruction instr, const char *label, char *dest, size_t sz);
 /**
  * Converts a Chip-8 opcode to an instruction.
  *
  * @param opcode The opcode to convert.
- * @param shift_quirks Whether to enable shift quirks mode.
+ * @param shift_quirks Whether to use shift quirks mode.
  */
-struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode,
-                                                       bool shift_quirks);
+struct chip8_instruction chip8_instruction_from_opcode(
+    uint16_t opcode, bool shift_quirks);
 /**
  * Converts an instruction to a Chip-8 opcode.
  *
  * @param instr The instruction to convert.
- * @param shift_quirks Whether to enable shift quirks mode.
  */
-uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr,
-                                     bool shift_quirks);
+uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr);
 /**
  * Returns whether the given instruction takes an address operand.
  */

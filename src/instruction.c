@@ -6,6 +6,7 @@
  * https://opensource.org/licenses/MIT.
  */
 #include "instruction.h"
+#include "log.h"
 
 #include <stdio.h>
 
@@ -163,13 +164,16 @@ struct chip8_instruction chip8_instruction_from_opcode(
             break;
         case 0x6:
             if (shift_quirks) {
-                ins.op = OP_SHR;
+                ins.op = OP_SHR_QUIRK;
                 ins.vx = OPCODE2VX(opcode);
                 ins.vy = OPCODE2VY(opcode);
             } else {
                 if ((opcode & 0xF0) == 0x00) {
                     ins.op = OP_SHR;
                     ins.vx = OPCODE2VX(opcode);
+                } else {
+                    log_warning("Quirky shift instruction found; consider "
+                                "enabling shift quirks mode");
                 }
             }
             break;
@@ -180,13 +184,16 @@ struct chip8_instruction chip8_instruction_from_opcode(
             break;
         case 0xE:
             if (shift_quirks) {
-                ins.op = OP_SHL;
+                ins.op = OP_SHL_QUIRK;
                 ins.vx = OPCODE2VX(opcode);
                 ins.vy = OPCODE2VY(opcode);
             } else {
                 if ((opcode & 0xF0) == 0x00) {
                     ins.op = OP_SHL;
                     ins.vx = OPCODE2VX(opcode);
+                } else {
+                    log_warning("Quirky shift instruction found; consider "
+                                "enabling shift quirks mode");
                 }
             }
             break;
@@ -286,8 +293,7 @@ struct chip8_instruction chip8_instruction_from_opcode(
     return ins;
 }
 
-uint16_t chip8_instruction_to_opcode(
-    struct chip8_instruction instr, bool shift_quirks)
+uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr)
 {
     switch (instr.op) {
     case OP_INVALID:
@@ -335,17 +341,15 @@ uint16_t chip8_instruction_to_opcode(
     case OP_SUB:
         return 0x8005 | VX2OPCODE(instr.vx) | VY2OPCODE(instr.vy);
     case OP_SHR:
-        if (shift_quirks)
-            return 0x8006 | VX2OPCODE(instr.vx) | VY2OPCODE(instr.vy);
-        else
-            return 0x8006 | VX2OPCODE(instr.vx);
+        return 0x8006 | VX2OPCODE(instr.vx);
+    case OP_SHR_QUIRK:
+        return 0x8006 | VX2OPCODE(instr.vx) | VY2OPCODE(instr.vy);
     case OP_SUBN:
         return 0x8007 | VX2OPCODE(instr.vx) | VY2OPCODE(instr.vy);
     case OP_SHL:
-        if (shift_quirks)
-            return 0x800E | VX2OPCODE(instr.vx) | VY2OPCODE(instr.vy);
-        else
-            return 0x800E | VX2OPCODE(instr.vx);
+        return 0x800E | VX2OPCODE(instr.vx);
+    case OP_SHL_QUIRK:
+        return 0x800E | VX2OPCODE(instr.vx) | VY2OPCODE(instr.vy);
     case OP_SNE_REG:
         return 0x9000 | VX2OPCODE(instr.vx) | VY2OPCODE(instr.vy);
     case OP_LD_I:
@@ -390,8 +394,8 @@ uint16_t chip8_instruction_to_opcode(
     return 0;
 }
 
-void chip8_instruction_format(struct chip8_instruction instr, const char *label,
-    char *dest, size_t sz, bool shift_quirks)
+void chip8_instruction_format(
+    struct chip8_instruction instr, const char *label, char *dest, size_t sz)
 {
     switch (instr.op) {
     case OP_INVALID:
@@ -467,19 +471,19 @@ void chip8_instruction_format(struct chip8_instruction instr, const char *label,
         snprintf(dest, sz, "SUB V%X, V%X", instr.vx, instr.vy);
         break;
     case OP_SHR:
-        if (shift_quirks)
-            snprintf(dest, sz, "SHR V%X, V%X", instr.vx, instr.vy);
-        else
-            snprintf(dest, sz, "SHR V%X", instr.vx);
+        snprintf(dest, sz, "SHR V%X", instr.vx);
+        break;
+    case OP_SHR_QUIRK:
+        snprintf(dest, sz, "SHR V%X, V%X", instr.vx, instr.vy);
         break;
     case OP_SUBN:
         snprintf(dest, sz, "SUBN V%X, V%X", instr.vx, instr.vy);
         break;
     case OP_SHL:
-        if (shift_quirks)
-            snprintf(dest, sz, "SHL V%X, V%X", instr.vx, instr.vy);
-        else
-            snprintf(dest, sz, "SHL V%X", instr.vx);
+        snprintf(dest, sz, "SHL V%X", instr.vx);
+        break;
+    case OP_SHL_QUIRK:
+        snprintf(dest, sz, "SHL V%X, V%X", instr.vx, instr.vy);
         break;
     case OP_SNE_REG:
         snprintf(dest, sz, "SNE V%X, V%X", instr.vx, instr.vy);

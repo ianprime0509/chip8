@@ -843,7 +843,9 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     case OP_XOR:
     case OP_ADD_REG:
     case OP_SUB:
+    case OP_SHR_QUIRK:
     case OP_SUBN:
+    case OP_SHL_QUIRK:
     case OP_SNE_REG:
         if ((regno = register_num(instr->operands[0])) == -1) {
             FAIL_MSG(instr->line, "'%s' is not the name of a register",
@@ -859,6 +861,8 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
         ci.vy = regno;
         break;
     /* Single register operand */
+    case OP_SHR:
+    case OP_SHL:
     case OP_SKP:
     case OP_SKNP:
     case OP_LD_REG_DT:
@@ -901,29 +905,11 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
         }
         ci.nibble = value;
         break;
-    /* Quirky instructions */
-    case OP_SHR:
-    case OP_SHL:
-        if ((regno = register_num(instr->operands[0])) == -1) {
-            FAIL_MSG(instr->line, "'%s' is not the name of a register",
-                instr->operands[0]);
-            return 1;
-        }
-        ci.vx = regno;
-        if (chipasm->opts.shift_quirks) {
-            if ((regno = register_num(instr->operands[0])) == -1) {
-                FAIL_MSG(instr->line, "'%s' is not the name of a register",
-                    instr->operands[0]);
-                return 1;
-            }
-            ci.vy = regno;
-        }
-        break;
     }
 
     /* Finally, we need to turn this into an opcode */
     if (opcode)
-        *opcode = chip8_instruction_to_opcode(ci, chipasm->opts.shift_quirks);
+        *opcode = chip8_instruction_to_opcode(ci);
 
     return 0;
 }
@@ -1288,36 +1274,36 @@ static int chip8asm_process_instruction(struct chip8asm *chipasm, char *op,
     {
         if (chipasm->opts.shift_quirks) {
             EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
+            instr.chipop = OP_SHR_QUIRK;
             instr.n_operands = 2;
             operands_used = 2;
+            instr.operands[1] = operands[1];
         } else {
             EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
+            instr.chipop = OP_SHR;
             instr.n_operands = 1;
             operands_used = 2;
         }
         instr.type = IT_CHIP8_OP;
-        instr.chipop = OP_SHR;
         instr.operands[0] = operands[0];
-        if (chipasm->opts.shift_quirks)
-            instr.operands[1] = operands[1];
     }
     CHIPOP("SUBN", OP_SUBN, 2)
     else if (!strcasecmp(op, "SHL"))
     {
         if (chipasm->opts.shift_quirks) {
             EXPECT_OPERANDS(chipasm->line, op, 2, n_operands);
+            instr.chipop = OP_SHL_QUIRK;
             instr.n_operands = 2;
             operands_used = 2;
+            instr.operands[1] = operands[1];
         } else {
             EXPECT_OPERANDS(chipasm->line, op, 1, n_operands);
+            instr.chipop = OP_SHL;
             instr.n_operands = 1;
             operands_used = 1;
         }
         instr.type = IT_CHIP8_OP;
-        instr.chipop = OP_SHL;
         instr.operands[0] = operands[0];
-        if (chipasm->opts.shift_quirks)
-            instr.operands[1] = operands[1];
     }
     CHIPOP("RND", OP_RND, 2)
     CHIPOP("DRW", OP_DRW, 3)
