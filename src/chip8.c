@@ -130,7 +130,7 @@ int main(int argc, char **argv)
         {"verbose", no_argument, NULL, 'v'}, {0, 0, 0, 0},
     };
 
-    log_init(stderr, LOG_WARNING);
+    log_init(argv[0], stderr, LOG_WARNING);
 
     while ((option = getopt_long(argc, argv, "f:hlqs:t:u:Vv", options, NULL)) !=
         -1) {

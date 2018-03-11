@@ -88,8 +88,9 @@ int test_ld(void);
  */
 int test_quirks(void);
 
-int main(void)
+int main(int argc, char **argv)
 {
+    log_init(argv[0], stdout, LOG_DEBUG);
     testing_setup();
     TEST_RUN(test_arithmetic);
     TEST_RUN(test_asm);
@@ -611,7 +612,6 @@ static void testing_run(const char *name, int (*test)(void))
 
 static void testing_setup(void)
 {
-    log_init(stdout, LOG_DEBUG);
     log_debug("Starting tests");
 }
 

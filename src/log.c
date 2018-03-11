@@ -24,14 +24,19 @@ static enum log_level message_level;
  * The current log output file.
  */
 static FILE *log_output;
+/**
+ * The program name to print in output messages.
+ */
+static const char *progname;
 
 /**
  * Returns a string with the name of the given log level.
  */
 static char *log_level_string(enum log_level level);
 
-void log_init(FILE *output, enum log_level max)
+void log_init(const char *name, FILE *output, enum log_level max)
 {
+    progname = name;
     log_set_output(output);
     log_set_level(max);
     log_message(LOG_DEBUG, "Logging initialized");
@@ -68,7 +73,7 @@ void log_message(enum log_level level, const char *fmt, ...)
     va_list args;
     va_start(args, fmt);
     if (log_output != NULL && level <= max_level) {
-        fprintf(log_output, "%s: ", log_level_string(level));
+        fprintf(log_output, "%s: %s: ", progname, log_level_string(level));
         vfprintf(log_output, fmt, args);
         putc('\n', log_output);
     }
@@ -79,7 +84,7 @@ void log_message_begin(enum log_level level)
 {
     message_level = level;
     if (log_output != NULL && message_level <= max_level)
-        fprintf(log_output, "%s: ", log_level_string(level));
+        fprintf(log_output, "%s: %s: ", progname, log_level_string(level));
 }
 
 void log_message_part(const char *fmt, ...)

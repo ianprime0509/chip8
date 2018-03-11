@@ -92,6 +92,8 @@ int main(int argc, char **argv)
         {"version", no_argument, NULL, 'V'}, {0, 0, 0, 0}};
     int retval = 0;
 
+    log_init(argv[0], stderr, LOG_WARNING);
+
     while ((option = getopt_long(argc, argv, "o:qvhV", options, NULL)) != -1) {
         switch (option) {
         case 'o':
@@ -173,12 +175,10 @@ static int run(struct progopts opts)
     int retval = 0;
 
     /* Set up logging */
-    if (opts.verbosity == 0)
-        log_init(stderr, LOG_WARNING);
-    else if (opts.verbosity == 1)
-        log_init(stderr, LOG_INFO);
-    else
-        log_init(stderr, LOG_DEBUG);
+    if (opts.verbosity == 1)
+        log_set_level(LOG_INFO);
+    else if (opts.verbosity >= 2)
+        log_set_level(LOG_DEBUG);
 
     asmopts.shift_quirks = opts.shift_quirks;
 

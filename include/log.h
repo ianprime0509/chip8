@@ -45,10 +45,11 @@ enum log_level {
  * Until this function is called, you won't see any log messages, but nothing
  * (else) bad will happen.
  *
+ * @param progname The name of the program to display in messages.
  * @param output The output file to use for log messages.
  * @param max The initial maximum log level to display.
  */
-void log_init(FILE *output, enum log_level max);
+void log_init(const char *progname, FILE *output, enum log_level max);
 /**
  * Sets the maximum log level.
  *
