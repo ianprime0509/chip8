@@ -273,6 +273,25 @@ The descriptions of the operations given here reflect the behavior of
 Other emulators may behave differently, and such variant behaviors are
 described in
 .Sx ALTERNATIVE BEHAVIOR .
+.Pp
+Certain operations, such as
+.Ic ADD
+and
+.Ic SHR ,
+use register
+.Dv VF
+to store additional information, such as a bit indicating whether a carry
+occurred during an addition.
+When such an operation occurs, the additional information is stored
+.Em after
+the main operation.
+For example, after the operation
+.Ql ADD VF, #56 ,
+register
+.Dv VF
+will always contain either 0 (if no carry occurred during the addition) or 1
+(if a carry occurred); the result of the addition itself is lost.
+.Pp
 The operations are as follow:
 .Bl -tag -width Ds
 .It Ic SCD Fa nibble ( Sy 00Cn )

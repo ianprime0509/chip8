@@ -430,11 +430,12 @@ static int chip8_execute(
     case OP_LD_BYTE:
         chip->regs[inst.vx] = inst.byte;
         break;
-    case OP_ADD_BYTE:
+    case OP_ADD_BYTE: {
         /* Check for carry */
-        chip->regs[REG_VF] = inst.byte > 255 - chip->regs[inst.vx];
+        uint8_t carry = inst.byte > 255 - chip->regs[inst.vx];
         chip->regs[inst.vx] += inst.byte;
-        break;
+        chip->regs[REG_VF] = carry;
+    } break;
     case OP_LD_REG:
         chip->regs[inst.vx] = chip->regs[inst.vy];
         break;
@@ -447,37 +448,44 @@ static int chip8_execute(
     case OP_XOR:
         chip->regs[inst.vx] ^= chip->regs[inst.vy];
         break;
-    case OP_ADD_REG:
+    case OP_ADD_REG: {
         /* Check for carry */
-        chip->regs[REG_VF] = chip->regs[inst.vy] > 255 - chip->regs[inst.vx];
+        uint8_t carry = chip->regs[inst.vy] > 255 - chip->regs[inst.vx];
         chip->regs[inst.vx] += chip->regs[inst.vy];
-        break;
-    case OP_SUB:
+        chip->regs[REG_VF] = carry;
+    } break;
+    case OP_SUB: {
         /* Check for borrow */
-        chip->regs[REG_VF] = !(chip->regs[inst.vy] > chip->regs[inst.vx]);
+        uint8_t borrow = !(chip->regs[inst.vy] > chip->regs[inst.vx]);
         chip->regs[inst.vx] -= chip->regs[inst.vy];
-        break;
-    case OP_SHR:
-        chip->regs[REG_VF] = chip->regs[inst.vx] & 0x1;
+        chip->regs[REG_VF] = borrow;
+    } break;
+    case OP_SHR: {
+        uint8_t low = chip->regs[inst.vx] & 0x1;
         chip->regs[inst.vx] >>= 1;
-        break;
-    case OP_SHR_QUIRK:
-        chip->regs[REG_VF] = chip->regs[inst.vy] & 0x1;
+        chip->regs[REG_VF] = low;
+    } break;
+    case OP_SHR_QUIRK: {
+        uint8_t low = chip->regs[inst.vy] & 0x1;
         chip->regs[inst.vx] = chip->regs[inst.vy] >> 1;
-        break;
-    case OP_SUBN:
+        chip->regs[REG_VF] = low;
+    } break;
+    case OP_SUBN: {
         /* Check for borrow */
-        chip->regs[REG_VF] = !(chip->regs[inst.vx] > chip->regs[inst.vy]);
+        uint8_t borrow = !(chip->regs[inst.vx] > chip->regs[inst.vy]);
         chip->regs[inst.vx] = chip->regs[inst.vy] - chip->regs[inst.vx];
-        break;
-    case OP_SHL:
-        chip->regs[REG_VF] = (chip->regs[inst.vx] & 0x80) >> 7;
+        chip->regs[REG_VF] = borrow;
+    } break;
+    case OP_SHL: {
+        uint8_t high = (chip->regs[inst.vx] & 0x80) >> 7;
         chip->regs[inst.vx] <<= 1;
-        break;
-    case OP_SHL_QUIRK:
-        chip->regs[REG_VF] = (chip->regs[inst.vy] & 0x80) >> 7;
+        chip->regs[REG_VF] = high;
+    } break;
+    case OP_SHL_QUIRK: {
+        uint8_t high = (chip->regs[inst.vy] & 0x80) >> 7;
         chip->regs[inst.vx] = chip->regs[inst.vy] << 1;
-        break;
+        chip->regs[REG_VF] = high;
+    } break;
     case OP_SNE_REG:
         if (chip->regs[inst.vx] != chip->regs[inst.vy])
             new_pc = chip->pc + 4;

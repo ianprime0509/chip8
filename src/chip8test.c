@@ -167,6 +167,11 @@ int test_arithmetic(void)
     chip8_execute_opcode(chip, 0x8307);
     ASSERT_EQ_UINT(chip->regs[REG_V3], 0x7A);
     ASSERT_EQ_UINT(chip->regs[REG_VF], 1);
+    /* LD VF, #80 */
+    chip8_execute_opcode(chip, 0x6F80);
+    /* ADD VF, #DD */
+    chip8_execute_opcode(chip, 0x7FDD);
+    ASSERT_EQ_UINT(chip->regs[REG_VF], 1);
 
     chip8_destroy(chip);
     return 0;
