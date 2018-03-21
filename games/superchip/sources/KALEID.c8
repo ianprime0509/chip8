@@ -1,0 +1,112 @@
+;;; This is the same as the disassembled KALEID in the CHIP-8 games directory,
+;;; but with an increased display resolution for the Super-Chip.
+
+;;; The program works by maintaining a cursor in the top-left quadrant, which
+;;; is mirrored when drawing to the other three quadrants.  It keeps a record
+;;; of all the controller inputs so they can be played back in a loop when the
+;;; 0 key is pressed.
+
+;;; The history has a maximum capacity of 128 entries; if this is exceeded,
+;;; auto-draw mode will start immediately.
+
+;;; Registers:
+;;; V0 - controller input
+;;; V1 - X coordinate of cursor
+;;; V2 - Y coordinate of cursor
+;;; V3 - memory offset (for the drawing history)
+;;; VA - temporary
+;;; VB - temporary
+
+DISPLAY_HEIGHT = 64
+DISPLAY_WIDTH = 128
+;;; The offset of the drawing storage from the start of the program.
+MEM_OFFSET = #80
+
+start:  HIGH
+        LD V0, #0
+        LD V3, MEM_OFFSET
+        LD V1, DISPLAY_WIDTH / 2 - 1
+        LD V2, DISPLAY_HEIGHT / 2 - 1
+main:   CALL display
+        LD I, start
+        ADD I, V3               ; Calculate history position.
+        LD V0, K
+        LD [I], V0              ; Store history entry.
+        SNE V0, 0               ; If the user pressed the 0 key,
+        JP auto_draw            ; start auto-draw mode.
+        ADD V3, 1               ; Next history position.
+        ;; We only loop back to main if there is more space in the history.
+        ;; Otherwise, execution continues directly into auto-draw mode.
+        SE V3, 0
+        JP main
+
+        ;; Loop through the history and replay user input.
+auto_draw:
+        LD V3, MEM_OFFSET
+auto_draw_loop:
+        LD I, start
+        ADD I, V3               ; Calculate history position.
+        LD V0, [I]
+        ;; If the history entry is zero, then we've reached the end of the
+        ;; history and need to repeat it from the beginning.
+        SNE V0, 0
+        JP auto_draw
+        ADD V3, 1               ; Next history entry
+        SNE V3, 0               ; Restart auto-draw if we run out of entries.
+        JP auto_draw
+        CALL display
+        JP auto_draw_loop
+
+        ;; Process the current input and display the new pixels drawn in each
+        ;; quadrant.
+display:
+        ;; Adjust coordinates from input.
+        SNE V0, #2              ; Up
+        ADD V2, -1
+        SNE V0, #4              ; Left
+        ADD V1, -1
+        SNE V0, #6              ; Right
+        ADD V1, 1
+        SNE V0, #8              ; Down
+        ADD V2, 1
+
+        ;; Load dot sprite to prepare for drawing.
+        LD I, dot
+
+        ;; Account for cursor going out of bounds (x).
+        LD VA, ~(DISPLAY_WIDTH / 2 - 1)
+        AND VA, V1              ; VA now contains the upper bits of V1.
+        LD VB, DISPLAY_WIDTH / 2 - 1
+        AND V1, VB              ; Clear the upper bits of V1.
+        SE VA, 0                ; If the cursor moved too far to the right,
+        ADD V2, 1               ; wrap to the next row.
+        ;; Account for cursor going out of bounds (y).
+        LD VA, ~(DISPLAY_HEIGHT / 2 - 1)
+        AND VA, V2              ; VA now contains the upper bits of V2.
+        LD VB, DISPLAY_HEIGHT / 2 - 1
+        AND V2, VB              ; Clear the upper bits of V2.
+        SE VA, 0                ; If the cursor moved too far down,
+        ADD V1, 1               ; wrap to the next column.
+        ;; If the above wrapping moved the x coordinate too far to the right,
+        ;; wrap back around to the left-most column (clear upper bits in V1).
+        LD VB, DISPLAY_WIDTH / 2 - 1
+        AND V1, VB
+
+        ;; Draw upper-left quadrant.
+        DRW V1, V2, 1
+        ;; Draw lower-left quadrant.
+        LD VA, V1
+        LD VB, DISPLAY_HEIGHT - 1
+        SUB VB, V2
+        DRW VA, VB, 1
+        ;; Draw lower-right quadrant.
+        LD VA, DISPLAY_WIDTH - 1
+        SUB VA, V1
+        DRW VA, VB, 1
+        ;; Draw upper-right quadrant.
+        LD VB, V2
+        DRW VA, VB, 1
+        RET
+
+        DB #01                  ; Unknown purpose.
+dot:    DB $1.......
