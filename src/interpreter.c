@@ -262,9 +262,9 @@ static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
                 /* If the pixel on screen is set, we have a collision */
                 collision = collision || chip->display[dispx][dispy];
                 chip->display[dispx][dispy] = !chip->display[dispx][dispy];
+                chip->needs_refresh = true;
             }
 
-    chip->needs_refresh = true;
     return collision;
 }
 
@@ -286,10 +286,10 @@ static bool chip8_draw_sprite_high(
                 /* If the pixel on screen is set, we have a collision */
                 collision = collision || chip->display[dispx][dispy];
                 chip->display[dispx][dispy] = !chip->display[dispx][dispy];
+                chip->needs_refresh = true;
             }
         }
 
-    chip->needs_refresh = true;
     return collision;
 }
 
@@ -456,7 +456,7 @@ static int chip8_execute(
     } break;
     case OP_SUB: {
         /* Check for borrow */
-        uint8_t borrow = !(chip->regs[inst.vy] > chip->regs[inst.vx]);
+        uint8_t borrow = chip->regs[inst.vy] <= chip->regs[inst.vx];
         chip->regs[inst.vx] -= chip->regs[inst.vy];
         chip->regs[REG_VF] = borrow;
     } break;
@@ -472,7 +472,7 @@ static int chip8_execute(
     } break;
     case OP_SUBN: {
         /* Check for borrow */
-        uint8_t borrow = !(chip->regs[inst.vx] > chip->regs[inst.vy]);
+        uint8_t borrow = chip->regs[inst.vx] <= chip->regs[inst.vy];
         chip->regs[inst.vx] = chip->regs[inst.vy] - chip->regs[inst.vx];
         chip->regs[REG_VF] = borrow;
     } break;
