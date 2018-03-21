@@ -1690,8 +1690,13 @@ static int parse_num_bin(const char **str, uint16_t *num)
     const char *tmp = *str;
     uint16_t n = 0;
 
-    while (*tmp == '0' || *tmp == '1')
-        n = 2 * n + *tmp++ - '0';
+    while (*tmp == '0' || *tmp == '1' || *tmp == '.')
+        if (*tmp == '.') {
+            n = 2 * n;
+            tmp++;
+        } else {
+            n = 2 * n + *tmp++ - '0';
+        }
     if (tmp == *str) {
         return 1;
     } else {

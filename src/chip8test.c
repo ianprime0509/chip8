@@ -304,7 +304,7 @@ int test_asm_eval(void)
     chip8asm_eval(chipasm, "((4 + 4) * (#0a - $00000010))", 4, &value);
     ASSERT_EQ_UINT(value, 64);
     chip8asm_eval(
-        chipasm, "~$01010101 | $01010101 ^ $00001111 & $10101010", 5, &value);
+        chipasm, "~$01010101 | $.1.1.1.1 ^ $.0.01111 & $10101010", 5, &value);
     ASSERT_EQ_UINT(value, 0xFFFF);
     chip8asm_eval(chipasm, "7 > 2 < 2", 6, &value);
     ASSERT_EQ_UINT(value, 4);
