@@ -63,7 +63,6 @@ An instruction consists of an operation and, depending on the operation, a
 comma-separated list of operands (see
 .Xr chip8 7
 for a list of operations).
-
 The name of the operation is not case-sensitive, so
 .Ic DRAW
 is processed the same as
@@ -156,6 +155,16 @@ for the bitwise XOR operation.
 .Sy |
 for the bitwise OR operation.
 .El
+.Pp
+Numeric values in an expression can be written in decimal without a prefix, in
+hexadecimal with the prefix
+.Sy #
+or in binary with the prefix
+.Sy $ .
+Numbers written in binary notation may use periods
+.Sy ( \&. )
+in place of zeroes, to make it easier to visualize sprites in their binary
+representation.
 .Ss OPERATIONS
 There are two classes of operations in the assembler:
 .Dq operations
