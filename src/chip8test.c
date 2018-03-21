@@ -592,11 +592,11 @@ int test_quirks(void)
     /* LD [I], V1 */
     reg_i = chip->reg_i;
     chip8_execute_opcode(chip, 0xF155);
-    ASSERT_EQ_UINT(chip->reg_i, reg_i + 4);
+    ASSERT_EQ_UINT(chip->reg_i, reg_i + 2);
     /* LD V1, [I] */
     reg_i = chip->reg_i;
     chip8_execute_opcode(chip, 0xF165);
-    ASSERT_EQ_UINT(chip->reg_i, reg_i + 4);
+    ASSERT_EQ_UINT(chip->reg_i, reg_i + 2);
 
     chip8_destroy(chip);
     return 0;

@@ -580,26 +580,26 @@ static int chip8_execute(
     case OP_LD_DEREF_I_REG: {
         size_t cpy_len = sizeof chip->regs[0] * (inst.vx + 1);
 
-        if (chip->reg_i + cpy_len >= CHIP8_MEM_SIZE) {
+        if (chip->reg_i + cpy_len - 1 >= CHIP8_MEM_SIZE) {
             log_error("Tried to write to out of bounds memory");
             chip8_log_regs(chip);
             return 1;
         }
         memcpy(chip->mem + chip->reg_i, chip->regs, cpy_len);
         if (chip->opts.load_quirks)
-            chip->reg_i += 2 * (inst.vx + 1);
+            chip->reg_i += cpy_len;
     } break;
     case OP_LD_REG_DEREF_I: {
         size_t cpy_len = sizeof chip->regs[0] * (inst.vx + 1);
 
-        if (chip->reg_i + cpy_len >= CHIP8_MEM_SIZE) {
+        if (chip->reg_i + cpy_len - 1 >= CHIP8_MEM_SIZE) {
             log_error("Tried to read from out of bounds memory");
             chip8_log_regs(chip);
             return 1;
         }
         memcpy(chip->regs, chip->mem + chip->reg_i, cpy_len);
         if (chip->opts.load_quirks)
-            chip->reg_i += 2 * (inst.vx + 1);
+            chip->reg_i += cpy_len;
     } break;
     case OP_LD_R_REG:
     case OP_LD_REG_R:
