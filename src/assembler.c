@@ -503,7 +503,6 @@ int chip8asm_eval(
     bool expecting_num = true;
 
     while (*expr != '\0') {
-        skip_spaces(&expr);
         if (expecting_num && *expr == '-') {
             int p = precedence('_');
             /* The unary - operator is right-associative */
@@ -629,6 +628,7 @@ int chip8asm_eval(
                 line, "number stack overflowed (too many numbers/identifiers)");
             return 1;
         }
+        skip_spaces(&expr);
     }
 
     /* Now that we're done here, we need to use the remaining operators */
@@ -1635,9 +1635,18 @@ static char *parse_operand(const char **str)
     if (tmp == *str) {
         return NULL;
     } else {
-        size_t len = tmp - *str;
-        char *ret = malloc(len + 1);
+        const char *end;
+        size_t len;
+        char *ret;
 
+        /* Make sure the returned string has all spaces trimmed off the end. */
+        end = tmp;
+        while (isspace(*--end))
+            ;
+        end++;
+        len = end - *str;
+
+        ret = malloc(len + 1);
         if (!ret) {
             log_error("Out of memory");
             return NULL;
@@ -1681,8 +1690,13 @@ static int parse_num_bin(const char **str, uint16_t *num)
     const char *tmp = *str;
     uint16_t n = 0;
 
-    while (*tmp == '0' || *tmp == '1')
-        n = 2 * n + *tmp++ - '0';
+    while (*tmp == '0' || *tmp == '1' || *tmp == '.')
+        if (*tmp == '.') {
+            n = 2 * n;
+            tmp++;
+        } else {
+            n = 2 * n + *tmp++ - '0';
+        }
     if (tmp == *str) {
         return 1;
     } else {

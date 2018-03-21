@@ -190,8 +190,8 @@ int test_asm(void)
     ASSERT(chipasm != NULL && prog != NULL);
 
     ASSERT(!chip8asm_process_line(chipasm, "program_start:"));
-    TEST_INSTR("SCD 7", 0x00C7);
-    TEST_INSTR("CLS", 0x00E0);
+    TEST_INSTR("   SCD 7", 0x00C7);
+    TEST_INSTR("\tCLS", 0x00E0);
     TEST_INSTR("RET", 0x00EE);
     TEST_INSTR("SCR", 0x00FB);
     TEST_INSTR("SCL", 0x00FC);
@@ -206,7 +206,7 @@ int test_asm(void)
     TEST_INSTR("LD V1, $1101", 0x610D);
     TEST_INSTR("ADD V4, 10", 0x740A);
     TEST_INSTR("LD V7, VB", 0x87B0);
-    TEST_INSTR("OR VD, VC", 0x8DC1);
+    TEST_INSTR("OR VD,\tVC", 0x8DC1);
     TEST_INSTR("AND VB, V6", 0x8B62);
     TEST_INSTR("XOR V5, V0", 0x8503);
     TEST_INSTR("ADD V5, V9", 0x8594);
@@ -215,18 +215,18 @@ int test_asm(void)
     TEST_INSTR("SUBN V9, VC", 0x89C7);
     TEST_INSTR("SHL VF", 0x8F0E);
     TEST_INSTR("SNE V8, V2", 0x9820);
-    TEST_INSTR("LD I, program_start", 0xA200);
+    TEST_INSTR("LD I, program_start   ", 0xA200);
     TEST_INSTR("JP V0, program_start", 0xB200);
-    TEST_INSTR("RND V0, #F5", 0xC0F5);
+    TEST_INSTR("RND   V0,     #F5", 0xC0F5);
     TEST_INSTR("DRW V0, V1, 10", 0xD01A);
-    TEST_INSTR("SKP V4", 0xE49E);
+    TEST_INSTR("SKP V4\t;comment   , hi", 0xE49E);
     TEST_INSTR("SKNP VD", 0xEDA1);
-    TEST_INSTR("LD V8, DT", 0xF807);
-    TEST_INSTR("LD VD, K", 0xFD0A);
+    TEST_INSTR("\tLD\tV8,\tDT\t", 0xF807);
+    TEST_INSTR("LD VD, K\t\t", 0xFD0A);
     TEST_INSTR("LD DT, VA", 0xFA15);
     TEST_INSTR("LD ST, V6", 0xF618);
     TEST_INSTR("ADD I, V3", 0xF31E);
-    TEST_INSTR("LD F, V8", 0xF829);
+    TEST_INSTR("LD F, V8;, V8", 0xF829);
     TEST_INSTR("LD HF, VE", 0xFE30);
     TEST_INSTR("LD B, V6", 0xF633);
     TEST_INSTR("LD [I], V2", 0xF255);
@@ -304,7 +304,7 @@ int test_asm_eval(void)
     chip8asm_eval(chipasm, "((4 + 4) * (#0a - $00000010))", 4, &value);
     ASSERT_EQ_UINT(value, 64);
     chip8asm_eval(
-        chipasm, "~$01010101 | $01010101 ^ $00001111 & $10101010", 5, &value);
+        chipasm, "~$01010101 | $.1.1.1.1 ^ $.0.01111 & $10101010", 5, &value);
     ASSERT_EQ_UINT(value, 0xFFFF);
     chip8asm_eval(chipasm, "7 > 2 < 2", 6, &value);
     ASSERT_EQ_UINT(value, 4);
