@@ -92,4 +92,13 @@ void log_message_end(void);
  */
 #define log_debug(...) log_message(LOG_DEBUG, __VA_ARGS__)
 
+/**
+ * Exits the program immediately with the given exit status and message.
+ */
+#define die(status, ...)                                                       \
+    do {                                                                       \
+        log_error(__VA_ARGS__);                                                \
+        exit((status));                                                        \
+    } while (0)
+
 #endif

@@ -19,6 +19,7 @@
 
 #include "assembler.h"
 #include "log.h"
+#include "memory.h"
 
 /**
  * The size of the temporary input line buffer.
@@ -98,7 +99,7 @@ int main(int argc, char **argv)
         switch (option) {
         case 'o':
             free(opts.output);
-            opts.output = strdup(optarg);
+            opts.output = xstrdup(optarg);
             break;
         case 'q':
             opts.shift_quirks = true;
@@ -120,9 +121,9 @@ int main(int argc, char **argv)
     }
 
     if (optind == argc - 1) {
-        opts.input = strdup(argv[optind]);
+        opts.input = xstrdup(argv[optind]);
     } else if (optind == argc) {
-        opts.input = strdup("-");
+        opts.input = xstrdup("-");
     } else {
         fprintf(stderr, "%s", USAGE);
         retval = 1;
@@ -131,7 +132,7 @@ int main(int argc, char **argv)
 
     /* We try to deduce the output file name if it is not given */
     if (!opts.output) {
-        opts.output = !strcmp(opts.input, "-") ? strdup("-")
+        opts.output = !strcmp(opts.input, "-") ? xstrdup("-")
                                                : replace_extension(opts.input);
     }
 
@@ -155,7 +156,7 @@ static char *replace_extension(const char *fname)
     size_t extpos = ext ? ext - fname : strlen(fname);
     size_t extlen = strlen(OUTPUTEXT);
     size_t buflen = extpos + extlen + 1;
-    char *buf = malloc(buflen);
+    char *buf = xmalloc(buflen);
 
     memcpy(buf, fname, extpos);
     memcpy(buf + extpos, OUTPUTEXT, extlen);
@@ -181,18 +182,8 @@ static int run(struct progopts opts)
         log_set_level(LOG_DEBUG);
 
     asmopts.shift_quirks = opts.shift_quirks;
-
-    if (!(chipasm = chip8asm_new(asmopts))) {
-        log_error("Could not create assembler: %s", strerror(errno));
-        retval = 1;
-        goto EXIT_NOTHING_CREATED;
-    }
-    if (!(prog = chip8asm_program_new())) {
-        log_error(
-            "Could not allocate space for program buffer: %s", strerror(errno));
-        retval = 1;
-        goto EXIT_CHIPASM_CREATED;
-    }
+    chipasm = chip8asm_new(asmopts);
+    prog = chip8asm_program_new();
 
     if (!strcmp(opts.input, "-")) {
         input = stdin;
@@ -246,8 +237,6 @@ EXIT_INPUT_OPENED:
         fclose(input);
 EXIT_PROG_CREATED:
     chip8asm_program_destroy(prog);
-EXIT_CHIPASM_CREATED:
     chip8asm_destroy(chipasm);
-EXIT_NOTHING_CREATED:
     return retval;
 }

@@ -277,12 +277,8 @@ static int run(struct progopts opts)
     }
 
     /* Set up audio */
-    if (!(audio_ring = audio_square_wave(
-              48000, opts.tone_freq, opts.tone_vol * INT16_MAX / 100))) {
-        log_error("Could not create audio ring buffer");
-        retval = 1;
-        goto ERROR_WINDOW_CREATED;
-    }
+    audio_ring = audio_square_wave(
+        48000, opts.tone_freq, opts.tone_vol * INT16_MAX / 100);
     SDL_zero(as_want);
     as_want.freq = 48000;
     as_want.format = AUDIO_S16SYS;
@@ -385,7 +381,6 @@ ERROR_CHIP8_CREATED:
     SDL_CloseAudioDevice(audio_device);
 ERROR_AUDIO_RING_CREATED:
     audio_ring_buffer_free(audio_ring);
-ERROR_WINDOW_CREATED:
     SDL_DestroyWindow(win);
 ERROR_SDL_INITIALIZED:
     SDL_Quit();

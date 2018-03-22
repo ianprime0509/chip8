@@ -3,7 +3,8 @@ chip8_src = [
   'chip8.c',
   'instruction.c',
   'interpreter.c',
-  'log.c'
+  'log.c',
+  'memory.c'
 ]
 
 executable(
@@ -18,7 +19,8 @@ chip8asm_src = [
   'assembler.c',
   'chip8asm.c',
   'instruction.c',
-  'log.c'
+  'log.c',
+  'memory.c'
 ]
 
 chip8asm = executable(
@@ -32,7 +34,8 @@ chip8disasm_src = [
   'chip8disasm.c',
   'disassembler.c',
   'instruction.c',
-  'log.c'
+  'log.c',
+  'memory.c'
 ]
 
 chip8disasm = executable(
@@ -47,7 +50,8 @@ chip8test_src = [
   'chip8test.c',
   'instruction.c',
   'interpreter.c',
-  'log.c'
+  'log.c',
+  'memory.c'
 ]
 
 chip8test = executable(

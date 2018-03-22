@@ -15,6 +15,7 @@
 #include <strings.h>
 
 #include "log.h"
+#include "memory.h"
 
 #define LTABLE_SIZE 256
 
@@ -289,17 +290,14 @@ static unsigned long hash_str(const char *str);
  * Initializes a new instruction list with the given capacity.
  *
  * The capacity may be zero.
- *
- * @return An error code.
  */
-static int instructions_init(struct instructions *lst, size_t cap);
+static void instructions_init(struct instructions *lst, size_t cap);
 
 /**
  * Adds an instruction to the instruction list.
- *
- * @return An error code.
  */
-static int instructions_add(struct instructions *lst, struct instruction instr);
+static void instructions_add(
+    struct instructions *lst, struct instruction instr);
 /**
  * Clears the given instruction list.
  *
@@ -308,10 +306,8 @@ static int instructions_add(struct instructions *lst, struct instruction instr);
 static void instructions_clear(struct instructions *lst);
 /**
  * Grows the list, doubling its capacity.
- *
- * @return An error code.
  */
-static int instructions_grow(struct instructions *lst);
+static void instructions_grow(struct instructions *lst);
 /**
  * Adds the given label/address pair to the table.
  *
@@ -412,15 +408,12 @@ static void skip_spaces(const char **str);
 
 struct chip8asm *chip8asm_new(struct chip8asm_options opts)
 {
-    struct chip8asm *chipasm = calloc(1, sizeof *chipasm);
+    struct chip8asm *chipasm = xcalloc(1, sizeof *chipasm);
 
     chipasm->opts = opts;
     chipasm->pc = CHIP8_PROG_START;
     /* There's a good chance we'll need space for at least 128 instructions */
-    if (instructions_init(&chipasm->instructions, 128)) {
-        free(chipasm);
-        return NULL;
-    }
+    instructions_init(&chipasm->instructions, 128);
 
     return chipasm;
 }
@@ -550,10 +543,6 @@ int chip8asm_eval(
             char *ident = parse_ident(&expr);
             uint16_t val;
 
-            if (!ident) {
-                log_error("Out of memory");
-                return 1;
-            }
             if (!ltable_get(&chipasm->labels, ident, &val)) {
                 FAIL_MSG(line, "unknown identifier '%s'", ident);
                 free(ident);
@@ -726,7 +715,7 @@ struct chip8asm_options chip8asm_options_default(void)
 
 struct chip8asm_program *chip8asm_program_new(void)
 {
-    return calloc(1, sizeof(struct chip8asm_program));
+    return xcalloc(1, sizeof(struct chip8asm_program));
 }
 
 void chip8asm_program_destroy(struct chip8asm_program *prog)
@@ -752,10 +741,7 @@ static int chip8asm_add_instruction(
         }
         chipasm->line_label = NULL;
     }
-    if (instructions_add(&chipasm->instructions, instr)) {
-        FAIL_MSG(chipasm->line, "Could not store instruction (out of memory)");
-        return 1;
-    }
+    instructions_add(&chipasm->instructions, instr);
 
     return 0;
 }
@@ -1349,27 +1335,23 @@ static unsigned long hash_str(const char *str)
     return hash;
 }
 
-static int instructions_init(struct instructions *lst, size_t cap)
+static void instructions_init(struct instructions *lst, size_t cap)
 {
     if (cap == 0)
         lst->data = NULL;
-    else if (!(lst->data = malloc(cap * sizeof *lst->data)))
-        return 1;
+    else
+        lst->data = xmalloc(cap * sizeof *lst->data);
 
     lst->cap = cap;
     lst->len = 0;
-
-    return 0;
 }
 
-static int instructions_add(struct instructions *lst, struct instruction instr)
+static void instructions_add(struct instructions *lst, struct instruction instr)
 {
     if (lst->len >= lst->cap)
-        if (instructions_grow(lst))
-            return 1;
+        instructions_grow(lst);
 
     lst->data[lst->len++] = instr;
-    return 0;
 }
 
 static void instructions_clear(struct instructions *lst)
@@ -1383,18 +1365,14 @@ static void instructions_clear(struct instructions *lst)
     lst->len = lst->cap = 0;
 }
 
-static int instructions_grow(struct instructions *lst)
+static void instructions_grow(struct instructions *lst)
 {
     size_t new_cap = lst->cap == 0 ? 1 : 2 * lst->cap;
     struct instruction *new_data =
-        realloc(lst->data, new_cap * sizeof *new_data);
+        xrealloc(lst->data, new_cap * sizeof *new_data);
 
-    if (!new_data)
-        return 1;
     lst->cap = new_cap;
     lst->data = new_data;
-
-    return 0;
 }
 
 static bool ltable_add(struct ltable *tab, char *label, uint16_t addr)
@@ -1404,7 +1382,7 @@ static bool ltable_add(struct ltable *tab, char *label, uint16_t addr)
 
     /* Create a new bucket list if necessary */
     if (!tab->buckets[n_bucket]) {
-        b = malloc(sizeof *b);
+        b = xmalloc(sizeof *b);
         b->label = label;
         b->addr = addr;
         b->next = NULL;
@@ -1420,8 +1398,8 @@ static bool ltable_add(struct ltable *tab, char *label, uint16_t addr)
             return true;
         }
     }
-    b->next = malloc(sizeof *b->next);
-    b->next->label = strdup(label);
+    b->next = xmalloc(sizeof *b->next);
+    b->next->label = xstrdup(label);
     b->next->addr = addr;
     b->next->next = NULL;
     return false;
@@ -1584,12 +1562,8 @@ static char *parse_label(const char **str)
         return NULL;
     } else {
         size_t len = tmp - *str;
-        char *ret = malloc(len + 1);
+        char *ret = xmalloc(len + 1);
 
-        if (!ret) {
-            log_error("Out of memory");
-            return NULL;
-        }
         memcpy(ret, *str, len);
         ret[len] = '\0';
         *str = ++tmp; /* Skip past colon */
@@ -1612,12 +1586,8 @@ static char *parse_ident(const char **str)
         return NULL;
     } else {
         size_t len = tmp - *str;
-        char *ret = malloc(len + 1);
+        char *ret = xmalloc(len + 1);
 
-        if (!ret) {
-            log_error("Out of memory");
-            return NULL;
-        }
         memcpy(ret, *str, len);
         ret[len] = '\0';
         *str = tmp;
@@ -1646,11 +1616,7 @@ static char *parse_operand(const char **str)
         end++;
         len = end - *str;
 
-        ret = malloc(len + 1);
-        if (!ret) {
-            log_error("Out of memory");
-            return NULL;
-        }
+        ret = xmalloc(len + 1);
         memcpy(ret, *str, len);
         ret[len] = '\0';
         if (*tmp == ',')
@@ -1671,12 +1637,8 @@ static char *parse_operation(const char **str)
         return NULL;
     } else {
         size_t len = tmp - *str;
-        char *ret = malloc(len + 1);
+        char *ret = xmalloc(len + 1);
 
-        if (!ret) {
-            log_error("Out of memory");
-            return NULL;
-        }
         memcpy(ret, *str, len);
         ret[len] = '\0';
         *str = tmp;

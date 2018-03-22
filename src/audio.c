@@ -9,6 +9,8 @@
 
 #include <stdlib.h>
 
+#include "memory.h"
+
 struct audio_ring_buffer {
     /**
      * The current buffer position.
@@ -46,8 +48,7 @@ struct audio_ring_buffer *audio_square_wave(
     int period = sample_rate / frequency;
 
     /* We only need our audio buffer to hold a single period */
-    if (!(ring = malloc(sizeof *ring + period * sizeof ring->buf[0])))
-        return NULL;
+    ring = xmalloc(sizeof *ring + period * sizeof ring->buf[0]);
     ring->size = period;
     ring->pos = 0;
 

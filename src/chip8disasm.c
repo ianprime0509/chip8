@@ -15,6 +15,7 @@
 
 #include "disassembler.h"
 #include "log.h"
+#include "memory.h"
 
 static const char *HELP =
     "A disassembler for Chip-8/Super-Chip programs.\n"
@@ -76,7 +77,7 @@ int main(int argc, char **argv)
         switch (option) {
         case 'o':
             free(opts.output);
-            opts.output = strdup(optarg);
+            opts.output = xstrdup(optarg);
             break;
         case 'q':
             opts.shift_quirks = true;
@@ -98,7 +99,7 @@ int main(int argc, char **argv)
     }
 
     if (optind == argc - 1) {
-        opts.input = strdup(argv[optind]);
+        opts.input = xstrdup(argv[optind]);
     } else {
         fprintf(stderr, "%s", USAGE);
         retval = 1;
@@ -107,7 +108,7 @@ int main(int argc, char **argv)
 
     /* Use stdout as default output */
     if (!opts.output)
-        opts.output = strdup("-");
+        opts.output = xstrdup("-");
 
     retval = run(opts);
 

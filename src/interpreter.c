@@ -15,6 +15,7 @@
 #include <time.h>
 
 #include "log.h"
+#include "memory.h"
 
 /**
  * The address of the low-resolution hex digit sprites in memory.
@@ -146,7 +147,7 @@ struct chip8_options chip8_options_default(void)
 
 struct chip8 *chip8_new(struct chip8_options opts)
 {
-    struct chip8 *chip = calloc(1, sizeof *chip);
+    struct chip8 *chip = xcalloc(1, sizeof *chip);
 
     chip->opts = opts;
     /* Start program at beginning of usable memory */
@@ -396,12 +397,7 @@ static int chip8_execute(
         break;
     case OP_CALL:
         if (inst.addr % 2 == 0) {
-            struct chip8_call_node *node = malloc(sizeof *node);
-            if (!node) {
-                log_error(
-                    "Could not allocate new call stack node (out of memory)");
-                return 1;
-            }
+            struct chip8_call_node *node = xmalloc(sizeof *node);
             node->call_addr = chip->pc;
             node->next = chip->call_stack;
             chip->call_stack = node;
