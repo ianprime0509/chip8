@@ -15,7 +15,6 @@
 #include <time.h>
 
 #include "log.h"
-#include "util.h"
 
 /**
  * The address of the low-resolution hex digit sprites in memory.
@@ -549,7 +548,7 @@ static int chip8_execute(
             new_pc = chip->pc;
             break;
         }
-        key = lowest_set_bit(chip->key_states);
+        key = ffs(chip->key_states) - 1;
         chip->regs[inst.vx] = key;
         /* Now we need to clear it so that we don't read it twice */
         chip->key_states &= ~(1 << key);
@@ -637,7 +636,10 @@ static void chip8_timer_update(struct chip8 *chip)
 
 static void chip8_timer_update_ticks(struct chip8 *chip)
 {
-    chip->timer_ticks = clock_seconds() * chip->opts.timer_freq;
+    struct timespec ts;
+
+    clock_gettime(CLOCK_REALTIME, &ts);
+    chip->timer_ticks = (ts.tv_sec + ts.tv_nsec / 1e9) * chip->opts.timer_freq;
 }
 
 static bool chip8_wait_cycle(struct chip8 *chip)

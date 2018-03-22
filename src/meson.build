@@ -3,8 +3,7 @@ chip8_src = [
   'chip8.c',
   'instruction.c',
   'interpreter.c',
-  'log.c',
-  'util.c'
+  'log.c'
 ]
 
 executable(
@@ -48,8 +47,7 @@ chip8test_src = [
   'chip8test.c',
   'instruction.c',
   'interpreter.c',
-  'log.c',
-  'util.c'
+  'log.c'
 ]
 
 chip8test = executable(

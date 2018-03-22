@@ -3,7 +3,7 @@ project('chip8', 'c',
         license : 'MIT',
         default_options : ['warn_level=3',
                            'c_std=c99'])
-add_global_arguments('-D_POSIX_C_SOURCE=200809L', language : 'c')
+add_global_arguments('-D_XOPEN_SOURCE=700', language : 'c')
 
 config = configuration_data()
 config.set('PROJECT_NAME', meson.project_name())
