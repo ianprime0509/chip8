@@ -64,6 +64,10 @@ int test_asm_align(void);
  */
 int test_asm_eval(void);
 /**
+ * Tests whether the assembler fails properly on bad input.
+ */
+int test_asm_fail(void);
+/**
  * Tests conditional assembly (IFDEF, etc.).
  */
 int test_asm_if(void);
@@ -96,6 +100,7 @@ int main(int argc, char **argv)
     TEST_RUN(test_asm);
     TEST_RUN(test_asm_align);
     TEST_RUN(test_asm_eval);
+    TEST_RUN(test_asm_fail);
     TEST_RUN(test_asm_if);
     TEST_RUN(test_comparison);
     TEST_RUN(test_display);
@@ -207,10 +212,10 @@ int test_asm(void)
     TEST_INSTR("ADD V4, 10", 0x740A);
     TEST_INSTR("LD V7, VB", 0x87B0);
     TEST_INSTR("OR VD,\tVC", 0x8DC1);
-    TEST_INSTR("AND VB, V6", 0x8B62);
+    TEST_INSTR("AND VB,V6", 0x8B62);
     TEST_INSTR("XOR V5, V0", 0x8503);
     TEST_INSTR("ADD V5, V9", 0x8594);
-    TEST_INSTR("SUB VD, VA", 0x8DA5);
+    TEST_INSTR("SUB VD,VA", 0x8DA5);
     TEST_INSTR("SHR V3", 0x8306);
     TEST_INSTR("SUBN V9, VC", 0x89C7);
     TEST_INSTR("SHL VF", 0x8F0E);
@@ -323,7 +328,27 @@ int test_asm_eval(void)
     ASSERT(chip8asm_eval(chipasm, "~1234~", 11, &value));
     ASSERT(chip8asm_eval(chipasm, "123+", 12, &value));
     ASSERT(chip8asm_eval(chipasm, "undefined", 13, &value));
-    log_set_output(stdout);
+    log_set_output(stderr);
+
+    chip8asm_destroy(chipasm);
+    return 0;
+}
+
+int test_asm_fail(void)
+{
+    struct chip8asm *chipasm = chip8asm_new(chip8asm_options_default());
+
+    ASSERT(chipasm != NULL);
+    log_set_output(NULL);
+    ASSERT(chip8asm_process_line(chipasm, "LD VF,"));
+    ASSERT(chip8asm_process_line(chipasm, "HIGH,"));
+    ASSERT(chip8asm_process_line(chipasm, "HIGH ,"));
+    ASSERT(chip8asm_process_line(chipasm, "JP V0, #200,"));
+    ASSERT(chip8asm_process_line(chipasm, "LD VA,,2"));
+    ASSERT(chip8asm_process_line(chipasm, "  ADD V0  ,         "));
+    ASSERT(chip8asm_process_line(
+        chipasm, "ADD way, too, many, operands, here, hi, i"));
+    log_set_output(stderr);
 
     chip8asm_destroy(chipasm);
     return 0;

@@ -685,17 +685,24 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
 
     /* Get the operands */
     n_op = 0;
-    while ((tmp = parse_operand(&line))) {
-        if (n_op >= MAX_OPERANDS) {
-            FAIL_MSG(chipasm->line, "too many operands");
-            free(op);
-            free(tmp);
-            for (int i = 0; i < n_op; i++)
-                free(operands[i]);
-            return 1;
-        } else {
-            operands[n_op++] = tmp;
+    tmp = parse_operand(&line);
+    if (*tmp == '\0' && *line != ',') {
+        /* No operands. */
+        free(tmp);
+    } else {
+        operands[n_op++] = tmp;
+        while (*line++ == ',') {
             skip_spaces(&line);
+            tmp = parse_operand(&line);
+            if (*tmp == '\0') {
+                FAIL_MSG(chipasm->line, "empty operand");
+                goto FAIL;
+            } else if (n_op >= MAX_OPERANDS) {
+                FAIL_MSG(chipasm->line, "too many operands");
+                goto FAIL;
+            } else {
+                operands[n_op++] = tmp;
+            }
         }
     }
 
@@ -704,6 +711,13 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
     } else {
         return chip8asm_process_instruction(chipasm, op, operands, n_op);
     }
+
+FAIL:
+    free(op);
+    free(tmp);
+    for (int i = 0; i < n_op; i++)
+        free(operands[i]);
+    return 1;
 }
 
 struct chip8asm_options chip8asm_options_default(void)
@@ -1599,32 +1613,25 @@ static char *parse_ident(const char **str)
 static char *parse_operand(const char **str)
 {
     const char *tmp = *str;
+    const char *end;
+    size_t len;
+    char *ret;
 
     while (*tmp != '\0' && *tmp != '\n' && *tmp != ';' && *tmp != ',')
         tmp++;
-    if (tmp == *str) {
-        return NULL;
-    } else {
-        const char *end;
-        size_t len;
-        char *ret;
 
-        /* Make sure the returned string has all spaces trimmed off the end. */
-        end = tmp;
-        while (isspace(*--end))
-            ;
-        end++;
-        len = end - *str;
+    /* Make sure the returned string has all spaces trimmed off the end. */
+    end = tmp;
+    while (end > *str && isspace(end[-1]))
+        end--;
+    len = end - *str;
 
-        ret = xmalloc(len + 1);
-        memcpy(ret, *str, len);
-        ret[len] = '\0';
-        if (*tmp == ',')
-            tmp++;
-        *str = tmp;
+    ret = xmalloc(len + 1);
+    memcpy(ret, *str, len);
+    ret[len] = '\0';
+    *str = tmp;
 
-        return ret;
-    }
+    return ret;
 }
 
 static char *parse_operation(const char **str)
