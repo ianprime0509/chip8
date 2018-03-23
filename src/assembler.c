@@ -478,9 +478,9 @@ int chip8asm_eval(
      * operator. Internally, we will use '_' to represent the unary '-'.
      */
     char opstack[STACK_SIZE];
-    int oppos = 0;
+    int oppos = 0; /* Where to put the next operator on the stack. */
     uint16_t numstack[STACK_SIZE];
-    int numpos = 0;
+    int numpos = 0; /* Where to put the next number on the stack. */
     bool expecting_num = true;
 
     while (*expr != '\0') {
@@ -520,7 +520,7 @@ int chip8asm_eval(
             /* Parse decimal number */
             uint16_t n;
 
-            while (parse_num_dec(&expr, &n)) {
+            if (parse_num_dec(&expr, &n)) {
                 FAIL_MSG(line, "expected decimal number");
                 return 1;
             }
@@ -773,14 +773,13 @@ static int chip8asm_compile_chip8op(const struct chip8asm *chipasm,
     ci.vx = ci.vy = REG_V0;
     /*
      * We group the cases here by which arguments they have, and set the
-     * corresponding fields of 'ci' appropriately. Converting 'ci'
-     * to an opcode is outsourced to another function in 'instruction.h'.
+     * corresponding fields of 'ci' appropriately.  Converting 'ci' to an
+     * opcode is outsourced to another function in 'instruction.h'.
      *
      * This switch statement is much simpler because we made the (smart)
      * decision not to include pseudo-operands in the instruction operands
-     * array
-     * ('instr->operands'), so in 'LD K, Vx', 'Vx' is the first operand in
-     * the array, reducing the number of distinct cases to check below.
+     * array ('instr->operands'), so in 'LD K, Vx', 'Vx' is the first operand
+     * in the array, reducing the number of distinct cases to check below.
      */
     switch (instr->chipop) {
     case OP_INVALID:
