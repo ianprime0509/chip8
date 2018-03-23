@@ -91,6 +91,10 @@ struct chip8 {
      */
     uint8_t regs[16];
     /**
+     * The RPL flags.
+     */
+    uint8_t rpl[8];
+    /**
      * The special register `I`.
      */
     uint16_t reg_i;

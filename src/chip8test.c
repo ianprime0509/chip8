@@ -232,7 +232,7 @@ int test_asm(void)
     TEST_INSTR("LD [I], V2", 0xF255);
     TEST_INSTR("LD V7, [I]", 0xF765);
     TEST_INSTR("LD R, V1", 0xF175);
-    TEST_INSTR("LD VB, R", 0xFB85);
+    TEST_INSTR("LD V6, R", 0xF685);
 
     /* Do a couple checks for case-insensitivity */
     TEST_INSTR("lD v5, [i]", 0xF565);
@@ -560,6 +560,24 @@ int test_ld(void)
     ASSERT_EQ_UINT(chip->reg_i, reg_i);
     ASSERT_EQ_UINT(chip->mem[reg_i], 0x12);
     ASSERT_EQ_UINT(chip->mem[reg_i + 1], 0x34);
+
+    /* Put some values in the RPL flags. */
+    chip->rpl[0] = 0x6A;
+    chip->rpl[1] = 0x4B;
+    chip->rpl[2] = 0xF8;
+    /* LD V2, R */
+    chip8_execute_opcode(chip, 0xF285);
+    ASSERT_EQ_UINT(chip->regs[REG_V0], 0x6A);
+    ASSERT_EQ_UINT(chip->regs[REG_V1], 0x4B);
+    ASSERT_EQ_UINT(chip->regs[REG_V2], 0xF8);
+    chip->rpl[0] = 0x50;
+    chip->rpl[1] = 0x10;
+    chip->rpl[2] = 0x02;
+    /* LD R, V2 */
+    chip8_execute_opcode(chip, 0xF275);
+    ASSERT_EQ_UINT(chip->rpl[0], 0x6A);
+    ASSERT_EQ_UINT(chip->rpl[1], 0x4B);
+    ASSERT_EQ_UINT(chip->rpl[2], 0xF8);
 
     chip8_destroy(chip);
     return 0;

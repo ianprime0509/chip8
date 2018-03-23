@@ -364,20 +364,19 @@ enum chip8_operation {
      */
     OP_LD_REG_DEREF_I,
     /**
-     * Store register values into R (flags) (LD R, Vx).
+     * Store register values into RPL user flags (LD R, Vx).
      *
-     * Super-Chip only.  Registers V0 to Vx will be stored (where x < 8).
+     * Super-Chip only.  x must be <= 7.
      *
-     * Opcode Fx75.  TODO: what is this?
+     * Opcode Fx75.
      */
     OP_LD_R_REG,
     /**
-     * Store R (flags) into registers (LD Vx, R).
+     * Store RPL user flags into registers (LD Vx, R).
      *
-     * Super-Chip only.  Will store into registers V0 to Vx (where x <
-     * 8).
+     * Super-Chip only.  x must be <= 7.
      *
-     * Opcode Fx85.  TODO: what is this?
+     * Opcode Fx85.
      */
     OP_LD_REG_R,
 };

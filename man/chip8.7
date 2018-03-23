@@ -141,6 +141,19 @@ instructions, a stack of program counter values (the
 is maintained internally;
 .Xr chip8 1
 has an unbounded call stack, but other emulators may have restrictions.
+.Pp
+On the Super\-Chip, the RPL user flags of the HP\-48 calculator were made
+available to programs through the
+.Ql Ic LD Dv R , Fa vx
+and
+.Ql Ic LD Fa vx , Dv R
+instructions.
+The RPL flags consisted of 128 bits in total: bits \-64 through \-1 were
+reserved for the system, and are inaccessible to Super-Chip programs, while
+bits 1 through 64 were reserved for user programs.
+These user flags could be used to pass information into and out of Super\-Chip
+programs, potentially opening up a way to augment Super\-Chip programs with the
+functionality of native HP\-48 programs.
 .Ss MEMORY AND PROGRAM STORAGE
 The Chip\-8 and Super\-Chip both provide 4096 bytes of addressable memory, 512
 bytes of which are reserved for the interpreter.
@@ -212,14 +225,14 @@ program boundary.
 The memory location of the sprite (for drawing) can be loaded into the
 .Dv I
 register using the
-.Ql LD H, VX
+.Ql Ic LD Dv H , Fa vx
 instruction, where the lower four bits of
 .Va VX
 are taken as the desired hexadecimal digit.
 The Super\-Chip adds a higher-resolution font with the same character set,
 which coexists alongside the original Chip\-8 font; each higher-resolution font
 character is 8x10 pixels, and can be accessed using the
-.Ql LD HF, VX
+.Ql Ic LD Dv HF , Fa vx
 instruction.
 A note about timing: every
 .Ic DRW
@@ -260,11 +273,11 @@ and
 Uppercase hexadecimal digits indicate verbatim parts of the opcode.
 .Pp
 For example, the instruction
-.Ql DRW vx, vy, nibble
+.Ql Ic DRW Fa vx , vy , nibble
 has opcode
 .Sy Dxyn
 according to this convention, indicating that the concrete instruction
-.Ql DRW V1, VA, 5
+.Ql Ic DRW Li V1 , VA , 5
 has opcode
 .Sy D1A5 .
 .Pp
@@ -286,7 +299,7 @@ When such an operation occurs, the additional information is stored
 .Em after
 the main operation.
 For example, after the operation
-.Ql ADD VF, #56 ,
+.Ql Ic ADD Li VF , #56 ,
 register
 .Dv VF
 will always contain either 0 (if no carry occurred during the addition) or 1
@@ -536,7 +549,7 @@ For more information about these pre-defined sprites, see
 .Sx GRAPHICS STORAGE
 .It Ic LD Sy HF , Fa vx ( Sy Fx30 )
 Similar to
-.Ql LD F, vx ,
+.Ql Ic LD Dv F , Fa vx ,
 but the address stored in register
 .Dv I
 is the location of a high-definition font sprite for the desired digit.
@@ -556,7 +569,7 @@ Store the values of registers
 .Dv V0
 through
 .Fa vx
-(inclusive) and sequentially in memory starting at the address stored in
+(inclusive) sequentially in memory starting at the address stored in
 register
 .Dv I .
 .It Ic LD Fa vx , Sy [I] ( Sy Fx65 )
@@ -567,12 +580,24 @@ through
 (inclusive) starting at the address stored in register
 .Dv I .
 .It Ic LD Sy R , Fa vx ( Sy Fx75 )
-Do something with the registers on an HP-48 calculator; I don't really know
-exactly what, and it seems nobody else does either.
+Store the values of registers
+.Dv V0
+through
+.Fa vx
+(inclusive) in the RPL user flags.
+Since there are only 64 accessible flags in total,
+.Fa vx
+cannot be higher than
+.Dv V7 .
+For more information on the RPL user flags, see
+.Sx REGISTERS .
 Only available on the Super\-Chip.
 .It Ic LD Fa vx , Sy R ( Sy Fx85 )
-Should be the inverse to
-.Ql LD R, vx .
+Load the RPL user flags into registers
+.Dv V0
+through
+.Fa vx
+(inclusive).
 Only available on the Super\-Chip.
 .El
 .Ss ALTERNATIVE BEHAVIOR
@@ -589,7 +614,7 @@ operations.
 For
 .Ic SHR ,
 the instruction is written as
-.Ql SHR vx, vy
+.Ql Ic SHR Fa vx , vy
 and has opcode
 .Sy 8xy6 .
 The value stored in register
@@ -600,7 +625,7 @@ register
 and the original least-significant bit being stored in register
 .Dv VF .
 The alternate instruction
-.Ql SHL vx, vy
+.Ql Ic SHL Fa vx , vy
 has opcode
 .Sy 8xyE ,
 and behaves analogously.
@@ -608,9 +633,9 @@ and behaves analogously.
 The second class, referred to as
 .Dq load quirks ,
 changes the behavior (but not the instructions themselves or their opcodes) of
-.Ql LD [I], vx
+.Ql Ic LD Dv [I] , Fa vx
 and
-.Ql LD vx, [I] .
+.Ql Ic LD Fa vx , Dv [I] .
 In each case, the alternate behavior is to add to register
 .Dv I
 the number of bytes loaded or stored by the instruction.

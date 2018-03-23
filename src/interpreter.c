@@ -597,8 +597,23 @@ static int chip8_execute(
             chip->reg_i += cpy_len;
     } break;
     case OP_LD_R_REG:
+        if (inst.vx > 7) {
+            log_error(
+                "Instruction LD R, V%X would store too much data (%X > 7)",
+                inst.vx, inst.vx);
+            chip8_log_regs(chip);
+            return 1;
+        }
+        memcpy(chip->rpl, chip->regs, inst.vx + 1);
+        break;
     case OP_LD_REG_R:
-        log_warning("Encountered one of those weird HP instructions");
+        if (inst.vx > 7) {
+            log_error(
+                "Instruction LD V%X, R would load too much data (%X > 7)");
+            chip8_log_regs(chip);
+            return 1;
+        }
+        memcpy(chip->regs, chip->rpl, inst.vx + 1);
         break;
     }
 
