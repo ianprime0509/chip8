@@ -360,12 +360,6 @@ static int register_num(const char *name);
  * unchanged.
  */
 /**
- * Parses a label, returning the label name if one was found.
- *
- * @return The label name, or NULL if none was found.
- */
-static char *parse_label(const char **str);
-/**
  * Parses an identifier, returning it if one was found.
  *
  * @return The identifier, or NULL if none was found.
@@ -377,12 +371,6 @@ static char *parse_ident(const char **str);
  * @return The operand, or NULL if none was found.
  */
 static char *parse_operand(const char **str);
-/**
- * Parses an operation name, returning the name if one was found.
- *
- * @return The operation name, or NULL if none was found.
- */
-static char *parse_operation(const char **str);
 /**
  * Parses a binary number.
  *
@@ -655,24 +643,35 @@ int chip8asm_process_line(struct chip8asm *chipasm, const char *line)
 
     chipasm->line++;
 
+    /*
+     * Process any labels that might be present, along with the following
+     * operation.
+     */
     skip_spaces(&line);
-    /* Process any labels that might be present */
-    while ((tmp = parse_label(&line))) {
-        if (chipasm->line_label) {
-            FAIL_MSG(chipasm->line,
-                "cannot associate more than one label with a statement; "
-                "already found label '%s'",
-                chipasm->line_label);
-            free(tmp);
-            return 1;
+    op = NULL;
+    while ((tmp = parse_ident(&line))) {
+        if (*line != ':') {
+            /* Found an operation, not a label. */
+            op = tmp;
+            break;
         } else {
-            chipasm->line_label = tmp;
+            if (chipasm->line_label) {
+                FAIL_MSG(chipasm->line,
+                    "cannot associate more than one label with a statement; "
+                    "already found label '%s'",
+                    chipasm->line_label);
+                free(tmp);
+                return 1;
+            } else {
+                chipasm->line_label = tmp;
+            }
+            /* Prepare to find next label/operation. */
+            line++;
+            skip_spaces(&line);
         }
     }
 
-    skip_spaces(&line);
-    /* Get the operation */
-    if (!(op = parse_operation(&line)))
+    if (!op)
         return 0; /* No operation; nothing to do */
 
     skip_spaces(&line);
@@ -1561,31 +1560,6 @@ static int register_num(const char *name)
     return -1;
 }
 
-static char *parse_label(const char **str)
-{
-    const char *tmp = *str;
-
-    if (!isidentstart(*tmp))
-        return NULL;
-    else
-        tmp++;
-    while (isidentbody(*tmp))
-        tmp++;
-    /* There should be a colon right after the label */
-    if (*tmp != ':') {
-        return NULL;
-    } else {
-        size_t len = tmp - *str;
-        char *ret = xmalloc(len + 1);
-
-        memcpy(ret, *str, len);
-        ret[len] = '\0';
-        *str = ++tmp; /* Skip past colon */
-
-        return ret;
-    }
-}
-
 static char *parse_ident(const char **str)
 {
     const char *tmp = *str;
@@ -1632,26 +1606,6 @@ static char *parse_operand(const char **str)
     *str = tmp;
 
     return ret;
-}
-
-static char *parse_operation(const char **str)
-{
-    const char *tmp = *str;
-
-    while (*tmp != '\0' && !isspace(*tmp) && *tmp != ';')
-        tmp++;
-    if (tmp == *str) {
-        return NULL;
-    } else {
-        size_t len = tmp - *str;
-        char *ret = xmalloc(len + 1);
-
-        memcpy(ret, *str, len);
-        ret[len] = '\0';
-        *str = tmp;
-
-        return ret;
-    }
 }
 
 static int parse_num_bin(const char **str, uint16_t *num)
