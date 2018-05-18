@@ -9,6 +9,7 @@
 
 #include <errno.h>
 #include <getopt.h>
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -96,6 +97,10 @@ struct surface {
      * The height of an in-game pixel in display pixels.
      */
     int yscale;
+    /**
+     * Whether the surface has been changed (set to true on every draw).
+     */
+    bool changed;
 };
 
 /**
@@ -136,10 +141,6 @@ static uint32_t offcolor;
  */
 static void audio_callback(void *userdata, uint8_t *stream, int len);
 /**
- * Redraws the Chip-8 display onto the given surface.
- */
-static void draw(struct chip8 *chip);
-/**
  * Turns on or off the given pixel on the display.  The second parameter
  * specifies whether the pixel should be drawn in high-resolution mode (in
  * low-resolution mode, in-game pixels are twice the size).
@@ -153,6 +154,10 @@ static struct surface get_window_surface(SDL_Window *window);
  * Returns the default set of program options.
  */
 static struct progopts progopts_default(void);
+/**
+ * Completely redraws the Chip-8 display onto the window surface.
+ */
+static void redraw_all(struct chip8 *chip);
 static int run(struct progopts opts);
 
 int main(int argc, char **argv)
@@ -243,20 +248,13 @@ static void audio_callback(void *userdata, uint8_t *stream, int len)
     audio_ring_buffer_fill(ring, (int16_t *)stream, len / 2);
 }
 
-static void draw(struct chip8 *chip)
-{
-    for (int i = 0; i < CHIP8_DISPLAY_WIDTH; i++)
-        for (int j = 0; j < CHIP8_DISPLAY_HEIGHT; j++) {
-            draw_pixel(i, j, chip->display[i][j], chip->highres);
-        }
-}
-
 static void draw_pixel(int x, int y, bool on, bool high)
 {
     int xscale = high ? win_surface.xscale : win_surface.xscale * 2;
     int yscale = high ? win_surface.yscale : win_surface.yscale * 2;
     SDL_Rect draw_rect = {x * xscale, y * yscale, xscale, yscale};
     SDL_FillRect(win_surface.surface, &draw_rect, on ? oncolor : offcolor);
+    win_surface.changed = true;
 }
 
 static struct surface get_window_surface(SDL_Window *window)
@@ -280,6 +278,14 @@ static struct progopts progopts_default(void)
         .tone_vol = 10,
         .fname = NULL,
     };
+}
+
+static void redraw_all(struct chip8 *chip)
+{
+    for (int i = 0; i < CHIP8_DISPLAY_WIDTH; i++)
+        for (int j = 0; j < CHIP8_DISPLAY_HEIGHT; j++) {
+            draw_pixel(i, j, chip->display[i][j], chip->highres);
+        }
 }
 
 static int run(struct progopts opts)
@@ -338,10 +344,11 @@ static int run(struct progopts opts)
     }
 
     chip = chip8_new(chipopts);
+    chip->draw_callback = draw_pixel;
     win_surface = get_window_surface(win);
     oncolor = SDL_MapRGB(win_surface.surface->format, 255, 255, 255);
     offcolor = SDL_MapRGB(win_surface.surface->format, 0, 0, 0);
-    draw(chip);
+    redraw_all(chip);
     SDL_UpdateWindowSurface(win);
 
     if (!(input = fopen(opts.fname, "r"))) {
@@ -368,7 +375,7 @@ static int run(struct progopts opts)
                  * happens to it (e.g. it gets moved or resized) even if the
                  * interpreter hasn't gotten any new display information.
                  */
-                chip->needs_refresh = true;
+                chip->needs_full_redraw = true;
                 /*
                  * We also need to get a new window surface, since the old one
                  * is now invalid.
@@ -396,12 +403,13 @@ static int run(struct progopts opts)
         /* Pause/unpause the audio track as needed */
         SDL_PauseAudioDevice(audio_device, chip->reg_st == 0);
         /* Refresh display as needed */
-        if (chip->needs_refresh) {
-            draw(chip);
-            if (SDL_UpdateWindowSurface(win))
-                log_error(
-                    "Could not update window surface: %s", SDL_GetError());
-            chip->needs_refresh = false;
+        if (chip->needs_full_redraw) {
+            redraw_all(chip);
+            chip->needs_full_redraw = false;
+        }
+        if (win_surface.changed) {
+            SDL_UpdateWindowSurface(win);
+            win_surface.changed = false;
         }
         if (chip->halted) {
             log_info("Interpreter was halted");
@@ -416,9 +424,7 @@ static int run(struct progopts opts)
          * offers a little more predictability when it comes to execution
          * speed.
          */
-        nanosleep(&(const struct timespec){.tv_sec = 0,
-                      .tv_nsec = 1000000000 / chipopts.timer_freq / 1000},
-            NULL);
+        sched_yield();
     }
 
 ERROR_CHIP8_CREATED:

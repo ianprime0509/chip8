@@ -154,7 +154,7 @@ struct chip8 *chip8_new(struct chip8_options opts)
     chip->pc = 0x200;
     chip->halted = false;
     chip->highres = false;
-    chip->needs_refresh = true;
+    chip->needs_full_redraw = true;
     chip->timer_latch = true;
     chip->timer_waiting = false;
     chip8_timer_update_ticks(chip);
@@ -262,7 +262,10 @@ static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
                 /* If the pixel on screen is set, we have a collision */
                 collision = collision || chip->display[dispx][dispy];
                 chip->display[dispx][dispy] = !chip->display[dispx][dispy];
-                chip->needs_refresh = true;
+                if (chip->draw_callback)
+                    (chip->draw_callback)(dispx, dispy,
+                                          chip->display[dispx][dispy],
+                                          chip->highres);
             }
 
     return collision;
@@ -286,7 +289,10 @@ static bool chip8_draw_sprite_high(
                 /* If the pixel on screen is set, we have a collision */
                 collision = collision || chip->display[dispx][dispy];
                 chip->display[dispx][dispy] = !chip->display[dispx][dispy];
-                chip->needs_refresh = true;
+                if (chip->draw_callback)
+                    (chip->draw_callback)(dispx, dispy,
+                                          chip->display[dispx][dispy],
+                                          chip->highres);
             }
         }
 
@@ -329,11 +335,11 @@ static int chip8_execute(
                 chip->display[x][y] = chip->display[x][y - inst.nibble];
         for (int x = 0; x < CHIP8_DISPLAY_WIDTH; x++)
             memset(chip->display[x], 0, inst.nibble);
-        chip->needs_refresh = true;
+        chip->needs_full_redraw = true;
         break;
     case OP_CLS:
         memset(chip->display, 0, sizeof chip->display);
-        chip->needs_refresh = true;
+        chip->needs_full_redraw = true;
         break;
     case OP_RET:
         if (chip->call_stack) {
@@ -360,7 +366,7 @@ static int chip8_execute(
                 sizeof chip->display[x]);
         for (int x = 0; x < 4; x++)
             memset(chip->display[x], 0, sizeof chip->display[x]);
-        chip->needs_refresh = true;
+        chip->needs_full_redraw = true;
         break;
     case OP_SCL:
         if (!chip8_wait_cycle(chip)) {
@@ -372,18 +378,18 @@ static int chip8_execute(
                 sizeof chip->display[x]);
         for (int x = CHIP8_DISPLAY_WIDTH - 4; x < CHIP8_DISPLAY_WIDTH; x++)
             memset(chip->display[x], 0, sizeof chip->display[x]);
-        chip->needs_refresh = true;
+        chip->needs_full_redraw = true;
         break;
     case OP_EXIT:
         chip->halted = true;
         break;
     case OP_LOW:
         chip->highres = false;
-        chip->needs_refresh = true;
+        chip->needs_full_redraw = true;
         break;
     case OP_HIGH:
         chip->highres = true;
-        chip->needs_refresh = true;
+        chip->needs_full_redraw = true;
         break;
     case OP_JP:
         if (inst.addr % 2 == 0) {

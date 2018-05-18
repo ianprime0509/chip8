@@ -119,9 +119,17 @@ struct chip8 {
      */
     bool highres;
     /**
-     * Whether the external display needs to be refreshed.
+     * The function to be called every time a pixel needs to be redrawn.  It
+     * accepts as parameters the x and y coordinates of the pixel, whether the
+     * pixel should be turned on and whether it should be drawn in
+     * high-resolution mode.
      */
-    bool needs_refresh;
+    void (*draw_callback)(int x, int y, bool on, bool high);
+    /**
+     * Whether the external display needs to be completely redrawn (e.g. after
+     * changing between high- and low-resolution modes.
+     */
+    bool needs_full_redraw;
     /**
      * Set to `true` on every timer clock cycle (for delaying until a cycle).
      */
