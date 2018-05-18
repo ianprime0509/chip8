@@ -37,6 +37,10 @@
  * The height (in pixels) of a high-resolution hex digit sprite.
  */
 #define CHIP8_HEX_HIGH_HEIGHT 10
+/**
+ * The number of nanoseconds in a second.
+ */
+#define NANOS_IN_SECOND 1000000000UL
 
 /**
  * The low-resolution hex digit sprites.
@@ -123,13 +127,9 @@ static void chip8_timer_update(struct chip8 *chip);
  */
 static void chip8_timer_update_ticks(struct chip8 *chip);
 /**
- * Clears the timer latch and waits until it is reset.
- * This method is meant to be called several times, returning `true` when the
- * latch is reset.
- *
- * @return Whether the requested delay has been achieved.
+ * Delays (by sleeping) until the next tick has arrived.
  */
-static bool chip8_wait_cycle(struct chip8 *chip);
+static void chip8_wait_cycle(struct chip8 *chip);
 /**
  * Returns a random byte.
  */
@@ -155,8 +155,6 @@ struct chip8 *chip8_new(struct chip8_options opts)
     chip->halted = false;
     chip->highres = false;
     chip->needs_full_redraw = true;
-    chip->timer_latch = true;
-    chip->timer_waiting = false;
     chip8_timer_update_ticks(chip);
     chip->call_stack = NULL;
     chip->key_states = 0;
@@ -326,10 +324,8 @@ static int chip8_execute(
             inst.opcode);
         break;
     case OP_SCD:
-        if (!chip8_wait_cycle(chip)) {
-            new_pc = chip->pc;
-            break;
-        }
+        if (chip->opts.delay_draws)
+            chip8_wait_cycle(chip);
         for (int y = CHIP8_DISPLAY_HEIGHT - 1; y >= inst.nibble; y--)
             for (int x = 0; x < CHIP8_DISPLAY_WIDTH; x++)
                 chip->display[x][y] = chip->display[x][y - inst.nibble];
@@ -357,10 +353,8 @@ static int chip8_execute(
         }
         break;
     case OP_SCR:
-        if (!chip8_wait_cycle(chip)) {
-            new_pc = chip->pc;
-            break;
-        }
+        if (chip->opts.delay_draws)
+            chip8_wait_cycle(chip);
         for (int x = CHIP8_DISPLAY_WIDTH - 1; x >= 4; x--)
             memcpy(&chip->display[x], &chip->display[x - 4],
                 sizeof chip->display[x]);
@@ -369,10 +363,8 @@ static int chip8_execute(
         chip->needs_full_redraw = true;
         break;
     case OP_SCL:
-        if (!chip8_wait_cycle(chip)) {
-            new_pc = chip->pc;
-            break;
-        }
+        if (chip->opts.delay_draws)
+            chip8_wait_cycle(chip);
         for (int x = 0; x < CHIP8_DISPLAY_WIDTH - 4; x++)
             memcpy(&chip->display[x], &chip->display[x + 4],
                 sizeof chip->display[x]);
@@ -518,10 +510,8 @@ static int chip8_execute(
         chip->regs[inst.vx] = rand_byte() & inst.byte;
         break;
     case OP_DRW:
-        if (!chip8_wait_cycle(chip)) {
-            new_pc = chip->pc;
-            break;
-        }
+        if (chip->opts.delay_draws)
+            chip8_wait_cycle(chip);
         if (inst.nibble == 0)
             chip->regs[REG_VF] = chip8_draw_sprite_high(
                 chip, chip->regs[inst.vx], chip->regs[inst.vy], chip->reg_i);
@@ -646,9 +636,6 @@ static void chip8_timer_update(struct chip8 *chip)
         chip->reg_st -= elapsed;
     else
         chip->reg_st = 0;
-
-    if (elapsed != 0)
-        chip->timer_latch = true;
 }
 
 static void chip8_timer_update_ticks(struct chip8 *chip)
@@ -656,24 +643,26 @@ static void chip8_timer_update_ticks(struct chip8 *chip)
     struct timespec ts;
 
     clock_gettime(CLOCK_REALTIME, &ts);
-    chip->timer_ticks = (ts.tv_sec + ts.tv_nsec / 1e9) * chip->opts.timer_freq;
+    chip->timer_ticks = (ts.tv_sec + (double)ts.tv_nsec / NANOS_IN_SECOND) *
+        chip->opts.timer_freq;
 }
 
-static bool chip8_wait_cycle(struct chip8 *chip)
+static void chip8_wait_cycle(struct chip8 *chip)
 {
-    if (!chip->opts.delay_draws)
-        return true;
-    if (chip->timer_waiting) {
-        if (chip->timer_latch) {
-            chip->timer_waiting = false;
-            return true;
-        } else {
-            return false;
-        }
-    } else {
-        chip->timer_waiting = true;
-        chip->timer_latch = false;
-        return false;
+    struct timespec now, wait, left;
+    unsigned long nanos; /* The number of nanoseconds to wait. */
+
+    if (!chip->opts.enable_timer)
+        return;
+
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    nanos = (now.tv_sec * NANOS_IN_SECOND + now.tv_nsec) %
+        (NANOS_IN_SECOND / chip->opts.timer_freq);
+    wait.tv_sec = nanos / NANOS_IN_SECOND;
+    wait.tv_nsec = nanos % NANOS_IN_SECOND;
+    while (nanosleep(&wait, &left) < 0) {
+        wait = left;
+        nanosleep(&wait, &left);
     }
 }
 

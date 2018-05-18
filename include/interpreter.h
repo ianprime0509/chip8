@@ -131,14 +131,6 @@ struct chip8 {
      */
     bool needs_full_redraw;
     /**
-     * Set to `true` on every timer clock cycle (for delaying until a cycle).
-     */
-    bool timer_latch;
-    /**
-     * Whether we are waiting for a latch change (for delaying until a cycle).
-     */
-    bool timer_waiting;
-    /**
      * The internal timer, in ticks.
      *
      * The frequency of these ticks is configured in the options passed to the
