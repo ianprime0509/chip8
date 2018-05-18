@@ -93,7 +93,7 @@ int main(int argc, char **argv)
         {"version", no_argument, NULL, 'V'}, {0, 0, 0, 0}};
     int retval = 0;
 
-    log_init(argv[0], stderr, LOG_WARNING);
+    log_init(argc >= 1 ? argv[0] : "chip8asm", stderr, LOG_WARNING);
 
     while ((option = getopt_long(argc, argv, "o:qvhV", options, NULL)) != -1) {
         switch (option) {
