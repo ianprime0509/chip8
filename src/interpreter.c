@@ -38,6 +38,10 @@
  */
 #define CHIP8_HEX_HIGH_HEIGHT 10
 /**
+ * The fraction of a tick to delay after every instruction executed.
+ */
+#define DELAY_TICK_FRACTION 100
+/**
  * The number of nanoseconds in a second.
  */
 #define NANOS_IN_SECOND 1000000000UL
@@ -234,6 +238,15 @@ int chip8_step(struct chip8 *chip)
         } else if (chip8_execute(chip, chip8_current_instr(chip), &chip->pc)) {
             log_error("Aborting execution");
             return 1;
+        }
+
+        if (chip->opts.enable_timer) {
+            unsigned long nanos = NANOS_IN_SECOND / chip->opts.timer_freq
+                / DELAY_TICK_FRACTION;
+            nanosleep(&(struct timespec){
+                .tv_sec = nanos / NANOS_IN_SECOND,
+                .tv_nsec = nanos % NANOS_IN_SECOND,
+            }, NULL);
         }
     } else {
         log_warning(

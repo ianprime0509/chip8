@@ -234,9 +234,14 @@ which coexists alongside the original Chip\-8 font; each higher-resolution font
 character is 8x10 pixels, and can be accessed using the
 .Ql Ic LD Dv HF , Fa vx
 instruction.
-A note about timing: every
+.Pp
+A note about timing: every operation which draws to the display is delayed
+until the start of the next clock cycle.
+In particular, this applies to the
+.Ic SCD , SCR , SCL
+and
 .Ic DRW
-operation is delayed until the start of the next clock cycle.
+operations.
 The clock runs at the same frequency as the
 .Dv DT
 and
@@ -244,8 +249,13 @@ and
 timer
 registers (see
 .Sx REGISTERS ) .
-Some emulators appear to behave differently, such as delaying every instruction
-by a constant time.
+Some emulators appear to behave differently, such as only delaying every
+instruction by a constant time.
+.Xr chip8 1
+additionally waits for 1/100th of a clock cycle after every instruction to
+limit the speed of programs that don't draw often.
+Some emulators only implement this constant delay and not the special draw
+operation delay.
 .Sh LIST OF OPERATIONS
 The list of instructions and opcodes below uses certain conventions to denote
 arguments.
