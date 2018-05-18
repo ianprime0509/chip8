@@ -80,6 +80,25 @@ struct progopts {
 };
 
 /**
+ * An SDL_Surface along with the precomputed x and y scales (in other words,
+ * the size of an in-game pixel in display pixels).
+ */
+struct surface {
+    /**
+     * The underlying surface.
+     */
+    SDL_Surface *surface;
+    /**
+     * The width of an in-game pixel in display pixels.
+     */
+    int xscale;
+    /**
+     * The height of an in-game pixel in display pixels.
+     */
+    int yscale;
+};
+
+/**
  * The keymap to use in-game.
  *
  * The layout of the original Chip-8 keyboard is as follows:
@@ -100,14 +119,36 @@ SDL_Keycode keymap[16] = {
 };
 
 /**
+ * The underlying surface of the game window.
+ */
+static struct surface win_surface;
+/**
+ * The color to use for pixels which are on.
+ */
+static uint32_t oncolor;
+/**
+ * The color to use for pixels which are off.
+ */
+static uint32_t offcolor;
+
+/**
  * The SDL audio callback function.
  */
 static void audio_callback(void *userdata, uint8_t *stream, int len);
 /**
  * Redraws the Chip-8 display onto the given surface.
  */
-static void draw(SDL_Surface *surface, struct chip8 *chip, uint32_t oncolor,
-    uint32_t offcolor);
+static void draw(struct chip8 *chip);
+/**
+ * Turns on or off the given pixel on the display.  The second parameter
+ * specifies whether the pixel should be drawn in high-resolution mode (in
+ * low-resolution mode, in-game pixels are twice the size).
+ */
+static void draw_pixel(int x, int y, bool on, bool high);
+/**
+ * Returns the surface corresponding to the window surface of the given window.
+ */
+static struct surface get_window_surface(SDL_Window *window);
 /**
  * Returns the default set of program options.
  */
@@ -202,23 +243,29 @@ static void audio_callback(void *userdata, uint8_t *stream, int len)
     audio_ring_buffer_fill(ring, (int16_t *)stream, len / 2);
 }
 
-static void draw(SDL_Surface *surface, struct chip8 *chip, uint32_t oncolor,
-    uint32_t offcolor)
+static void draw(struct chip8 *chip)
 {
+    for (int i = 0; i < CHIP8_DISPLAY_WIDTH; i++)
+        for (int j = 0; j < CHIP8_DISPLAY_HEIGHT; j++) {
+            draw_pixel(i, j, chip->display[i][j], chip->highres);
+        }
+}
+
+static void draw_pixel(int x, int y, bool on, bool high)
+{
+    int xscale = high ? win_surface.xscale : win_surface.xscale * 2;
+    int yscale = high ? win_surface.yscale : win_surface.yscale * 2;
+    SDL_Rect draw_rect = {x * xscale, y * yscale, xscale, yscale};
+    SDL_FillRect(win_surface.surface, &draw_rect, on ? oncolor : offcolor);
+}
+
+static struct surface get_window_surface(SDL_Window *window)
+{
+    SDL_Surface *surface = SDL_GetWindowSurface(window);
     int xscale = surface->w / CHIP8_DISPLAY_WIDTH;
     int yscale = surface->h / CHIP8_DISPLAY_HEIGHT;
 
-    if (!chip->highres) {
-        xscale *= 2;
-        yscale *= 2;
-    }
-
-    for (int i = 0; i < CHIP8_DISPLAY_WIDTH; i++)
-        for (int j = 0; j < CHIP8_DISPLAY_HEIGHT; j++) {
-            SDL_Rect rect = {i * xscale, j * yscale, xscale, yscale};
-            SDL_FillRect(
-                surface, &rect, chip->display[i][j] ? oncolor : offcolor);
-        }
+    return (struct surface){ surface, xscale, yscale };
 }
 
 static struct progopts progopts_default(void)
@@ -240,11 +287,9 @@ static int run(struct progopts opts)
     const int win_width = CHIP8_DISPLAY_WIDTH * opts.scale;
     const int win_height = CHIP8_DISPLAY_HEIGHT * opts.scale;
     SDL_Window *win;
-    SDL_Surface *win_surface;
     SDL_AudioDeviceID audio_device;
     SDL_AudioSpec as_want, as_got;
     struct audio_ring_buffer *audio_ring;
-    uint32_t oncolor, offcolor;
     struct chip8_options chipopts = chip8_options_default();
     struct chip8 *chip;
     FILE *input;
@@ -293,10 +338,10 @@ static int run(struct progopts opts)
     }
 
     chip = chip8_new(chipopts);
-    win_surface = SDL_GetWindowSurface(win);
-    oncolor = SDL_MapRGB(win_surface->format, 255, 255, 255);
-    offcolor = SDL_MapRGB(win_surface->format, 0, 0, 0);
-    draw(win_surface, chip, oncolor, offcolor);
+    win_surface = get_window_surface(win);
+    oncolor = SDL_MapRGB(win_surface.surface->format, 255, 255, 255);
+    offcolor = SDL_MapRGB(win_surface.surface->format, 0, 0, 0);
+    draw(chip);
     SDL_UpdateWindowSurface(win);
 
     if (!(input = fopen(opts.fname, "r"))) {
@@ -328,7 +373,7 @@ static int run(struct progopts opts)
                  * We also need to get a new window surface, since the old one
                  * is now invalid.
                  */
-                win_surface = SDL_GetWindowSurface(win);
+                win_surface = get_window_surface(win);
             } else if (e.type == SDL_KEYDOWN) {
                 SDL_Keycode key = e.key.keysym.sym;
 
@@ -352,7 +397,7 @@ static int run(struct progopts opts)
         SDL_PauseAudioDevice(audio_device, chip->reg_st == 0);
         /* Refresh display as needed */
         if (chip->needs_refresh) {
-            draw(win_surface, chip, oncolor, offcolor);
+            draw(chip);
             if (SDL_UpdateWindowSurface(win))
                 log_error(
                     "Could not update window surface: %s", SDL_GetError());
