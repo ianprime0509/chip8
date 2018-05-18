@@ -1,8 +1,0 @@
-BasedOnStyle: LLVM
-AlignAfterOpenBracket: DontAlign
-AlignOperands: false
-AlignTrailingComments: false
-AllowShortFunctionsOnASingleLine: None
-AlwaysBreakTemplateDeclarations: true
-BreakBeforeBraces: Linux
-IndentWidth: 4

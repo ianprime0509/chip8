@@ -178,8 +178,7 @@ int main(int argc, char **argv)
 
     log_init(argv[0], stderr, LOG_WARNING);
 
-    while ((option = getopt_long(argc, argv, "f:hlqs:t:u:Vv", options, NULL)) !=
-        -1) {
+    while ((option = getopt_long(argc, argv, "f:hlqs:t:u:Vv", options, NULL)) != -1) {
         char *numend;
 
         switch (option) {
@@ -416,14 +415,6 @@ static int run(struct progopts opts)
             should_exit = true;
         }
 
-        /*
-         * In order to prevent using 100% of the CPU, we sleep here for a
-         * little bit so that the emulator isn't running at max speed all the
-         * time.  To be on the safe side and prevent lag, we sleep for 1/1000th
-         * of a frame.  I also tried `sched_yield()`, but doing it this way
-         * offers a little more predictability when it comes to execution
-         * speed.
-         */
         sched_yield();
     }
 
