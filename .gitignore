@@ -1,8 +1,5 @@
 *.o
 *~
 /build*/
-
-# GNU Global stuff
-GPATH
-GRTAGS
-GTAGS
+**.swp
+.lvimrc
