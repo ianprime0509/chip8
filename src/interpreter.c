@@ -646,22 +646,22 @@ static void chip8_timer_update_ticks(struct chip8 *chip)
 {
     struct timespec ts;
 
-    clock_gettime(CLOCK_REALTIME, &ts);
+    clock_gettime(CLOCK_MONOTONIC, &ts);
     chip->timer_ticks = (ts.tv_sec + (double)ts.tv_nsec / NANOS_IN_SECOND) * chip->opts.timer_freq;
 }
 
 static void chip8_wait_cycle(struct chip8 *chip)
 {
     struct timespec now, wait, left;
-    unsigned long nanos; /* The number of nanoseconds to wait. */
+    unsigned long waitnanos;
 
     if (!chip->opts.enable_timer)
         return;
 
     clock_gettime(CLOCK_MONOTONIC, &now);
-    nanos = (now.tv_sec * NANOS_IN_SECOND + now.tv_nsec) % (NANOS_IN_SECOND / chip->opts.timer_freq);
-    wait.tv_sec = nanos / NANOS_IN_SECOND;
-    wait.tv_nsec = nanos % NANOS_IN_SECOND;
+    waitnanos = (now.tv_sec * NANOS_IN_SECOND + now.tv_nsec) % (NANOS_IN_SECOND / chip->opts.timer_freq);
+    wait.tv_sec = waitnanos / NANOS_IN_SECOND;
+    wait.tv_nsec = waitnanos % NANOS_IN_SECOND;
     while (nanosleep(&wait, &left) < 0) {
         wait = left;
         nanosleep(&wait, &left);
