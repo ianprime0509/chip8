@@ -143,7 +143,7 @@ static uint32_t offcolor;
  */
 static void audio_callback(void *userdata, uint8_t *stream, int len);
 /**
- * Turns on or off the given pixel on the display.  The second parameter
+ * Turns on or off the given pixel on the display.  The fourth parameter
  * specifies whether the pixel should be drawn in high-resolution mode (in
  * low-resolution mode, in-game pixels are twice the size).
  */
@@ -201,10 +201,10 @@ int main(int argc, char **argv)
             opts.scale = strtoul(optarg, &numend, 10);
             if (errno != 0) {
                 log_error("Error processing scale: %s", strerror(errno));
-                return 1;
+                return 2;
             } else if (*numend != '\0') {
                 log_error("Scale arguemnt '%s' is invalid", optarg);
-                return 1;
+                return 2;
             }
             break;
         case 't':
@@ -212,10 +212,10 @@ int main(int argc, char **argv)
             opts.tone_freq = strtoul(optarg, &numend, 10);
             if (errno != 0) {
                 log_error("Error processing frequency: %s", strerror(errno));
-                return 1;
+                return 2;
             } else if (*numend != '\0') {
                 log_error("Frequency arguemnt '%s' is invalid", optarg);
-                return 1;
+                return 2;
             }
             break;
         case 'u':
@@ -229,13 +229,13 @@ int main(int argc, char **argv)
             return 0;
         case '?':
             fprintf(stderr, "%s", USAGE);
-            return 1;
+            return 2;
         }
     }
 
     if (optind != argc - 1) {
         fprintf(stderr, "%s", USAGE);
-        return 1;
+        return 2;
     }
     opts.fname = argv[optind];
 

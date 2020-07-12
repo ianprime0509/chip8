@@ -93,7 +93,7 @@ int main(int argc, char **argv)
             goto EXIT;
         case '?':
             fprintf(stderr, "%s", USAGE);
-            retval = 1;
+            retval = 2;
             goto EXIT;
         }
     }
@@ -102,7 +102,7 @@ int main(int argc, char **argv)
         opts.input = xstrdup(argv[optind]);
     } else {
         fprintf(stderr, "%s", USAGE);
-        retval = 1;
+        retval = 2;
         goto EXIT;
     }
 
