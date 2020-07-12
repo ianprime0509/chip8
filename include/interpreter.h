@@ -9,8 +9,8 @@
  * @file
  * The Chip-8 interpreter.
  */
-#ifndef CHIP8_H
-#define CHIP8_H
+#ifndef CHIP8_INTERPRETER_H
+#define CHIP8_INTERPRETER_H
 
 #include <stdbool.h>
 #include <stdint.h>

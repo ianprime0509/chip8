@@ -9,8 +9,8 @@
  * @file
  * Chip-8 instructions.
  */
-#ifndef CHIP8_CORE_H
-#define CHIP8_CORE_H
+#ifndef CHIP8_INSTRUCTION_H
+#define CHIP8_INSTRUCTION_H
 
 #include <stdbool.h>
 #include <stddef.h>
