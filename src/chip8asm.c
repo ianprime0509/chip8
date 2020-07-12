@@ -178,8 +178,10 @@ static int run(struct progopts opts)
     /* Set up logging */
     if (opts.verbosity == 1)
         log_set_level(LOG_INFO);
-    else if (opts.verbosity >= 2)
+    else if (opts.verbosity == 2)
         log_set_level(LOG_DEBUG);
+    else if (opts.verbosity >= 3)
+        log_set_level(LOG_TRACE);
 
     asmopts.shift_quirks = opts.shift_quirks;
     chipasm = chip8asm_new(asmopts);

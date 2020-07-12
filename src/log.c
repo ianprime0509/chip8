@@ -42,6 +42,11 @@ void log_init(const char *name, FILE *output, enum log_level max)
     log_message(LOG_DEBUG, "Logging initialized");
 }
 
+enum log_level log_get_level(void)
+{
+    return max_level;
+}
+
 void log_set_level(enum log_level max)
 {
     max_level = max;
@@ -63,6 +68,8 @@ static char *log_level_string(enum log_level level)
         return "INFO";
     case LOG_DEBUG:
         return "DEBUG";
+    case LOG_TRACE:
+        return "TRACE";
     default:
         return "UNKNOWN";
     }

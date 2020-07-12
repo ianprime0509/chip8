@@ -133,8 +133,10 @@ static int run(struct progopts opts)
 
     if (opts.verbosity == 1)
         log_set_level(LOG_INFO);
-    else if (opts.verbosity >= 2)
+    else if (opts.verbosity == 2)
         log_set_level(LOG_DEBUG);
+    else if (opts.verbosity >= 3)
+        log_set_level(LOG_TRACE);
 
     if (opts.shift_quirks)
         disopts.shift_quirks = true;

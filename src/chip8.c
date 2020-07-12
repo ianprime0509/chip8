@@ -307,8 +307,10 @@ static int run(struct progopts opts)
     /* Set correct log level */
     if (opts.verbosity == 1)
         log_set_level(LOG_INFO);
-    else if (opts.verbosity >= 2)
+    else if (opts.verbosity == 2)
         log_set_level(LOG_DEBUG);
+    else if (opts.verbosity >= 3)
+        log_set_level(LOG_TRACE);
 
     /* Set options for the interpreter */
     chipopts.load_quirks = opts.load_quirks;
@@ -321,16 +323,15 @@ static int run(struct progopts opts)
         goto ERROR_NOTHING_INITIALIZED;
     }
     if (!(win = SDL_CreateWindow("Chip-8", SDL_WINDOWPOS_UNDEFINED,
-              SDL_WINDOWPOS_UNDEFINED, win_width, win_height,
-              SDL_WINDOW_SHOWN))) {
+            SDL_WINDOWPOS_UNDEFINED, win_width, win_height,
+            SDL_WINDOW_SHOWN))) {
         log_error("Could not create SDL window: %s", SDL_GetError());
         retval = 1;
         goto ERROR_SDL_INITIALIZED;
     }
 
     /* Set up audio */
-    audio_ring = audio_square_wave(
-        48000, opts.tone_freq, opts.tone_vol * INT16_MAX / 100);
+    audio_ring = audio_square_wave(48000, opts.tone_freq, opts.tone_vol * INT16_MAX / 100);
     SDL_zero(as_want);
     as_want.freq = 48000;
     as_want.format = AUDIO_S16SYS;
@@ -367,9 +368,11 @@ static int run(struct progopts opts)
 
     while (!should_exit) {
         while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) {
+            switch (e.type) {
+            case SDL_QUIT:
                 should_exit = true;
-            } else if (e.type == SDL_WINDOWEVENT) {
+                break;
+            case SDL_WINDOWEVENT:
                 log_debug("Window changed; getting new surface and refreshing");
                 /*
                  * We need to force the window to refresh when something
@@ -382,21 +385,24 @@ static int run(struct progopts opts)
                  * is now invalid.
                  */
                 win_surface = get_window_surface(win);
-            } else if (e.type == SDL_KEYDOWN) {
+                break;
+            case SDL_KEYDOWN: {
                 SDL_Keycode key = e.key.keysym.sym;
 
                 for (int i = 0; i < 16; i++)
                     if (key == keymap[i])
                         chip->key_states |= 1 << i;
-            } else if (e.type == SDL_KEYUP) {
+            } break;
+            case SDL_KEYUP: {
                 SDL_Keycode key = e.key.keysym.sym;
 
                 for (int i = 0; i < 16; i++)
                     if (key == keymap[i])
                         chip->key_states &= ~(1 << i);
+            } break;
             }
         }
-        if (chip8_step(chip)) {
+        if (chip8_step(chip) != 0) {
             log_error("Shutting down interpreter");
             retval = 1;
             goto ERROR_CHIP8_CREATED;

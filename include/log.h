@@ -26,6 +26,7 @@ enum log_level {
     LOG_WARNING,
     LOG_INFO,
     LOG_DEBUG,
+    LOG_TRACE,
 };
 
 /**
@@ -39,6 +40,10 @@ enum log_level {
  * @param max The initial maximum log level to display.
  */
 void log_init(const char *progname, FILE *output, enum log_level max);
+/**
+ * Returns the maximum log level.
+ */
+enum log_level log_get_level(void);
 /**
  * Sets the maximum log level.
  *
@@ -91,6 +96,10 @@ void log_message_end(void);
  * Logs a debug message.
  */
 #define log_debug(...) log_message(LOG_DEBUG, __VA_ARGS__)
+/**
+ * Logs a trace message.
+ */
+#define log_trace(...) log_message(LOG_TRACE, __VA_ARGS__)
 
 /**
  * Exits the program immediately with the given exit status and message.

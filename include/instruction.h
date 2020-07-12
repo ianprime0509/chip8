@@ -410,16 +410,14 @@ struct chip8_instruction {
  * @param dest The buffer to store the formatted string.
  * @param sz The size of the 'dest' buffer.
  */
-void chip8_instruction_format(
-    struct chip8_instruction instr, const char *label, char *dest, size_t sz);
+void chip8_instruction_format(struct chip8_instruction instr, const char *label, char *dest, size_t sz);
 /**
  * Converts a Chip-8 opcode to an instruction.
  *
  * @param opcode The opcode to convert.
  * @param shift_quirks Whether to use shift quirks mode.
  */
-struct chip8_instruction chip8_instruction_from_opcode(
-    uint16_t opcode, bool shift_quirks);
+struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode, bool shift_quirks);
 /**
  * Converts an instruction to a Chip-8 opcode.
  *

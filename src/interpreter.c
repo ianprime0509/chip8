@@ -231,33 +231,40 @@ int chip8_load_from_file(struct chip8 *chip, FILE *file)
 
 int chip8_step(struct chip8 *chip)
 {
+    struct chip8_instruction instr;
+    char instr_fmt[100];
+
     if (!chip->halted) {
         if (chip->pc >= CHIP8_MEM_SIZE) {
             log_error("Program counter went out of bounds");
             chip->halted = true;
-        } else if (chip8_execute(chip, chip8_current_instr(chip), &chip->pc)) {
+        }
+
+        instr = chip8_current_instr(chip);
+        if (log_get_level() >= LOG_TRACE) {
+            chip8_instruction_format(instr, NULL, instr_fmt, sizeof(instr_fmt));
+            log_trace("Executing instruction (PC %03X) %s", chip->pc, instr_fmt);
+        }
+        if (chip8_execute(chip, instr, &chip->pc) != 0) {
             log_error("Aborting execution");
             return 1;
         }
 
         if (chip->opts.enable_timer) {
-            unsigned long nanos = NANOS_IN_SECOND / chip->opts.timer_freq
-                / DELAY_TICK_FRACTION;
+            unsigned long nanos = NANOS_IN_SECOND / chip->opts.timer_freq / DELAY_TICK_FRACTION;
             nanosleep(&(struct timespec){
                 .tv_sec = nanos / NANOS_IN_SECOND,
                 .tv_nsec = nanos % NANOS_IN_SECOND,
             }, NULL);
         }
     } else {
-        log_warning(
-            "Attempted to execute an instruction in a halted interpreter");
+        log_warning("Attempted to execute an instruction in a halted interpreter");
     }
 
     return 0;
 }
 
-static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
-    uint16_t sprite_start, uint16_t sprite_len)
+static bool chip8_draw_sprite(struct chip8 *chip, int x, int y, uint16_t sprite_start, uint16_t sprite_len)
 {
     bool collision = false;
 
@@ -274,16 +281,13 @@ static bool chip8_draw_sprite(struct chip8 *chip, int x, int y,
                 collision = collision || chip->display[dispx][dispy];
                 chip->display[dispx][dispy] = !chip->display[dispx][dispy];
                 if (chip->draw_callback)
-                    (chip->draw_callback)(dispx, dispy,
-                                          chip->display[dispx][dispy],
-                                          chip->highres);
+                    chip->draw_callback(dispx, dispy, chip->display[dispx][dispy], chip->highres);
             }
 
     return collision;
 }
 
-static bool chip8_draw_sprite_high(
-    struct chip8 *chip, int x, int y, uint16_t sprite_start)
+static bool chip8_draw_sprite_high(struct chip8 *chip, int x, int y, uint16_t sprite_start)
 {
     bool collision = false;
 
@@ -301,9 +305,7 @@ static bool chip8_draw_sprite_high(
                 collision = collision || chip->display[dispx][dispy];
                 chip->display[dispx][dispy] = !chip->display[dispx][dispy];
                 if (chip->draw_callback)
-                    (chip->draw_callback)(dispx, dispy,
-                                          chip->display[dispx][dispy],
-                                          chip->highres);
+                    chip->draw_callback(dispx, dispy, chip->display[dispx][dispy], chip->highres);
             }
         }
 
@@ -321,8 +323,7 @@ static void chip8_log_regs(const struct chip8 *chip)
     log_message_end();
 }
 
-static int chip8_execute(
-    struct chip8 *chip, struct chip8_instruction inst, uint16_t *pc)
+static int chip8_execute(struct chip8 *chip, struct chip8_instruction inst, uint16_t *pc)
 {
     uint16_t new_pc;
 
@@ -332,9 +333,7 @@ static int chip8_execute(
     new_pc = chip->pc + 2;
     switch (inst.op) {
     case OP_INVALID:
-        log_warning(
-            "Invalid instruction encountered and ignored (opcode 0x%hX)",
-            inst.opcode);
+        log_warning("Invalid instruction encountered and ignored (opcode 0x%hX)", inst.opcode);
         break;
     case OP_SCD:
         if (chip->opts.delay_draws)
@@ -359,8 +358,7 @@ static int chip8_execute(
             free(node);
             new_pc = retval;
         } else {
-            log_error("Tried to return from subroutine, but there is nothing "
-                      "to return to");
+            log_error("Tried to return from subroutine, but there is nothing to return to");
             chip8_log_regs(chip);
             return 1;
         }
@@ -369,8 +367,7 @@ static int chip8_execute(
         if (chip->opts.delay_draws)
             chip8_wait_cycle(chip);
         for (int x = CHIP8_DISPLAY_WIDTH - 1; x >= 4; x--)
-            memcpy(&chip->display[x], &chip->display[x - 4],
-                sizeof chip->display[x]);
+            memcpy(&chip->display[x], &chip->display[x - 4], sizeof(chip->display[x]));
         for (int x = 0; x < 4; x++)
             memset(chip->display[x], 0, sizeof chip->display[x]);
         chip->needs_full_redraw = true;
@@ -379,8 +376,7 @@ static int chip8_execute(
         if (chip->opts.delay_draws)
             chip8_wait_cycle(chip);
         for (int x = 0; x < CHIP8_DISPLAY_WIDTH - 4; x++)
-            memcpy(&chip->display[x], &chip->display[x + 4],
-                sizeof chip->display[x]);
+            memcpy(&chip->display[x], &chip->display[x + 4], sizeof(chip->display[x]));
         for (int x = CHIP8_DISPLAY_WIDTH - 4; x < CHIP8_DISPLAY_WIDTH; x++)
             memset(chip->display[x], 0, sizeof chip->display[x]);
         chip->needs_full_redraw = true;
@@ -400,8 +396,7 @@ static int chip8_execute(
         if (inst.addr % 2 == 0) {
             new_pc = inst.addr;
         } else {
-            log_error("Attempted to jump to misaligned memory address 0x%03X",
-                inst.addr);
+            log_error("Attempted to jump to misaligned memory address 0x%03X", inst.addr);
             chip8_log_regs(chip);
             return 1;
         }
@@ -414,9 +409,7 @@ static int chip8_execute(
             chip->call_stack = node;
             new_pc = inst.addr;
         } else {
-            log_error("Attempted to call subroutine at misaligned memory "
-                      "address 0x%hX",
-                inst.addr);
+            log_error("Attempted to call subroutine at misaligned memory address 0x%hX", inst.addr);
             chip8_log_regs(chip);
             return 1;
         }
@@ -526,11 +519,9 @@ static int chip8_execute(
         if (chip->opts.delay_draws)
             chip8_wait_cycle(chip);
         if (inst.nibble == 0)
-            chip->regs[REG_VF] = chip8_draw_sprite_high(
-                chip, chip->regs[inst.vx], chip->regs[inst.vy], chip->reg_i);
+            chip->regs[REG_VF] = chip8_draw_sprite_high(chip, chip->regs[inst.vx], chip->regs[inst.vy], chip->reg_i);
         else
-            chip->regs[REG_VF] = chip8_draw_sprite(chip, chip->regs[inst.vx],
-                chip->regs[inst.vy], chip->reg_i, inst.nibble);
+            chip->regs[REG_VF] = chip8_draw_sprite(chip, chip->regs[inst.vx], chip->regs[inst.vy], chip->reg_i, inst.nibble);
         break;
     case OP_SKP:
         if (chip->key_states & (1 << (chip->regs[inst.vx] & 0xF)))
@@ -656,8 +647,7 @@ static void chip8_timer_update_ticks(struct chip8 *chip)
     struct timespec ts;
 
     clock_gettime(CLOCK_REALTIME, &ts);
-    chip->timer_ticks = (ts.tv_sec + (double)ts.tv_nsec / NANOS_IN_SECOND) *
-        chip->opts.timer_freq;
+    chip->timer_ticks = (ts.tv_sec + (double)ts.tv_nsec / NANOS_IN_SECOND) * chip->opts.timer_freq;
 }
 
 static void chip8_wait_cycle(struct chip8 *chip)
@@ -669,8 +659,7 @@ static void chip8_wait_cycle(struct chip8 *chip)
         return;
 
     clock_gettime(CLOCK_MONOTONIC, &now);
-    nanos = (now.tv_sec * NANOS_IN_SECOND + now.tv_nsec) %
-        (NANOS_IN_SECOND / chip->opts.timer_freq);
+    nanos = (now.tv_sec * NANOS_IN_SECOND + now.tv_nsec) % (NANOS_IN_SECOND / chip->opts.timer_freq);
     wait.tv_sec = nanos / NANOS_IN_SECOND;
     wait.tv_nsec = nanos % NANOS_IN_SECOND;
     while (nanosleep(&wait, &left) < 0) {
