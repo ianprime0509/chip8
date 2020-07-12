@@ -176,6 +176,12 @@ struct chip8 *chip8_new(struct chip8_options opts)
 
 void chip8_destroy(struct chip8 *chip)
 {
+    struct chip8_call_node *node = chip->call_stack, *oldnode;
+    while (node != NULL) {
+        oldnode = node;
+        node = node->next;
+        free(oldnode);
+    }
     free(chip);
 }
 
@@ -403,7 +409,7 @@ static int chip8_execute(struct chip8 *chip, struct chip8_instruction inst, uint
         break;
     case OP_CALL:
         if (inst.addr % 2 == 0) {
-            struct chip8_call_node *node = xmalloc(sizeof *node);
+            struct chip8_call_node *node = xmalloc(sizeof(*node));
             node->call_addr = chip->pc;
             node->next = chip->call_stack;
             chip->call_stack = node;
@@ -573,7 +579,7 @@ static int chip8_execute(struct chip8 *chip, struct chip8_instruction inst, uint
         chip->mem[chip->reg_i + 2] = chip->regs[inst.vx] % 10;
         break;
     case OP_LD_DEREF_I_REG: {
-        size_t cpy_len = sizeof chip->regs[0] * (inst.vx + 1);
+        size_t cpy_len = sizeof(chip->regs[0]) * (inst.vx + 1);
 
         if (chip->reg_i + cpy_len - 1 >= CHIP8_MEM_SIZE) {
             log_error("Tried to write to out of bounds memory");
@@ -585,7 +591,7 @@ static int chip8_execute(struct chip8 *chip, struct chip8_instruction inst, uint
             chip->reg_i += cpy_len;
     } break;
     case OP_LD_REG_DEREF_I: {
-        size_t cpy_len = sizeof chip->regs[0] * (inst.vx + 1);
+        size_t cpy_len = sizeof(chip->regs[0]) * (inst.vx + 1);
 
         if (chip->reg_i + cpy_len - 1 >= CHIP8_MEM_SIZE) {
             log_error("Tried to read from out of bounds memory");

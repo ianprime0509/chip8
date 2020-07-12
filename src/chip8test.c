@@ -178,15 +178,33 @@ int test_arithmetic(void)
     chip8_execute_opcode(chip, 0x7FDD);
     ASSERT_EQ_UINT(chip->regs[REG_VF], 1);
 
+    /* Unusual shift instruction representations */
+    /* LD V3, #F0 */
+    chip8_execute_opcode(chip, 0x63F0);
+    /* LD V5, #00 */
+    chip8_execute_opcode(chip, 0x6500);
+    /* LD V7, #00 */
+    chip8_execute_opcode(chip, 0x6700);
+    /* SHL V3, V7 */
+    chip8_execute_opcode(chip, 0x837E);
+    ASSERT_EQ_UINT(chip->regs[REG_V3], 0xE0);
+    ASSERT_EQ_UINT(chip->regs[REG_VF], 1);
+    ASSERT_EQ_UINT(chip->regs[REG_V7], 0x00);
+    /* SHR V3, V5 */
+    chip8_execute_opcode(chip, 0x8356);
+    ASSERT_EQ_UINT(chip->regs[REG_V3], 0x70);
+    ASSERT_EQ_UINT(chip->regs[REG_VF], 0);
+    ASSERT_EQ_UINT(chip->regs[REG_V5], 0x00);
+
     chip8_destroy(chip);
     return 0;
 }
 
 int test_asm(void)
 {
-#define TEST_INSTR(instr, opcode)                                              \
-    ASSERT(!chip8asm_process_line(chipasm, (instr)));                          \
-    ASSERT(!chip8asm_emit(chipasm, prog));                                     \
+#define TEST_INSTR(instr, opcode) \
+    ASSERT(chip8asm_process_line(chipasm, (instr)) == 0); \
+    ASSERT(chip8asm_emit(chipasm, prog) == 0); \
     ASSERT_EQ_UINT(chip8asm_program_opcode(prog, prog->len - 2), (opcode))
 
     struct chip8asm *chipasm = chip8asm_new(chip8asm_options_default());
@@ -245,7 +263,7 @@ int test_asm(void)
     TEST_INSTR("hIgH", 0x00FF);
 
     /* But labels are case-sensitive */
-    ASSERT(!chip8asm_process_line(chipasm, "JP PROGRAM_START"));
+    ASSERT(chip8asm_process_line(chipasm, "JP PROGRAM_START") == 0);
     log_set_output(NULL);
     ASSERT(chip8asm_emit(chipasm, prog));
     log_set_output(stdout);
@@ -308,8 +326,7 @@ int test_asm_eval(void)
     ASSERT_EQ_UINT(value, 5);
     chip8asm_eval(chipasm, "((4 + 4) * (#0a - $00000010))", 4, &value);
     ASSERT_EQ_UINT(value, 64);
-    chip8asm_eval(
-        chipasm, "~$01010101 | $.1.1.1.1 ^ $.0.01111 & $10101010", 5, &value);
+    chip8asm_eval(chipasm, "~$01010101 | $.1.1.1.1 ^ $.0.01111 & $10101010", 5, &value);
     ASSERT_EQ_UINT(value, 0xFFFF);
     chip8asm_eval(chipasm, "7 > 2 < 2", 6, &value);
     ASSERT_EQ_UINT(value, 4);
@@ -340,14 +357,13 @@ int test_asm_fail(void)
 
     ASSERT(chipasm != NULL);
     log_set_output(NULL);
-    ASSERT(chip8asm_process_line(chipasm, "LD VF,"));
-    ASSERT(chip8asm_process_line(chipasm, "HIGH,"));
-    ASSERT(chip8asm_process_line(chipasm, "HIGH ,"));
-    ASSERT(chip8asm_process_line(chipasm, "JP V0, #200,"));
-    ASSERT(chip8asm_process_line(chipasm, "LD VA,,2"));
-    ASSERT(chip8asm_process_line(chipasm, "  ADD V0  ,         "));
-    ASSERT(chip8asm_process_line(
-        chipasm, "ADD way, too, many, operands, here, hi, i"));
+    ASSERT(chip8asm_process_line(chipasm, "LD VF,") != 0);
+    ASSERT(chip8asm_process_line(chipasm, "HIGH,") != 0);
+    ASSERT(chip8asm_process_line(chipasm, "HIGH ,") != 0);
+    ASSERT(chip8asm_process_line(chipasm, "JP V0, #200,") != 0);
+    ASSERT(chip8asm_process_line(chipasm, "LD VA,,2") != 0);
+    ASSERT(chip8asm_process_line(chipasm, "  ADD V0  ,         ") != 0);
+    ASSERT(chip8asm_process_line(chipasm, "ADD way, too, many, operands, here, hi, i") != 0);
     log_set_output(stderr);
 
     chip8asm_destroy(chipasm);
@@ -427,8 +443,8 @@ int test_comparison(void)
 int test_display(void)
 {
 /* Compares the 8-byte-long row starting at (x, y) from the display */
-#define ASSERT_EQ_ROW(x, y, row)                                               \
-    for (int i = 0; i < 8; i++)                                                \
+#define ASSERT_EQ_ROW(x, y, row) \
+    for (int i = 0; i < 8; i++) \
         ASSERT_EQ_UINT(chip->display[(x) + i][(y)], (row)[i]);
 
     struct chip8 *chip = chip8_new(chip8_options_testing());
@@ -665,8 +681,7 @@ static void testing_setup(void)
 
 static int testing_teardown(void)
 {
-    log_info("All tests finished with %d failure%s", n_failures,
-        n_failures == 1 ? "" : "s");
+    log_info("All tests finished with %d failure%s", n_failures, n_failures == 1 ? "" : "s");
     if (n_failures != 0)
         return 1;
     return 0;

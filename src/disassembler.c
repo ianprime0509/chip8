@@ -158,7 +158,7 @@ struct chip8disasm *chip8disasm_from_file(
     disasm = xcalloc(1, sizeof *disasm);
     disasm->opts = opts;
     /* Figure out how long the program is */
-    if (stat(fname, &stats)) {
+    if (stat(fname, &stats) != 0) {
         log_error("Could not stat '%s': %s", fname, strerror(errno));
         goto FAIL;
     }
@@ -169,7 +169,7 @@ struct chip8disasm *chip8disasm_from_file(
     }
     disasm->mem = xmalloc(disasm->proglen);
     /* Read in the program data */
-    if (!(input = fopen(fname, "r"))) {
+    if ((input = fopen(fname, "r")) == NULL) {
         log_error("Could not open input file '%s': %s", fname, strerror(errno));
         goto FAIL;
     }
@@ -217,8 +217,7 @@ int chip8disasm_dump(const struct chip8disasm *disasm, FILE *out)
         else
             fprintf(out, "        ");
         if (ferror(out)) {
-            log_error("Could not dump disassembly to output file: %s",
-                strerror(errno));
+            log_error("Could not dump disassembly to output file: %s", strerror(errno));
             return 1;
         }
 
@@ -231,36 +230,30 @@ int chip8disasm_dump(const struct chip8disasm *disasm, FILE *out)
              * disassembly that doesn't exist.
              */
             if (jpret_list_find(&disasm->label_list, i + 1) != -1) {
-                fprintf(out, "DB #%02X\nL%03X:   DB #%02X\n", disasm->mem[i],
-                    (unsigned)(i + 1), disasm->mem[i + 1]);
+                fprintf(out, "DB #%02X\nL%03X:   DB #%02X\n", disasm->mem[i], (unsigned)(i + 1), disasm->mem[i + 1]);
             } else {
                 fprintf(out, "DW #%04X\n", opcode);
             }
         } else {
-            struct chip8_instruction instr = chip8_instruction_from_opcode(
-                opcode, disasm->opts.shift_quirks);
+            struct chip8_instruction instr = chip8_instruction_from_opcode(opcode, disasm->opts.shift_quirks);
             /*
              * Don't forget to check that the address actually corresponds to a
              * label!
              */
             bool use_addr = chip8_instruction_uses_addr(instr) &&
-                jpret_list_find(
-                    &disasm->label_list, instr.addr - CHIP8_PROG_START) != -1;
+                jpret_list_find(&disasm->label_list, instr.addr - CHIP8_PROG_START) != -1;
 
             /*
              * If the instruction uses an address, we need to construct the
              * corresponding label for nice output.
              */
             if (use_addr)
-                snprintf(label, sizeof label, "L%03X",
-                    instr.addr - CHIP8_PROG_START);
-            chip8_instruction_format(
-                instr, use_addr ? label : NULL, buf, sizeof buf);
+                snprintf(label, sizeof label, "L%03X", instr.addr - CHIP8_PROG_START);
+            chip8_instruction_format(instr, use_addr ? label : NULL, buf, sizeof buf);
             fprintf(out, "%s\n", buf);
         }
         if (ferror(out)) {
-            log_error("Could not dump disassembly to output file: %s",
-                strerror(errno));
+            log_error("Could not dump disassembly to output file: %s", strerror(errno));
             return 1;
         }
     }
@@ -335,8 +328,7 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
                 break;
             }
             /* This is the instruction we're currently looking at */
-            inst = chip8_instruction_from_opcode(
-                ((uint16_t)disasm->mem[pc] << 8) + disasm->mem[pc + 1],
+            inst = chip8_instruction_from_opcode(((uint16_t)disasm->mem[pc] << 8) + disasm->mem[pc + 1],
                 disasm->opts.shift_quirks);
 
             /*
@@ -348,8 +340,7 @@ static int chip8disasm_populate_lists(struct chip8disasm *disasm)
              */
             if (chip8_instruction_uses_addr(inst) &&
                 inst.addr - CHIP8_PROG_START < disasm->proglen) {
-                jpret_list_add(
-                    &disasm->label_list, inst.addr - CHIP8_PROG_START);
+                jpret_list_add(&disasm->label_list, inst.addr - CHIP8_PROG_START);
             }
 
             switch (inst.op) {

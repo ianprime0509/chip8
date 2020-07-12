@@ -52,8 +52,7 @@
  */
 #define NIBBLE2OPCODE(nibble) ((nibble)&0xF)
 
-struct chip8_instruction chip8_instruction_from_opcode(
-    uint16_t opcode, bool shift_quirks)
+struct chip8_instruction chip8_instruction_from_opcode(uint16_t opcode, bool shift_quirks)
 {
     struct chip8_instruction ins;
 
@@ -168,13 +167,8 @@ struct chip8_instruction chip8_instruction_from_opcode(
                 ins.vx = OPCODE2VX(opcode);
                 ins.vy = OPCODE2VY(opcode);
             } else {
-                if ((opcode & 0xF0) == 0x00) {
-                    ins.op = OP_SHR;
-                    ins.vx = OPCODE2VX(opcode);
-                } else {
-                    log_warning("Quirky shift instruction found; consider "
-                                "enabling shift quirks mode");
-                }
+                ins.op = OP_SHR;
+                ins.vx = OPCODE2VX(opcode);
             }
             break;
         case 0x7:
@@ -188,13 +182,8 @@ struct chip8_instruction chip8_instruction_from_opcode(
                 ins.vx = OPCODE2VX(opcode);
                 ins.vy = OPCODE2VY(opcode);
             } else {
-                if ((opcode & 0xF0) == 0x00) {
-                    ins.op = OP_SHL;
-                    ins.vx = OPCODE2VX(opcode);
-                } else {
-                    log_warning("Quirky shift instruction found; consider "
-                                "enabling shift quirks mode");
-                }
+                ins.op = OP_SHL;
+                ins.vx = OPCODE2VX(opcode);
             }
             break;
         }
@@ -394,8 +383,7 @@ uint16_t chip8_instruction_to_opcode(struct chip8_instruction instr)
     return 0;
 }
 
-void chip8_instruction_format(
-    struct chip8_instruction instr, const char *label, char *dest, size_t sz)
+void chip8_instruction_format(struct chip8_instruction instr, const char *label, char *dest, size_t sz)
 {
     switch (instr.op) {
     case OP_INVALID:

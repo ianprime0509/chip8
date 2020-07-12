@@ -441,7 +441,7 @@ Register
 .Dv VF
 is set to 0 if a borrow occurred (that is, if the true value of the difference
 would be negative under signed arithmetic), or to 1 otherwise.
-.It Ic SHR Fa vx ( Sy 8x06 )
+.It Ic SHR Fa vx ( Sy 8xy6 )
 Perform a logical right shift on the value of
 .Fa vx ,
 storing the result in
@@ -449,6 +449,19 @@ storing the result in
 The original least significant bit of
 .Fa vx is stored in register
 .Dv VF .
+Although
+.Fa vy
+is part of the opcode, its value is ignored unless shift quirks is enabled (see
+.Sx ALTERNATIVE BEHAVIOR ) .
+When assembling,
+.Xr chip8asm 1
+will always treat
+.Fa vy
+as
+.Dv V0 :
+since this information will be lost when disassembling, this implies that
+disassembling and then reassembling the same program will not always result in
+exactly the same binary.
 .It Ic SUBN Fa vx , vy ( Sy 8xy7 )
 Subtract the value of
 .Fa vx
@@ -459,7 +472,7 @@ storing the result in
 Register
 .Dv VF
 is set to 0 if a borrow occurred, or to 1 otherwise.
-.It Ic SHL Fa vx ( Sy 8x0E )
+.It Ic SHL Fa vx ( Sy 8xyE )
 Perform a left shift on the value of
 .Fa vx ,
 storing the result in
@@ -468,6 +481,19 @@ The original most significant bit of
 .Fa vx
 is stored in register
 .Dv VF .
+Although
+.Fa vy
+is part of the opcode, its value is ignored unless shift quirks is enabled (see
+.Sx ALTERNATIVE BEHAVIOR ) .
+When assembling,
+.Xr chip8asm 1
+will always treat
+.Fa vy
+as
+.Dv V0 :
+since this information will be lost when disassembling, this implies that
+disassembling and then reassembling the same program will not always result in
+exactly the same binary.
 .It Ic SNE Fa vx , vy ( Sy 9xy0 )
 Skip the next instruction if the values of
 .Fa vx
@@ -625,8 +651,13 @@ For
 .Ic SHR ,
 the instruction is written as
 .Ql Ic SHR Fa vx , vy
-and has opcode
-.Sy 8xy6 .
+and has the same opcode
+.Sy 8xy6
+as the normal
+.Ic SHR
+instruction, but the operand
+.Fa vy
+is not ignored.
 The value stored in register
 .Fa vy
 is shifted one bit to the right, with the shifted value being stored in
@@ -636,9 +667,11 @@ and the original least-significant bit being stored in register
 .Dv VF .
 The alternate instruction
 .Ql Ic SHL Fa vx , vy
-has opcode
-.Sy 8xyE ,
-and behaves analogously.
+has the same opcode
+.Sy 8xyE
+as the normal
+.Ic SHL
+instruction, and behaves analogously.
 .Pp
 The second class, referred to as
 .Dq load quirks ,

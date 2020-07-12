@@ -141,21 +141,20 @@ static int run(struct progopts opts)
     if (opts.shift_quirks)
         disopts.shift_quirks = true;
 
-    if (!(disasm = chip8disasm_from_file(disopts, opts.input))) {
+    if ((disasm = chip8disasm_from_file(disopts, opts.input)) == NULL) {
         log_error("Could not disassemble input file '%s'", opts.input);
         retval = 1;
         goto EXIT_NOTHING_DONE;
     }
-    if (!strcmp(opts.output, "-")) {
+    if (strcmp(opts.output, "-") == 0) {
         output = stdout;
-    } else if (!(output = fopen(opts.output, "w"))) {
-        log_error("Could not open output file '%s': %s", opts.output,
-            strerror(errno));
+    } else if ((output = fopen(opts.output, "w")) == NULL) {
+        log_error("Could not open output file '%s': %s", opts.output, strerror(errno));
         retval = 1;
         goto EXIT_DISASM_CREATED;
     }
 
-    if (chip8disasm_dump(disasm, output)) {
+    if (chip8disasm_dump(disasm, output) != 0) {
         log_error("Disassembly dump failed");
         retval = 1;
         goto EXIT_OUTPUT_OPENED;
