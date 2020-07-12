@@ -676,5 +676,5 @@ static void chip8_wait_cycle(struct chip8 *chip)
 
 static uint8_t rand_byte(void)
 {
-    return rand();
+    return (uint8_t)(255.0 * ((double)rand() / RAND_MAX));
 }
